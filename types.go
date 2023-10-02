@@ -8,6 +8,7 @@ type CreateAccountRequest struct {
 	Name           string `json:"name"`
 	Affiliation    string `json:"affiliation"`
 	PrimaryContact string `json:"primaryContact"`
+	This is a test
 }
 type Account struct {
 	ID             string    `json:"id"`
