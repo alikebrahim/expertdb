@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -63,19 +64,35 @@ func (s *APIServer) HandleGetAccount(w http.ResponseWriter, r *http.Request) err
 }
 func (s *APIServer) HandleGetAccountByID(w http.ResponseWriter, r *http.Request) error {
 	id := getID(r)
-	expert := &Account{ID: id}
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		log.Fatal("error converting id to int", err)
+	}
+	expert := &Account{ID: idInt}
 	fmt.Println(id)
 	return WriteJson(w, http.StatusOK, expert)
 }
 
 func (s *APIServer) HandleCreateAccount(w http.ResponseWriter, r *http.Request) error {
-	createAccountReq := new(CreateAccountRequest)
-	if err := json.NewDecoder(r.Body).Decode(createAccountReq); err != nil {
+	accReq := new(CreateAccountRequest) // CreateAccountRequest
+	if err := json.NewDecoder(r.Body).Decode(accReq); err != nil {
 		return err
 	}
-	account := NewAccount(createAccountReq.Name,
-		createAccountReq.Affiliation,
-		createAccountReq.PrimaryContact)
+	account := NewAccount(accReq.Prefix,
+		accReq.Name,
+		accReq.Affiliation,
+		accReq.BH,
+		accReq.Available,
+		accReq.Rating,
+		accReq.Role,
+		accReq.Type,
+		accReq.GeneralArea,
+		accReq.SpecialisedArea,
+		accReq.Trained,
+		accReq.PrimaryContact,
+		accReq.SecondaryContact,
+		accReq.Email,
+		accReq.Published)
 	fmt.Println("About to create account")
 	if err := s.store.CreateAccount(account); err != nil {
 		return err

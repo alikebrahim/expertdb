@@ -39,23 +39,58 @@ func NewPostgresStore() (*PostgresStore, error) {
 func (s *PostgresStore) CreateAccountTable() error {
 	query := `create table if not exists account (
 	id serial primary key,
-	name varchar(50),
-	affiliation varchar(25),
-	primary_contact varchar(50),
-	created_at timestamp
-	)`
+	prefix varchar,
+	expertName varchar,
+	affiliation varchar,
+	bh varchar,
+	available varchar,
+	rating varchar,
+	expertRole varchar,
+	expertType varchar,
+	general_area varchar,
+	specialised_Area varchar,
+	trained varchar,
+	primary_contact varchar,
+	secondary_contact varchar,
+	email varchar,
+	published varchar)`
 	_, err := s.db.Exec(query)
 	return err
 }
 
 func (s *PostgresStore) CreateAccount(acc *Account) error {
-	query := `insert into account (name, affiliation, primary_contact, created_at)
-values ($1, $2, $3, $4)`
+	query := `insert into account (prefix,
+                     expertName, 
+                     affiliation, 
+                     bh,
+                     available,
+                     rating,
+                     expertRole,
+                     expertType,
+                     general_area,
+                     specialised_area,
+                     trained,
+                     primary_contact, 
+                     secondary_contact,
+                     email,
+                     published)
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
 	resp, err := s.db.Query(query,
+		acc.Prefix,
 		acc.Name,
 		acc.Affiliation,
+		acc.BH,
+		acc.Available,
+		acc.Rating,
+		acc.Role,
+		acc.Type,
+		acc.GeneralArea,
+		acc.SpecialisedArea,
+		acc.Trained,
 		acc.PrimaryContact,
-		acc.CreatedAt)
+		acc.SecondaryContact,
+		acc.Email,
+		acc.Published)
 	if err != nil {
 		return err
 	}
@@ -81,10 +116,21 @@ func (s *PostgresStore) GetAccounts() ([]*Account, error) {
 		account := new(Account)
 		err := rows.Scan(
 			&account.ID,
+			&account.Prefix,
 			&account.Name,
 			&account.Affiliation,
+			&account.BH,
+			&account.Available,
+			&account.Rating,
+			&account.Role,
+			&account.Type,
+			&account.GeneralArea,
+			&account.SpecialisedArea,
+			&account.Trained,
 			&account.PrimaryContact,
-			&account.CreatedAt)
+			&account.SecondaryContact,
+			&account.Email,
+			&account.Published)
 		if err != nil {
 			return nil, err
 		}
