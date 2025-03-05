@@ -1,5 +1,46 @@
+# Frontend build artifacts
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+frontend/.vercel/
+frontend/.env
+frontend/.env.local
+
+# Backend build artifacts
+backend/tmp/
+backend/logs/*.log
+backend/db/sqlite/*.sqlite
+backend/bin/
+backend/testdb/
+backend/data/
 tmp/
+
+# Temporary files
+*.tmp
+*.log
+.DS_Store
+.vscode/
 .idea/
+*.swp
+*~
 store/
+
+# Development configurations
+*.env
 .*.toml
+
+# Data files
 *.csv
+
+# Build outputs
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# OS specific
+Thumbs.db
+.DS_Store
