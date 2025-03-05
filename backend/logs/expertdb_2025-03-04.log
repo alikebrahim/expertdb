@@ -1,0 +1,201 @@
+2025/03/04 11:59:26 [INFO] server.go:66: Starting ExpertDB initialization...
+2025/03/04 11:59:26 [INFO] server.go:70: Configuration loaded successfully
+2025/03/04 11:59:26 [INFO] server.go:77: Database directory created: db/sqlite
+2025/03/04 11:59:26 [INFO] server.go:83: Upload directory created: ./data/documents
+2025/03/04 11:59:26 [INFO] server.go:86: Connecting to database at ./db/sqlite/expertdb.sqlite
+2025/03/04 11:59:26 [INFO] storage.go:123: Initializing database schema
+2025/03/04 11:59:26 [INFO] storage.go:137: Database type:  (memory=true)
+2025/03/04 11:59:26 [INFO] storage.go:142: Using in-memory database with simplified schema
+2025/03/04 11:59:26 [INFO] storage.go:331: Database schema initialized successfully
+2025/03/04 11:59:26 [INFO] server.go:99: Database connection established successfully
+2025/03/04 11:59:26 [INFO] server.go:102: Initializing JWT secret...
+2025/03/04 11:59:26 [INFO] server.go:106: JWT secret initialized successfully
+2025/03/04 11:59:26 [INFO] server.go:125: Checking for admin user with email: admin@expertdb.com
+2025/03/04 11:59:26 [INFO] server.go:128: Admin user not found, creating...
+2025/03/04 11:59:26 [INFO] server.go:150: Created default admin user with email: admin@expertdb.com
+2025/03/04 11:59:26 [INFO] server.go:156: Creating API server on port 8080
+2025/03/04 11:59:26 [INFO] server.go:162: Starting ExpertDB with configuration:
+2025/03/04 11:59:26 [INFO] server.go:163: - Port: 8080
+2025/03/04 11:59:26 [INFO] server.go:164: - Database: ./db/sqlite/expertdb.sqlite
+2025/03/04 11:59:26 [INFO] server.go:165: - Upload Path: ./data/documents
+2025/03/04 11:59:26 [INFO] server.go:166: - CORS: *
+2025/03/04 11:59:26 [INFO] server.go:167: - AI Service: http://localhost:9000
+2025/03/04 11:59:26 [INFO] server.go:168: - Log Level: INFO
+2025/03/04 11:59:26 [INFO] server.go:169: - Log Directory: ./logs
+2025/03/04 11:59:26 [INFO] server.go:171: Server starting, press Ctrl+C to stop
+2025/03/04 11:59:26 [INFO] api.go:41: Setting up API routes...
+2025/03/04 11:59:26 [INFO] api.go:122: API server listening on :8080
+2025/03/04 11:59:26 [FATAL] server.go:173: Server error: listen tcp :8080: bind: address already in use
+2025/03/04 12:00:45 [INFO] server.go:66: Starting ExpertDB initialization...
+2025/03/04 12:00:45 [INFO] server.go:70: Configuration loaded successfully
+2025/03/04 12:00:45 [INFO] server.go:77: Database directory created: db/sqlite
+2025/03/04 12:00:45 [INFO] server.go:83: Upload directory created: ./data/documents
+2025/03/04 12:00:45 [INFO] server.go:86: Connecting to database at ./db/sqlite/expertdb.sqlite
+2025/03/04 12:00:45 [INFO] storage.go:123: Initializing database schema
+2025/03/04 12:00:45 [INFO] storage.go:137: Database type:  (memory=true)
+2025/03/04 12:00:45 [INFO] storage.go:142: Using in-memory database with simplified schema
+2025/03/04 12:00:45 [INFO] storage.go:331: Database schema initialized successfully
+2025/03/04 12:00:45 [INFO] server.go:99: Database connection established successfully
+2025/03/04 12:00:45 [INFO] server.go:102: Initializing JWT secret...
+2025/03/04 12:00:45 [INFO] server.go:106: JWT secret initialized successfully
+2025/03/04 12:00:45 [INFO] server.go:125: Checking for admin user with email: admin@expertdb.com
+2025/03/04 12:00:45 [INFO] server.go:128: Admin user not found, creating...
+2025/03/04 12:00:45 [INFO] server.go:150: Created default admin user with email: admin@expertdb.com
+2025/03/04 12:00:45 [INFO] server.go:156: Creating API server on port 8080
+2025/03/04 12:00:45 [INFO] server.go:162: Starting ExpertDB with configuration:
+2025/03/04 12:00:45 [INFO] server.go:163: - Port: 8080
+2025/03/04 12:00:45 [INFO] server.go:164: - Database: ./db/sqlite/expertdb.sqlite
+2025/03/04 12:00:45 [INFO] server.go:165: - Upload Path: ./data/documents
+2025/03/04 12:00:45 [INFO] server.go:166: - CORS: *
+2025/03/04 12:00:45 [INFO] server.go:167: - AI Service: http://localhost:9000
+2025/03/04 12:00:45 [INFO] server.go:168: - Log Level: INFO
+2025/03/04 12:00:45 [INFO] server.go:169: - Log Directory: ./logs
+2025/03/04 12:00:45 [INFO] server.go:171: Server starting, press Ctrl+C to stop
+2025/03/04 12:00:45 [INFO] api.go:41: Setting up API routes...
+2025/03/04 12:00:45 [INFO] api.go:122: API server listening on :8080
+2025/03/04 12:00:45 [FATAL] server.go:173: Server error: listen tcp :8080: bind: address already in use
+2025/03/04 12:03:11 [INFO] server.go:66: Starting ExpertDB initialization...
+2025/03/04 12:03:11 [INFO] server.go:70: Configuration loaded successfully
+2025/03/04 12:03:11 [INFO] server.go:77: Database directory created: db/sqlite
+2025/03/04 12:03:11 [INFO] server.go:83: Upload directory created: ./data/documents
+2025/03/04 12:03:11 [INFO] server.go:86: Connecting to database at ./db/sqlite/expertdb.sqlite
+2025/03/04 12:03:11 [INFO] storage.go:123: Initializing database schema
+2025/03/04 12:03:11 [INFO] storage.go:137: Database type:  (memory=true)
+2025/03/04 12:03:11 [INFO] storage.go:142: Using in-memory database with simplified schema
+2025/03/04 12:03:11 [INFO] storage.go:331: Database schema initialized successfully
+2025/03/04 12:03:11 [INFO] server.go:99: Database connection established successfully
+2025/03/04 12:03:11 [INFO] server.go:102: Initializing JWT secret...
+2025/03/04 12:03:11 [INFO] server.go:106: JWT secret initialized successfully
+2025/03/04 12:03:11 [INFO] server.go:125: Checking for admin user with email: admin@expertdb.com
+2025/03/04 12:03:11 [INFO] server.go:128: Admin user not found, creating...
+2025/03/04 12:03:11 [INFO] server.go:150: Created default admin user with email: admin@expertdb.com
+2025/03/04 12:03:11 [INFO] server.go:156: Creating API server on port 8080
+2025/03/04 12:03:11 [INFO] server.go:162: Starting ExpertDB with configuration:
+2025/03/04 12:03:11 [INFO] server.go:163: - Port: 8080
+2025/03/04 12:03:11 [INFO] server.go:164: - Database: ./db/sqlite/expertdb.sqlite
+2025/03/04 12:03:11 [INFO] server.go:165: - Upload Path: ./data/documents
+2025/03/04 12:03:11 [INFO] server.go:166: - CORS: *
+2025/03/04 12:03:11 [INFO] server.go:167: - AI Service: http://localhost:9000
+2025/03/04 12:03:11 [INFO] server.go:168: - Log Level: INFO
+2025/03/04 12:03:11 [INFO] server.go:169: - Log Directory: ./logs
+2025/03/04 12:03:11 [INFO] server.go:171: Server starting, press Ctrl+C to stop
+2025/03/04 12:03:11 [INFO] api.go:41: Setting up API routes...
+2025/03/04 12:03:11 [INFO] api.go:122: API server listening on :8080
+2025/03/04 12:10:15 [INFO] server.go:66: Starting ExpertDB initialization...
+2025/03/04 12:10:15 [INFO] server.go:70: Configuration loaded successfully
+2025/03/04 12:10:15 [INFO] server.go:77: Database directory created: db/sqlite
+2025/03/04 12:10:15 [INFO] server.go:83: Upload directory created: ./data/documents
+2025/03/04 12:10:15 [INFO] server.go:86: Connecting to database at ./db/sqlite/expertdb.sqlite
+2025/03/04 12:10:15 [INFO] storage.go:123: Initializing database schema
+2025/03/04 12:10:15 [INFO] storage.go:137: Database type:  (memory=true)
+2025/03/04 12:10:15 [INFO] storage.go:142: Using in-memory database with simplified schema
+2025/03/04 12:10:15 [INFO] storage.go:331: Database schema initialized successfully
+2025/03/04 12:10:15 [INFO] server.go:99: Database connection established successfully
+2025/03/04 12:10:15 [INFO] server.go:102: Initializing JWT secret...
+2025/03/04 12:10:15 [INFO] server.go:106: JWT secret initialized successfully
+2025/03/04 12:10:15 [INFO] server.go:125: Checking for admin user with email: admin@expertdb.com
+2025/03/04 12:10:15 [INFO] server.go:128: Admin user not found, creating...
+2025/03/04 12:10:15 [INFO] server.go:150: Created default admin user with email: admin@expertdb.com
+2025/03/04 12:10:15 [INFO] server.go:156: Creating API server on port 8080
+2025/03/04 12:10:15 [INFO] server.go:162: Starting ExpertDB with configuration:
+2025/03/04 12:10:15 [INFO] server.go:163: - Port: 8080
+2025/03/04 12:10:15 [INFO] server.go:164: - Database: ./db/sqlite/expertdb.sqlite
+2025/03/04 12:10:15 [INFO] server.go:165: - Upload Path: ./data/documents
+2025/03/04 12:10:15 [INFO] server.go:166: - CORS: *
+2025/03/04 12:10:15 [INFO] server.go:167: - AI Service: http://localhost:9000
+2025/03/04 12:10:15 [INFO] server.go:168: - Log Level: INFO
+2025/03/04 12:10:15 [INFO] server.go:169: - Log Directory: ./logs
+2025/03/04 12:10:15 [INFO] server.go:171: Server starting, press Ctrl+C to stop
+2025/03/04 12:10:15 [INFO] api.go:41: Setting up API routes...
+2025/03/04 12:10:15 [INFO] api.go:122: API server listening on :8080
+2025/03/04 12:16:18 [INFO] server.go:66: Starting ExpertDB initialization...
+2025/03/04 12:16:18 [INFO] server.go:70: Configuration loaded successfully
+2025/03/04 12:16:18 [INFO] server.go:77: Database directory created: db/sqlite
+2025/03/04 12:16:18 [INFO] server.go:83: Upload directory created: ./data/documents
+2025/03/04 12:16:18 [INFO] server.go:86: Connecting to database at ./db/sqlite/expertdb.sqlite
+2025/03/04 12:16:18 [INFO] storage.go:123: Initializing database schema
+2025/03/04 12:16:18 [INFO] storage.go:137: Database type:  (memory=true)
+2025/03/04 12:16:18 [INFO] storage.go:142: Using in-memory database with simplified schema
+2025/03/04 12:16:18 [INFO] storage.go:331: Database schema initialized successfully
+2025/03/04 12:16:18 [INFO] server.go:99: Database connection established successfully
+2025/03/04 12:16:18 [INFO] server.go:102: Initializing JWT secret...
+2025/03/04 12:16:18 [INFO] server.go:106: JWT secret initialized successfully
+2025/03/04 12:16:18 [INFO] server.go:125: Checking for admin user with email: admin@expertdb.com
+2025/03/04 12:16:18 [INFO] server.go:128: Admin user not found, creating...
+2025/03/04 12:16:18 [INFO] server.go:150: Created default admin user with email: admin@expertdb.com
+2025/03/04 12:16:18 [INFO] server.go:156: Creating API server on port 8080
+2025/03/04 12:16:18 [INFO] server.go:162: Starting ExpertDB with configuration:
+2025/03/04 12:16:18 [INFO] server.go:163: - Port: 8080
+2025/03/04 12:16:18 [INFO] server.go:164: - Database: ./db/sqlite/expertdb.sqlite
+2025/03/04 12:16:18 [INFO] server.go:165: - Upload Path: ./data/documents
+2025/03/04 12:16:18 [INFO] server.go:166: - CORS: *
+2025/03/04 12:16:18 [INFO] server.go:167: - AI Service: http://localhost:9000
+2025/03/04 12:16:18 [INFO] server.go:168: - Log Level: INFO
+2025/03/04 12:16:18 [INFO] server.go:169: - Log Directory: ./logs
+2025/03/04 12:16:18 [INFO] server.go:171: Server starting, press Ctrl+C to stop
+2025/03/04 12:16:18 [INFO] api.go:41: Setting up API routes...
+2025/03/04 12:16:18 [INFO] api.go:122: API server listening on :8080
+2025/03/04 12:21:53 [INFO] server.go:66: Starting ExpertDB initialization...
+2025/03/04 12:21:53 [INFO] server.go:70: Configuration loaded successfully
+2025/03/04 12:21:53 [INFO] server.go:77: Database directory created: db/sqlite
+2025/03/04 12:21:53 [INFO] server.go:83: Upload directory created: ./data/documents
+2025/03/04 12:21:53 [INFO] server.go:86: Connecting to database at ./db/sqlite/expertdb.sqlite
+2025/03/04 12:21:53 [INFO] storage.go:123: Initializing database schema
+2025/03/04 12:21:53 [INFO] storage.go:137: Database type:  (memory=true)
+2025/03/04 12:21:53 [INFO] storage.go:142: Using in-memory database with simplified schema
+2025/03/04 12:21:53 [INFO] storage.go:331: Database schema initialized successfully
+2025/03/04 12:21:53 [INFO] server.go:99: Database connection established successfully
+2025/03/04 12:21:53 [INFO] server.go:102: Initializing JWT secret...
+2025/03/04 12:21:53 [INFO] server.go:106: JWT secret initialized successfully
+2025/03/04 12:21:53 [INFO] server.go:125: Checking for admin user with email: admin@expertdb.com
+2025/03/04 12:21:53 [INFO] server.go:128: Admin user not found, creating...
+2025/03/04 12:21:53 [INFO] server.go:150: Created default admin user with email: admin@expertdb.com
+2025/03/04 12:21:53 [INFO] server.go:156: Creating API server on port 8080
+2025/03/04 12:21:53 [INFO] server.go:162: Starting ExpertDB with configuration:
+2025/03/04 12:21:53 [INFO] server.go:163: - Port: 8080
+2025/03/04 12:21:53 [INFO] server.go:164: - Database: ./db/sqlite/expertdb.sqlite
+2025/03/04 12:21:53 [INFO] server.go:165: - Upload Path: ./data/documents
+2025/03/04 12:21:53 [INFO] server.go:166: - CORS: *
+2025/03/04 12:21:53 [INFO] server.go:167: - AI Service: http://localhost:9000
+2025/03/04 12:21:53 [INFO] server.go:168: - Log Level: INFO
+2025/03/04 12:21:53 [INFO] server.go:169: - Log Directory: ./logs
+2025/03/04 12:21:53 [INFO] server.go:171: Server starting, press Ctrl+C to stop
+2025/03/04 12:21:53 [INFO] api.go:41: Setting up API routes...
+2025/03/04 12:21:53 [INFO] api.go:122: API server listening on :8080
+2025/03/04 12:30:10 [INFO] server.go:66: Starting ExpertDB initialization...
+2025/03/04 12:30:10 [INFO] server.go:70: Configuration loaded successfully
+2025/03/04 12:30:10 [INFO] server.go:77: Database directory created: db/sqlite
+2025/03/04 12:30:10 [INFO] server.go:83: Upload directory created: ./data/documents
+2025/03/04 12:30:10 [INFO] server.go:86: Connecting to database at ./db/sqlite/expertdb.sqlite
+2025/03/04 12:30:10 [INFO] storage.go:123: Initializing database schema
+2025/03/04 12:30:10 [INFO] storage.go:137: Database type:  (memory=true)
+2025/03/04 12:30:10 [INFO] storage.go:142: Using in-memory database with simplified schema
+2025/03/04 12:30:10 [INFO] storage.go:331: Database schema initialized successfully
+2025/03/04 12:30:10 [INFO] server.go:99: Database connection established successfully
+2025/03/04 12:30:10 [INFO] server.go:102: Initializing JWT secret...
+2025/03/04 12:30:10 [INFO] server.go:106: JWT secret initialized successfully
+2025/03/04 12:30:10 [INFO] server.go:125: Checking for admin user with email: admin@expertdb.com
+2025/03/04 12:30:10 [INFO] server.go:128: Admin user not found, creating...
+2025/03/04 12:30:10 [INFO] server.go:150: Created default admin user with email: admin@expertdb.com
+2025/03/04 12:30:10 [INFO] server.go:156: Creating API server on port 8080
+2025/03/04 12:30:10 [INFO] server.go:162: Starting ExpertDB with configuration:
+2025/03/04 12:30:10 [INFO] server.go:163: - Port: 8080
+2025/03/04 12:30:10 [INFO] server.go:164: - Database: ./db/sqlite/expertdb.sqlite
+2025/03/04 12:30:10 [INFO] server.go:165: - Upload Path: ./data/documents
+2025/03/04 12:30:10 [INFO] server.go:166: - CORS: *
+2025/03/04 12:30:10 [INFO] server.go:167: - AI Service: http://localhost:9000
+2025/03/04 12:30:10 [INFO] server.go:168: - Log Level: INFO
+2025/03/04 12:30:10 [INFO] server.go:169: - Log Directory: ./logs
+2025/03/04 12:30:10 [INFO] server.go:171: Server starting, press Ctrl+C to stop
+2025/03/04 12:30:10 [INFO] api.go:41: Setting up API routes...
+2025/03/04 12:30:10 [INFO] api.go:122: API server listening on :8080
+2025/03/04 12:45:35 [INFO] logger.go:209: HTTP OPTIONS /api/auth/login from [::1]:40316 - 200 (OK) - 29.706µs
+2025/03/04 12:45:35 [INFO] logger.go:209: HTTP POST /api/auth/login from [::1]:40316 - 200 (OK) - 182.66001ms
+2025/03/04 12:52:37 [INFO] logger.go:209: HTTP OPTIONS /api/auth/login from [::1]:38004 - 200 (OK) - 3.317µs
+2025/03/04 12:52:37 [INFO] logger.go:209: HTTP POST /api/auth/login from [::1]:38004 - 200 (OK) - 182.333016ms
+2025/03/04 13:00:34 [INFO] logger.go:209: HTTP OPTIONS /api/auth/login from [::1]:56554 - 200 (OK) - 3.366µs
+2025/03/04 13:00:34 [INFO] logger.go:209: HTTP POST /api/auth/login from [::1]:56554 - 200 (OK) - 182.667024ms
+2025/03/04 13:25:13 [INFO] logger.go:209: HTTP OPTIONS /api/auth/login from [::1]:57708 - 200 (OK) - 6.573µs
+2025/03/04 13:25:13 [INFO] logger.go:209: HTTP POST /api/auth/login from [::1]:57708 - 200 (OK) - 183.992082ms
+2025/03/04 13:53:01 [INFO] logger.go:209: HTTP OPTIONS /api/auth/login from [::1]:59064 - 200 (OK) - 6.182µs
+2025/03/04 13:53:01 [INFO] logger.go:209: HTTP POST /api/auth/login from [::1]:59064 - 200 (OK) - 183.394734ms

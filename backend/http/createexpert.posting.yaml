@@ -1,0 +1,14 @@
+name: createExpert
+method: POST
+url: http://localhost:3000/experts/create
+body:
+  content: |-
+    {
+      "name":"Ali",
+      "affiliation":"BQA" ,
+      "primaryContact":"39337177"
+    }
+  content_type: application/json
+headers:
+- name: content-type
+  value: application/json
