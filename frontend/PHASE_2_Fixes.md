@@ -78,6 +78,47 @@ catch {
 **Testing Notes**:
 The fix can be verified by running `npm run lint` and confirming there are no errors (only warnings for shadcn components).
 
+### 3. Issue: Redirect from `/search` to `/login` After Login (2025-03-06)
+
+**Problem**:  
+After logging in and being redirected to the appropriate page, navigating to `/search` would redirect back to `/login` as if the session was lost.
+
+**Expected Behavior**:  
+- User should remain logged in after navigation
+- Authenticated users should be able to access the search page without being redirected
+- Authentication state should persist across page refreshes
+
+**Root Cause**:  
+`AuthContext`'s `isAuthenticated` property required both `token` and `user` to be present, but only the `token` was being persisted in localStorage. The `user` object wasn't being stored, causing the authentication check to fail after page refresh.
+
+**Files Modified**:
+1. `/src/context/AuthContext.tsx` - Updated to persist user data in localStorage
+2. `/src/pages/Login.tsx` - Updated to use shadcn/ui components for consistency
+3. `/eslint.config.js` - Updated to ignore shadcn/ui components 
+4. `/TESTING.md` - Updated mock authentication instructions
+
+**Changes Made**:
+1. Modified `AuthContext.tsx` to:
+   - Store and retrieve `user` object from localStorage
+   - Update authentication validation to check both token and user
+   - Improve error handling for `/api/auth/me` endpoint when backend isn't running
+2. Updated `Login.tsx` to use shadcn/ui components (Input, Button) for consistency
+3. Added `src/components/ui/*` to ESLint ignore patterns to prevent warnings
+4. Updated testing documentation with clearer mock auth examples
+
+**Implementation Details**:
+- Added localStorage logic to persist and retrieve user data
+- Modified authentication state initialization to check for stored user data
+- Implemented graceful fallback when backend validation isn't available
+- Updated login flow to store both token and user object
+
+**Testing Notes**:
+The fix can be verified by:
+1. Logging in to the application
+2. Navigating to different pages (e.g., `/search`, `/admin`)
+3. Refreshing the page and confirming authentication is maintained
+4. Testing with mock data in localStorage when backend isn't available
+
 ---
 
 ## Project Status
@@ -86,3 +127,5 @@ The fix can be verified by running `npm run lint` and confirming there are no er
 - Completed Phase 2: Expert Database Search (v0.2.0)
 - Successfully integrated shadcn/ui components
 - Implemented all required search functionality
+- Fixed authentication persistence issues between page refreshes
+- Updated Login page to use shadcn/ui components

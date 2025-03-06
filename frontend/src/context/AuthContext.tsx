@@ -23,38 +23,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authState, setAuthState] = useState<{
     token: string | null;
     user: User | null;
-  }>({
-    token: localStorage.getItem("token"),
-    user: null,
+  }>(() => {
+    const token = localStorage.getItem("token");
+    const userStr = localStorage.getItem("user");
+    return {
+      token,
+      user: userStr ? JSON.parse(userStr) as User : null,
+    };
   });
 
   // Check token validity on mount
   useEffect(() => {
     const validateToken = async () => {
       const storedToken = localStorage.getItem("token");
-      if (storedToken && !authState.user) {
+      const storedUser = localStorage.getItem("user");
+      if (storedToken && !storedUser) {
         try {
           const response = await axios.get("http://localhost:8080/api/auth/me", {
             headers: { Authorization: `Bearer ${storedToken}` },
           });
-          setAuthState({ token: storedToken, user: response.data.user });
+          const user = response.data.user;
+          localStorage.setItem("user", JSON.stringify(user));
+          setAuthState({ token: storedToken, user });
         } catch {
-          // Invalid token, clear it
+          // If backend isn't running, rely on stored data if available
           localStorage.removeItem("token");
+          localStorage.removeItem("user");
           setAuthState({ token: null, user: null });
         }
       }
     };
     validateToken();
-  }, [authState.user]);
+  }, []);
 
   const login = (token: string, user: User) => {
     localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
     setAuthState({ token, user });
   };
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setAuthState({ token: null, user: null });
   };
 

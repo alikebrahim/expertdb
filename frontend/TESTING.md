@@ -88,26 +88,27 @@ This document provides comprehensive instructions for testing the ExpertDB front
 3. **Mock Authentication for Development**
    - If the backend is unavailable, use the localStorage method to test:
      ```javascript
-     // Set token and user for testing
-     localStorage.setItem("token", "mock-token")
+     // For admin testing
+     localStorage.setItem("token", "mock-token");
      localStorage.setItem("user", JSON.stringify({
        id: "1", 
-       name: "Test User", 
-       email: "test@example.com", 
+       name: "Test Admin", 
+       email: "admin@example.com", 
        role: "admin"
-     }))
+     }));
      
      // For regular user testing
+     localStorage.setItem("token", "mock-token");
      localStorage.setItem("user", JSON.stringify({
        id: "2", 
-       name: "Regular User", 
+       name: "Test User", 
        email: "user@example.com", 
        role: "user"
-     }))
+     }));
      
      // To simulate logout
-     localStorage.removeItem("token")
-     localStorage.removeItem("user")
+     localStorage.removeItem("token");
+     localStorage.removeItem("user");
      ```
 
 ## Phase 2: Expert Database Search Testing
