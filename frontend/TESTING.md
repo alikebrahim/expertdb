@@ -110,11 +110,129 @@ This document provides comprehensive instructions for testing the ExpertDB front
      localStorage.removeItem("user")
      ```
 
+## Phase 2: Expert Database Search Testing
+
+### Testing Search Functionality
+
+1. **Access the Search Page**
+   - Log in to the application (see Authentication Testing above)
+   - Verify you are redirected to the search page or navigate to http://localhost:5173/search
+   - Confirm the page loads with filter controls and an empty expert table
+   - Check that shadcn/ui components are properly styled
+
+2. **Testing Filters**
+   - **Name Filter**:
+     - Enter a name in the search field
+     - Verify the API request updates with the name parameter
+     - Check that results are filtered by name
+   
+   - **Affiliation Filter**:
+     - Enter an affiliation in the search field
+     - Verify the API request updates with the affiliation parameter
+     - Check that results are filtered by affiliation
+   
+   - **ISCED Field Filter**:
+     - Select a field from the ISCED dropdown
+     - Verify the API request updates with the isced_field_id parameter
+     - Check that results are filtered by ISCED field
+   
+   - **Bahraini Status Filter**:
+     - Select "Bahraini" or "Non-Bahraini" from the dropdown
+     - Verify the API request updates with the is_bahraini parameter
+     - Check that results are filtered by Bahraini status
+   
+   - **Availability Filter**:
+     - Select "Available" or "Not Available" from the dropdown
+     - Verify the API request updates with the is_available parameter
+     - Check that results are filtered by availability
+
+3. **Testing Sorting**
+   - Click the "Name" column header
+   - Verify the arrow indicator changes direction
+   - Check that experts are sorted alphabetically by name
+   - Click again to verify reverse sorting works
+
+4. **Testing Pagination**
+   - With more than 10 results, verify the "Next" button is enabled
+   - Click "Next" and verify page parameter is incremented
+   - Verify results update to show the next page
+   - Click "Previous" and verify navigation back to the first page
+   - Verify "Previous" button is disabled on the first page
+   - Verify "Next" button is disabled when fewer than 10 results are shown
+
+5. **Testing Loading and Error States**
+   - Temporarily modify API URL to cause an error
+   - Verify the error message is displayed
+   - Restore the correct API URL
+   - Observe the loading indicator when fetching data
+
+### Testing with Mock Data
+
+If the backend is unavailable, you can modify the Search component temporarily to use mock data:
+
+```javascript
+// Add this near the top of the file
+const mockExperts: Expert[] = [
+  { id: "1", name: "John Doe", affiliation: "University A", is_bahraini: true, isced_field_id: "1", is_available: true, bio: "Expert in field" },
+  { id: "2", name: "Jane Smith", affiliation: "University B", is_bahraini: false, isced_field_id: "2", is_available: true, bio: "Researcher" },
+  // Add more mock data as needed
+];
+
+const mockIscedFields: IscedField[] = [
+  { id: "1", name: "Computer Science" },
+  { id: "2", name: "Engineering" },
+  // Add more mock fields
+];
+
+// Then in your useEffect:
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      // Comment out the actual API calls
+      // const [expertsData, fieldsData] = await Promise.all([
+      //   getExperts(filters),
+      //   getIscedFields(),
+      // ]);
+      
+      // Use mock data instead
+      setTimeout(() => {
+        setExperts(mockExperts.filter(expert => 
+          expert.name.toLowerCase().includes(filters.name.toLowerCase())
+        ));
+        setIscedFields(mockIscedFields);
+        setLoading(false);
+      }, 500); // Simulate loading delay
+    } catch {
+      setError("Failed to load data");
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, [filters]);
+```
+
+### Common Issues and Troubleshooting
+
+1. **No Data Loading**
+   - Check the network tab to see if API requests are being made
+   - Verify the API endpoint URLs are correct
+   - Confirm the backend server is running
+   - Check for CORS issues in the browser console
+
+2. **Filtering Not Working**
+   - Verify filter parameters are correctly included in the API request
+   - Check that API parameters match what the backend expects
+   - Test each filter individually to isolate issues
+
+3. **Component Styling Issues**
+   - Ensure shadcn/ui components are properly imported
+   - Check that Tailwind CSS is correctly configured
+   - Verify the component classes match shadcn/ui documentation
+
 ## Upcoming Tests (Future Phases)
 
 As more phases are implemented, testing instructions for each will be added here:
 
-- Phase 2: Expert Database Searching (coming soon)
 - Phase 3: Request Submission (pending)
 - Phase 4: Statistics Dashboard (pending)
 - Phase 5: Admin Panel (pending)

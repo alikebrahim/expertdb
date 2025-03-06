@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import axios from "axios";
 
 interface User {
   id: string;
@@ -13,6 +14,7 @@ interface AuthContextType {
   user: User | null;
   login: (token: string, user: User) => void;
   logout: () => void;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,6 +28,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: null,
   });
 
+  // Check token validity on mount
+  useEffect(() => {
+    const validateToken = async () => {
+      const storedToken = localStorage.getItem("token");
+      if (storedToken && !authState.user) {
+        try {
+          const response = await axios.get("http://localhost:8080/api/auth/me", {
+            headers: { Authorization: `Bearer ${storedToken}` },
+          });
+          setAuthState({ token: storedToken, user: response.data.user });
+        } catch {
+          // Invalid token, clear it
+          localStorage.removeItem("token");
+          setAuthState({ token: null, user: null });
+        }
+      }
+    };
+    validateToken();
+  }, [authState.user]);
+
   const login = (token: string, user: User) => {
     localStorage.setItem("token", token);
     setAuthState({ token, user });
@@ -36,8 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthState({ token: null, user: null });
   };
 
+  const isAuthenticated = !!authState.token && !!authState.user;
+
   return (
-    <AuthContext.Provider value={{ ...authState, login, logout }}>
+    <AuthContext.Provider value={{ ...authState, login, logout, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );
