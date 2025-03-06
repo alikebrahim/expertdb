@@ -3,6 +3,18 @@
 ## Overview
 This document tracks the implementation progress of the ExpertDB frontend application. It highlights completed phases, current work, and upcoming tasks.
 
+| Version | Phase                   | Status      | Date       |
+|---------|-------------------------|-------------|------------|
+| 0.0.0   | Project Setup           | Completed   | 2025-03-06 |
+| 0.1.0   | Authentication          | Completed   | 2025-03-06 |
+| 0.2.0   | Expert Database Search  | In Progress | -          |
+| 0.3.0   | Request Submission      | Planned     | -          |
+| 0.4.0   | Statistics Dashboard    | Planned     | -          |
+| 0.5.0   | Admin Panel             | Planned     | -          |
+| 1.0.0   | Polish and Deployment   | Planned     | -          |
+
+For detailed testing instructions, refer to [TESTING.md](/TESTING.md).
+
 ## Completed Phases
 
 ### Phase 0: Project Setup ✅

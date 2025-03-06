@@ -7,6 +7,23 @@
 - Pay special attention to cross-phase concerns like authentication flow, role-based access, and data structures
 - Ensure each phase smoothly integrates with both previous and upcoming phases
 
+## Version Management
+
+The project follows semantic versioning with phase-based milestones:
+- **0.0.0**: Initial project setup (Phase 0)
+- **0.1.0**: Authentication implementation (Phase 1)
+- **0.2.0**: Expert Database Search (Phase 2)
+- **0.3.0**: Request Submission (Phase 3)
+- **0.4.0**: Statistics Dashboard (Phase 4)
+- **0.5.0**: Admin Panel (Phase 5)
+- **1.0.0**: Polish and Production Deployment (Phase 6)
+
+For each completed phase:
+1. Update version in package.json
+2. Update IMPLEMENTATION.md with phase status
+3. Update TESTING.md with testing instructions
+4. Commit with conventional commit message format
+
 ## Implementation Notes
 
 ### Authentication (Phase 1)
