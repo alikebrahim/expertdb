@@ -98,13 +98,14 @@ const request = async <T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> =
 // Auth API
 export const authApi = {
   login: async (email: string, password: string) => {
-    console.log('Sending login request to:', `${import.meta.env.VITE_API_URL}/api/auth/login`);
+    // Remove the /api prefix from the log since it's already in the baseURL
+    console.log('Sending login request to:', `${api.defaults.baseURL}/auth/login`);
     console.log('Login data:', { email, password });
     
     try {
       // Use direct axios call to get the raw response
       const response = await api({
-        url: '/api/auth/login',
+        url: '/auth/login',  // Remove the /api prefix since it's already in the baseURL
         method: 'POST',
         data: { email, password },
       });

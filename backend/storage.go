@@ -51,12 +51,6 @@ type Storage interface {
 	GetISCEDLevels() ([]ISCEDLevel, error)
 	GetISCEDFields() ([]ISCEDField, error)
 	
-	// AI analysis methods
-	StoreAIAnalysisResult(analysis *AIAnalysisResult) error
-	SuggestISCED(expertID int64, input string) (*AIAnalysisResult, error)
-	ExtractSkills(expertID int64, input string) (*AIAnalysisResult, error)
-	GenerateProfile(expertID int64) (*AIAnalysisResult, error)
-	SuggestExpertPanel(request string, count int) ([]Expert, error)
 	
 	// User methods
 	CreateUser(user *User) error
@@ -77,6 +71,7 @@ type SQLiteStore struct {
 	db *sql.DB
 }
 
+// Verify that SQLiteStore implements the Storage interface at compile time
 // Verify that SQLiteStore implements the Storage interface at compile time
 var _ Storage = (*SQLiteStore)(nil)
 
@@ -179,136 +174,6 @@ func (s *SQLiteStore) GetISCEDFields() ([]ISCEDField, error) {
 	return fields, nil
 }
 
-// AI Analysis Methods
-
-// StoreAIAnalysisResult stores an AI analysis result in the database
-func (s *SQLiteStore) StoreAIAnalysisResult(analysis *AIAnalysisResult) error {
-	query := `
-		INSERT INTO ai_analysis (
-			expert_id, document_id, analysis_type, analysis_result, confidence_score, 
-			model_used, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`
-
-	result, err := s.db.Exec(
-		query,
-		analysis.ExpertID, analysis.DocumentID, analysis.AnalysisType,
-		analysis.AnalysisResult, analysis.ConfidenceScore, analysis.ModelUsed,
-		analysis.CreatedAt, analysis.UpdatedAt,
-	)
-	
-	if err != nil {
-		return err
-	}
-	
-	// Get the inserted ID
-	id, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
-	
-	// Set the ID in the result
-	analysis.ID = id
-	
-	return nil
-}
-
-// SuggestISCED suggests ISCED classification for expert data
-func (s *SQLiteStore) SuggestISCED(expertID int64, input string) (*AIAnalysisResult, error) {
-	// This would normally call the AI service, but for now we'll create a placeholder
-	result := &AIAnalysisResult{
-		ExpertID:        expertID,
-		AnalysisType:    "isced_suggestion",
-		AnalysisResult:  `{"iscedLevel":"7","iscedField":"0111"}`,
-		ConfidenceScore: 0.85,
-		ModelUsed:       "placeholder",
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
-	}
-	
-	// Store the result
-	err := s.StoreAIAnalysisResult(result)
-	return result, err
-}
-
-// ExtractSkills extracts skills from expert data
-func (s *SQLiteStore) ExtractSkills(expertID int64, input string) (*AIAnalysisResult, error) {
-	// This would normally call the AI service, but for now we'll create a placeholder
-	result := &AIAnalysisResult{
-		ExpertID:        expertID,
-		AnalysisType:    "skills_extraction",
-		AnalysisResult:  `["Project Management","Research Methods","Data Analysis"]`,
-		ConfidenceScore: 0.9,
-		ModelUsed:       "placeholder",
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
-	}
-	
-	// Store the result
-	err := s.StoreAIAnalysisResult(result)
-	return result, err
-}
-
-// GenerateProfile generates a profile for an expert
-func (s *SQLiteStore) GenerateProfile(expertID int64) (*AIAnalysisResult, error) {
-	// This would normally call the AI service, but for now we'll create a placeholder
-	result := &AIAnalysisResult{
-		ExpertID:        expertID,
-		AnalysisType:    "profile_generation",
-		AnalysisResult:  `{"summary":"Experienced professional with background in...","highlights":["Key achievement 1","Key achievement 2"]}`,
-		ConfidenceScore: 0.8,
-		ModelUsed:       "placeholder",
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
-	}
-	
-	// Store the result
-	err := s.StoreAIAnalysisResult(result)
-	return result, err
-}
-
-// SuggestExpertPanel suggests a panel of experts based on a request
-func (s *SQLiteStore) SuggestExpertPanel(request string, count int) ([]Expert, error) {
-	// For now, just return a sample of experts
-	query := `
-		SELECT id, expert_id, name, designation, institution, is_bahraini, 
-		       is_available, rating, role, employment_type, general_area, 
-		       specialized_area, is_trained, cv_path, phone, email, is_published, 
-		       isced_level_id, isced_field_id, created_at, updated_at
-		FROM experts
-		WHERE is_available = 1 AND is_published = 1
-		ORDER BY RANDOM()
-		LIMIT ?
-	`
-	
-	rows, err := s.db.Query(query, count)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	
-	var experts []Expert
-	for rows.Next() {
-		var expert Expert
-		if err := rows.Scan(
-			&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation,
-			&expert.Institution, &expert.IsBahraini, &expert.IsAvailable,
-			&expert.Rating, &expert.Role, &expert.EmploymentType,
-			&expert.GeneralArea, &expert.SpecializedArea, &expert.IsTrained,
-			&expert.CVPath, &expert.Phone, &expert.Email, &expert.IsPublished,
-			&expert.ISCEDLevel, &expert.ISCEDField, &expert.CreatedAt, &expert.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		experts = append(experts, expert)
-	}
-	
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-	
-	return experts, nil
-}
 
 // ListExperts retrieves experts based on filters with pagination and sorting
 func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset int) ([]*Expert, error) {
@@ -317,7 +182,9 @@ func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset 
 		limit = 10
 	}
 
-	// Build the query
+	// Build the query to select all expert fields with optional filtering and sorting
+	// This query retrieves complete expert records from the experts table
+	// with support for filtering by various criteria and sorting options
 	query := `
 		SELECT e.id, e.expert_id, e.name, e.designation, e.institution, e.is_bahraini, 
 		       e.is_available, e.rating, e.role, e.employment_type, e.general_area, 
@@ -634,6 +501,9 @@ func (s *SQLiteStore) GetExpertsByNationality() (int, int, error) {
 
 // GetExpertsByISCEDField retrieves counts of experts by ISCED field
 func (s *SQLiteStore) GetExpertsByISCEDField() ([]AreaStat, error) {
+    // Query to count experts grouped by broad ISCED field category
+    // This helps analyze the distribution of experts across different educational fields
+    // We join experts with their linked ISCED fields and group by the broad field name
     rows, err := s.db.Query(`
         SELECT f.broad_name, COUNT(e.id) as count
         FROM experts e
@@ -671,6 +541,10 @@ func (s *SQLiteStore) GetExpertsByISCEDField() ([]AreaStat, error) {
 
 // GetEngagementStatistics retrieves statistics about expert engagements
 func (s *SQLiteStore) GetEngagementStatistics() ([]AreaStat, error) {
+    // Query to analyze engagement distribution by type (evaluation, consultation, etc.)
+    // This provides insights into how experts are being utilized
+    // We count all engagements by type and also track how many have been completed
+    // The completed_count is useful for calculating success/completion rates
     rows, err := s.db.Query(`
         SELECT engagement_type, COUNT(*) as count, 
                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count
@@ -714,7 +588,10 @@ func (s *SQLiteStore) GetExpertGrowthByMonth(months int) ([]GrowthStat, error) {
         months = 12
     }
     
-    // Query to get expert count by month
+    // Query to analyze the growth pattern of experts over time
+    // This tracks how many new experts were added each month during the specified period
+    // We use SQLite's strftime function to extract year-month from timestamps
+    // Results are filtered to only include records within the requested number of months
     rows, err := s.db.Query(`
         SELECT 
             strftime('%Y-%m', created_at) as month,
@@ -801,6 +678,9 @@ func (s *SQLiteStore) GetExpertGrowthByMonth(months int) ([]GrowthStat, error) {
 
 // CreateDocument creates a new document record in the database
 func (s *SQLiteStore) CreateDocument(doc *Document) (int64, error) {
+    // Query to insert a new document record associated with an expert
+    // This stores metadata about uploaded files including path, size, type, etc.
+    // Each document is linked to a specific expert via expert_id foreign key
     query := `
         INSERT INTO expert_documents (
             expert_id, document_type, filename, file_path,
@@ -896,6 +776,9 @@ func (s *SQLiteStore) GetDocumentsByExpertID(expertID int64) ([]*Document, error
 
 // CreateEngagement creates a new engagement record
 func (s *SQLiteStore) CreateEngagement(engagement *Engagement) (int64, error) {
+    // Query to insert a new expert engagement (assignment) record
+    // This tracks when experts are assigned to projects and captures details about the assignment
+    // It includes temporal information (start/end dates), status tracking, and performance feedback
     query := `
         INSERT INTO expert_engagements (
             expert_id, engagement_type, start_date, end_date,
@@ -1014,3 +897,6 @@ func (s *SQLiteStore) GetEngagementsByExpertID(expertID int64) ([]*Engagement, e
     
     return engagements, nil
 }
+
+// NOTE: Added detailed query purpose comments to improve code readability and maintainability.
+// Each query now includes explanations of what data is being retrieved/modified and why.

@@ -16,7 +16,6 @@ func loadConfig() *Configuration {
 		DBPath: os.Getenv("DB_PATH"),
 		UploadPath: os.Getenv("UPLOAD_PATH"),
 		CORSAllowOrigins: os.Getenv("CORS_ALLOWED_ORIGINS"),
-		AIServiceURL: os.Getenv("AI_SERVICE_URL"),
 	}
 
 	// Set defaults for empty values
@@ -31,9 +30,6 @@ func loadConfig() *Configuration {
 	}
 	if config.CORSAllowOrigins == "" {
 		config.CORSAllowOrigins = "*"
-	}
-	if config.AIServiceURL == "" {
-		config.AIServiceURL = "http://localhost:9000"
 	}
 
 	return config
@@ -57,7 +53,6 @@ func verifyDatabaseSchema(store Storage) error {
 		"users",
 		"expert_documents",
 		"expert_engagements",
-		"ai_analysis",
 		"isced_levels",
 		"isced_fields",
 	}
@@ -137,25 +132,18 @@ func main() {
 	// Initialize database connection
 	logger.Info("Connecting to database at %s", config.DBPath)
 	
-	// For testing, create an in-memory database
-	dbPath := ":memory:"
-	if os.Getenv("USE_FILE_DB") == "true" {
-		dbPath = config.DBPath
-	}
-	
-	store, err := NewSQLiteStore(dbPath)
+	// Use the configured database path (always file-based)
+	store, err := NewSQLiteStore(config.DBPath)
 	if err != nil {
 		logger.Fatal("Failed to connect to database: %v", err)
 	}
 	defer store.Close()
 	logger.Info("Database connection established successfully")
 	
-	// For file-based databases, verify that the schema has been properly initialized
-	if dbPath != ":memory:" {
-		if err := verifyDatabaseSchema(store); err != nil {
-			logger.Fatal("Database schema verification failed: %v", err)
-			logger.Fatal("Please run migrations using: goose -dir db/migrations/sqlite sqlite3 %s up", dbPath)
-		}
+	// Verify that the schema has been properly initialized
+	if err := verifyDatabaseSchema(store); err != nil {
+		logger.Fatal("Database schema verification failed: %v", err)
+		logger.Fatal("Please run migrations using: goose -dir db/migrations/sqlite sqlite3 %s up", config.DBPath)
 	}
 
 	// Initialize JWT secret
@@ -224,7 +212,6 @@ func main() {
 	logger.Info("- Database: %s", config.DBPath)
 	logger.Info("- Upload Path: %s", config.UploadPath)
 	logger.Info("- CORS: %s", config.CORSAllowOrigins)
-	logger.Info("- AI Service: %s", config.AIServiceURL)
 	logger.Info("- Log Level: %s", logLevel.String())
 	logger.Info("- Log Directory: %s", logDir)
 	
