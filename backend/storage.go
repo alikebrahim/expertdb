@@ -104,10 +104,8 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 		db: db,
 	}
 	
-	// Initialize the database schema
-	if err := store.initSchema(); err != nil {
-		return nil, err
-	}
+	// Note: We no longer automatically apply migrations
+	// DB migrations should be handled using the goose tool directly
 	
 	return store, nil
 }
@@ -115,221 +113,6 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 // Close closes the database connection
 func (s *SQLiteStore) Close() error {
 	return s.db.Close()
-}
-
-// initSchema initializes the database schema
-func (s *SQLiteStore) initSchema() error {
-	logger := GetLogger()
-	logger.Info("Initializing database schema")
-	
-	// Check if we're using an in-memory database
-	isMemoryDB := false
-	
-	// Try to determine if it's a memory database
-	var name, file string
-	var seq int
-	err := s.db.QueryRow("PRAGMA database_list").Scan(&seq, &name, &file)
-	if err != nil {
-		logger.Warn("Failed to determine database type: %v", err)
-		// Continue anyway, assume it's a file database
-	} else {
-		isMemoryDB = file == "" || file == ":memory:"
-		logger.Info("Database type: %s (memory=%v)", file, isMemoryDB)
-	}
-	
-	// For in-memory database, use a simplified schema
-	if isMemoryDB {
-		logger.Info("Using in-memory database with simplified schema")
-		
-		// Begin transaction
-		tx, err := s.db.Begin()
-		if err != nil {
-			return fmt.Errorf("failed to begin transaction: %w", err)
-		}
-		
-		// Define basic schema for testing
-		schema := []string{
-			// Create experts table
-			`CREATE TABLE IF NOT EXISTS "experts" (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				expert_id TEXT UNIQUE,
-				name TEXT NOT NULL,
-				designation TEXT,
-				institution TEXT,
-				is_bahraini BOOLEAN,
-				nationality TEXT,
-				is_available BOOLEAN,
-				rating TEXT,
-				role TEXT,
-				employment_type TEXT,
-				general_area TEXT,
-				specialized_area TEXT,
-				is_trained BOOLEAN,
-				cv_path TEXT,
-				phone TEXT,
-				email TEXT,
-				is_published BOOLEAN,
-				isced_level_id INTEGER,
-				isced_field_id INTEGER,
-				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-				updated_at TIMESTAMP
-			)`,
-			
-			// Create expert_requests table
-			`CREATE TABLE IF NOT EXISTS "expert_requests" (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				expert_id TEXT,
-				name TEXT NOT NULL,
-				designation TEXT,
-				institution TEXT,
-				is_bahraini BOOLEAN,
-				is_available BOOLEAN,
-				rating TEXT,
-				role TEXT,
-				employment_type TEXT,
-				general_area TEXT,
-				specialized_area TEXT,
-				is_trained BOOLEAN,
-				cv_path TEXT,
-				phone TEXT,
-				email TEXT,
-				is_published BOOLEAN,
-				status TEXT DEFAULT 'pending',
-				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-				reviewed_at TIMESTAMP,
-				reviewed_by INTEGER
-			)`,
-			
-			// Create users table
-			`CREATE TABLE IF NOT EXISTS "users" (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				name TEXT NOT NULL,
-				email TEXT UNIQUE NOT NULL,
-				password_hash TEXT NOT NULL,
-				role TEXT NOT NULL,
-				is_active BOOLEAN NOT NULL DEFAULT 1,
-				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-				last_login TIMESTAMP
-			)`,
-			
-			// Create expert_documents table
-			`CREATE TABLE IF NOT EXISTS "expert_documents" (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				expert_id INTEGER NOT NULL,
-				document_type TEXT NOT NULL,
-				filename TEXT NOT NULL,
-				file_path TEXT NOT NULL,
-				content_type TEXT,
-				file_size INTEGER,
-				upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-			)`,
-			
-			// Create expert_engagements table
-			`CREATE TABLE IF NOT EXISTS "expert_engagements" (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				expert_id INTEGER NOT NULL,
-				engagement_type TEXT NOT NULL,
-				start_date TIMESTAMP NOT NULL,
-				end_date TIMESTAMP,
-				project_name TEXT,
-				status TEXT DEFAULT 'pending',
-				feedback_score INTEGER,
-				notes TEXT,
-				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-			)`,
-			
-			// Create ai_analysis table
-			`CREATE TABLE IF NOT EXISTS "ai_analysis" (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				expert_id INTEGER,
-				document_id INTEGER,
-				analysis_type TEXT NOT NULL,
-				analysis_result TEXT NOT NULL,
-				confidence_score REAL,
-				model_used TEXT,
-				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-				updated_at TIMESTAMP
-			)`,
-			
-			// Create isced_levels table
-			`CREATE TABLE IF NOT EXISTS "isced_levels" (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				code TEXT UNIQUE NOT NULL,
-				name TEXT NOT NULL,
-				description TEXT
-			)`,
-			
-			// Create isced_fields table
-			`CREATE TABLE IF NOT EXISTS "isced_fields" (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				broad_code TEXT NOT NULL,
-				broad_name TEXT NOT NULL,
-				narrow_code TEXT,
-				narrow_name TEXT,
-				detailed_code TEXT,
-				detailed_name TEXT,
-				description TEXT
-			)`,
-		}
-		
-		// Execute each statement
-		for _, stmt := range schema {
-			if _, err := tx.Exec(stmt); err != nil {
-				tx.Rollback()
-				return fmt.Errorf("failed to execute schema statement: %w", err)
-			}
-		}
-		
-		// Commit transaction
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("failed to commit transaction: %w", err)
-		}
-		
-	} else {
-		// For file-based database, apply migrations from files
-		logger.Info("Using file-based database with migrations")
-		
-		// Apply migration files from the db/migrations/sqlite directory
-		migrations, err := filepath.Glob("db/migrations/sqlite/*.sql")
-		if err != nil {
-			return fmt.Errorf("failed to list migration files: %w", err)
-		}
-		
-		// Sort migrations by filename (they should be prefixed with numbers)
-		logger.Info("Found %d migration files", len(migrations))
-		
-		// Begin transaction
-		tx, err := s.db.Begin()
-		if err != nil {
-			return fmt.Errorf("failed to begin transaction: %w", err)
-		}
-		
-		// Apply migrations
-		for _, migration := range migrations {
-			logger.Info("Applying migration: %s", filepath.Base(migration))
-			
-			// Read the migration file
-			content, err := os.ReadFile(migration)
-			if err != nil {
-				tx.Rollback()
-				return fmt.Errorf("failed to read migration file %s: %w", migration, err)
-			}
-			
-			// Execute the migration
-			if _, err := tx.Exec(string(content)); err != nil {
-				tx.Rollback()
-				return fmt.Errorf("failed to execute migration %s: %w", migration, err)
-			}
-		}
-		
-		// Commit transaction
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("failed to commit transaction: %w", err)
-		}
-	}
-	
-	logger.Info("Database schema initialized successfully")
-	return nil
 }
 
 // ISCED Methods
@@ -734,6 +517,14 @@ func (s *SQLiteStore) GetStatistics() (*Statistics, error) {
         return nil, fmt.Errorf("failed to count experts: %w", err)
     }
     stats.TotalExperts = totalExperts
+    
+    // Get active experts count
+    var activeExperts int
+    err = s.db.QueryRow("SELECT COUNT(*) FROM experts WHERE is_available = 1").Scan(&activeExperts)
+    if err != nil {
+        return nil, fmt.Errorf("failed to count active experts: %w", err)
+    }
+    stats.ActiveCount = activeExperts
     
     // Get Bahraini percentage
     bahrainiCount, _, err := s.GetExpertsByNationality()

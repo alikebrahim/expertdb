@@ -1,0 +1,53 @@
+API baseURL: http://localhost:8808
+Debug mode: enabled
+
+Attempting login with: ali@edbc.com
+Login attempt: {
+  "email": "ali@edbc.com",
+  "password": "allpass"
+}
+
+Request URL: http://localhost:8808/api/auth/login
+Request Method: POST
+Request Headers: {
+  "Content-Type": "application/json"
+}
+Request Payload: {
+  "email": "ali@edbc.com",
+  "password": "allpass"
+}
+
+Response from /api/auth/login: {
+  "user": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0YjE2Y2FjNjY3YjNjMWQ3YjFjZmQ1ZiIsImVtYWlsIjoiYWxpQGVkYmMuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzA2NjE5MTY3LCJleHAiOjE3MDY2MjI3Njd9.5zLXw0NEx4lg40DwpRrcT4j3",
+    "id": "64b16cac667b3c1d7b1cfd5f",
+    "email": "ali@edbc.com",
+    "role": "admin",
+    "isActive": true,
+    "createdAt": "2023-07-11T12:34:56.789Z",
+    "updatedAt": "2023-07-11T12:34:56.789Z"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0YjE2Y2FjNjY3YjNjMWQ3YjFjZmQ1ZiIsImVtYWlsIjoiYWxpQGVkYmMuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzA2NjE5MTY3LCJleHAiOjE3MDY2MjI3Njd9.5zLXw0NEx4lg40DwpRrcT4j3",
+  "message": "Login successful"
+}
+
+Login response: {
+  "user": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0YjE2Y2FjNjY3YjNjMWQ3YjFjZmQ1ZiIsImVtYWlsIjoiYWxpQGVkYmMuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzA2NjE5MTY3LCJleHAiOjE3MDY2MjI3Njd9.5zLXw0NEx4lg40DwpRrcT4j3",
+    "id": "64b16cac667b3c1d7b1cfd5f",
+    "email": "ali@edbc.com",
+    "role": "admin",
+    "isActive": true,
+    "createdAt": "2023-07-11T12:34:56.789Z",
+    "updatedAt": "2023-07-11T12:34:56.789Z"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0YjE2Y2FjNjY3YjNjMWQ3YjFjZmQ1ZiIsImVtYWlsIjoiYWxpQGVkYmMuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzA2NjE9MTY3LCJleHAiOjE3MDY2MjI3Njd9.5zLXw0NEx4lg40DwpRrcT4j3",
+  "message": "Login successful"
+}
+
+Additional login attempt with: Ali Khalid
+Login attempt: {
+  "email": "ali@edbc.com",
+  "role": "admin",
+  "isActive": true
+}

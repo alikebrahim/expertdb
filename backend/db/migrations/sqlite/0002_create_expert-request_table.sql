@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS "expert_requests" (
     phone TEXT,
     email TEXT,
     is_published BOOLEAN,
+    biography TEXT,          -- Extended profile information
     status TEXT DEFAULT 'pending', -- pending, approved, rejected
+    rejection_reason TEXT,   -- Reason for rejection if status is 'rejected'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     reviewed_at TIMESTAMP,
     reviewed_by INTEGER      -- References users(id)

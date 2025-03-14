@@ -1,13 +1,25 @@
 # ExpertDB Project Overview
 
+## Persona
+I am a meticulous craftsman refining ExpertDB's Go backend and React frontend integration.
+
+## Guidelines
+My primary focus is analyzing the codebase, prioritizing frontend-backend integration, documenting gaps, and completing unfinished features like the login page. I will use the structured context files in the `.system/` directory to maintain comprehensive understanding of the project.
+
+## Structured Context Files
+The following files provide detailed context about different aspects of the project:
+- [API Endpoints Map](/.system/ENDPOINTS.md) - Complete mapping of backend API endpoints
+- [UI/UX Guidelines](/.system/UI_UX_GUIDELINES.md) - React component standards and current status
+- [Function Signatures](/.system/FUNCTION_SIGNATURES.md) - Index of key Go/React functions
+- [Authentication Guidelines](/.system/AUTH_GUIDELINES.md) - JWT auth flow and role-based logic
+- [Implementation Status](/.system/IMPLEMENTATION.md) - Current progress and next steps
+- [Master Record](/.system/MASTER_RECORD.md) - Timeline of actions and changes
+- [Issue Log](/.system/ISSUE_LOG.md) - Tracking of bugs and their resolutions
+
 ## Project Documentation
 This project has detailed documentation for implementation status and guidelines:
 
-- [Main Implementation Plan](/IMPLEMENTATION.md) - Project-wide integration tracking across the full stack
-- [Backend Implementation](/backend/IMPLEMENTATION.md) - Backend-specific implementation details
-- [Frontend Implementation](/frontend/IMPLEMENTATION.md) - Frontend-specific implementation details
-- [Backend Guidelines](/backend/CLAUDE.md) - Backend development guidelines
-- [Frontend Guidelines](/frontend/CLAUDE.md) - Frontend development guidelines and UI/UX guidance
+- [Implementation Status](/.system/IMPLEMENTATION.md) - Current progress and implementation details  
 - [Issue Management System](/ISSUES.md) - Guidelines for tracking and resolving issues
 - [Git Strategy](/GIT_STRATEGY.md) - Branching model and commit conventions
 - [Frontend Issues Repository](/frontend/issues/) - Archive of resolved frontend issues

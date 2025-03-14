@@ -1,3 +1,4 @@
+-- +goose Up
 -- Create system_statistics table for caching frequently accessed statistics
 CREATE TABLE system_statistics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -7,8 +8,8 @@ CREATE TABLE system_statistics (
     UNIQUE(stat_key)
 );
 
--- Add nationality tracking to experts table if not already present
-ALTER TABLE experts ADD COLUMN nationality TEXT DEFAULT 'Bahraini' CHECK (nationality IN ('Bahraini', 'Non-Bahraini', 'Unknown'));
+-- Nationality column already exists in experts table from migration 0001
+-- No need to add it again
 
--- Create index for nationality filtering
+-- Ensure index for nationality filtering exists
 CREATE INDEX IF NOT EXISTS idx_experts_nationality ON experts(nationality);

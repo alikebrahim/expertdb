@@ -12,7 +12,7 @@ func (s *SQLiteStore) GetExpert(id int64) (*Expert, error) {
 		SELECT e.id, e.expert_id, e.name, e.designation, e.institution, e.is_bahraini, 
 			   e.is_available, e.rating, e.role, e.employment_type, e.general_area, 
 			   e.specialized_area, e.is_trained, e.cv_path, e.phone, e.email, e.is_published, 
-			   e.isced_level_id, e.isced_field_id, e.created_at, e.updated_at
+			   e.biography, e.isced_level_id, e.isced_field_id, e.created_at, e.updated_at
 		FROM experts e
 		WHERE e.id = ?
 	`
@@ -25,7 +25,7 @@ func (s *SQLiteStore) GetExpert(id int64) (*Expert, error) {
 		&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation, &expert.Institution,
 		&expert.IsBahraini, &expert.IsAvailable, &expert.Rating, &expert.Role, &expert.EmploymentType,
 		&expert.GeneralArea, &expert.SpecializedArea, &expert.IsTrained, &expert.CVPath,
-		&expert.Phone, &expert.Email, &expert.IsPublished, &iscedLevelID, &iscedFieldID,
+		&expert.Phone, &expert.Email, &expert.IsPublished, &expert.Biography, &iscedLevelID, &iscedFieldID,
 		&createdAt, &updatedAt,
 	)
 	
@@ -107,7 +107,7 @@ func (s *SQLiteStore) UpdateExpert(expert *Expert) error {
 			is_bahraini = ?, nationality = ?, is_available = ?, rating = ?, role = ?,
 			employment_type = ?, general_area = ?, specialized_area = ?,
 			is_trained = ?, cv_path = ?, phone = ?, email = ?, is_published = ?,
-			isced_level_id = ?, isced_field_id = ?, updated_at = ?
+			biography = ?, isced_level_id = ?, isced_field_id = ?, updated_at = ?
 		WHERE id = ?
 	`
 	
@@ -127,7 +127,7 @@ func (s *SQLiteStore) UpdateExpert(expert *Expert) error {
 		expert.IsBahraini, expert.Nationality, expert.IsAvailable, expert.Rating,
 		expert.Role, expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
 		expert.IsTrained, expert.CVPath, expert.Phone, expert.Email, expert.IsPublished,
-		iscedLevelID, iscedFieldID, expert.UpdatedAt, expert.ID,
+		expert.Biography, iscedLevelID, iscedFieldID, expert.UpdatedAt, expert.ID,
 	)
 	
 	if err != nil {

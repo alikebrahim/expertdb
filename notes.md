@@ -1,3 +1,7 @@
-Now the project is getting bigger, I want you to use the information you have in the Context files (i.e. CLAUDE.md, IMPLEMENTATION.md) and note my idea: I want to move systematically
-ensuring every page is design and functional. I want the project to progress in development ensuring landing/login page is functional and styles appropriately, then for the db expert
-search (with advanced filtering and intelligent search - I think you can suggest good modes from the schema). Note where ever relevant that the db should allow selecting expert/s where a page will show their bios (bios will be provided later). After that I want the expert request page and functionality completed is functional as intended. Then the page that would show the statistics of the db. Ask me questions if you need clarification
+Final notes before testing the new frontend with the updated backend
+- Some front end queries utilise query params. Ensure corrispoding backend handles it approproately
+- Ensure migration files are up.
+- Do an api request trace from the frontend requests to the backend response for each process. Ensure that frontend is functional
+
+
+Be attentive to instructions. Be careful and vigilant. Ensure first test will be your best shot

@@ -49,10 +49,47 @@ The system is designed with a microservice architecture:
    goose -dir db/migrations/sqlite sqlite3 ./db/sqlite/expertdb.sqlite up
    ```
 
-3. Run the server:
+3. Import expert data from CSV (optional):
+   ```bash
+   go build -o import_csv ./cmd/import_csv
+   ./import_csv -csv path/to/your/experts.csv -db ./db/sqlite/expertdb.sqlite
+   ```
+
+4. Run the server:
    ```bash
    go run *.go
    ```
+
+### CSV Import Instructions
+
+The CSV import tool is a standalone utility for importing expert data. It requires that you have already run the database migrations using goose before importing:
+
+1. Build the import utility:
+   ```
+   go build -o import_csv ./cmd/import_csv
+   ```
+
+2. Run the import utility:
+   ```
+   ./import_csv -csv path/to/your/data.csv -db ./db/sqlite/expertdb.sqlite
+   ```
+
+The CSV file should have the following columns:
+- ID - Unique identifier
+- Name - Expert's full name
+- Designation - Professional title
+- Institution - Affiliated institution
+- BH - Whether the expert is Bahraini (Yes/No)
+- Available - Availability status (Yes/No)
+- Rating - Expert rating
+- Validator/ Evaluator - Role specification
+- Academic/Employer - Employment type
+- General Area - Main area of expertise
+- Specialised Area - Specific specialization
+- Trained - Training status (Yes/No)
+- Phone - Contact number
+- Email - Contact email
+- Published - Whether profile is published (Yes/No)
 
 ### Docker Deployment
 

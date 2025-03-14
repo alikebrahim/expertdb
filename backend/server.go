@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -36,6 +37,57 @@ func loadConfig() *Configuration {
 	}
 
 	return config
+}
+
+// verifyDatabaseSchema checks if the database schema has been properly initialized
+func verifyDatabaseSchema(store Storage) error {
+	logger := GetLogger()
+	logger.Info("Verifying database schema...")
+	
+	// Get the SQLite store to access the db directly
+	sqliteStore, ok := store.(*SQLiteStore)
+	if !ok {
+		return fmt.Errorf("store is not a SQLiteStore")
+	}
+	
+	// List of required tables that must exist for the application to function
+	requiredTables := []string{
+		"experts",
+		"expert_requests",
+		"users",
+		"expert_documents",
+		"expert_engagements",
+		"ai_analysis",
+		"isced_levels",
+		"isced_fields",
+	}
+	
+	// Query to get list of all tables
+	rows, err := sqliteStore.db.Query("SELECT name FROM sqlite_master WHERE type='table'")
+	if err != nil {
+		return fmt.Errorf("failed to get tables: %w", err)
+	}
+	defer rows.Close()
+	
+	// Build a map of existing tables
+	existingTables := make(map[string]bool)
+	for rows.Next() {
+		var tableName string
+		if err := rows.Scan(&tableName); err != nil {
+			return fmt.Errorf("failed to scan table name: %w", err)
+		}
+		existingTables[tableName] = true
+	}
+	
+	// Check if all required tables exist
+	for _, table := range requiredTables {
+		if !existingTables[table] {
+			return fmt.Errorf("required table '%s' not found - database schema is incomplete", table)
+		}
+	}
+	
+	logger.Info("Database schema verification completed successfully")
+	return nil
 }
 
 func main() {
@@ -97,6 +149,14 @@ func main() {
 	}
 	defer store.Close()
 	logger.Info("Database connection established successfully")
+	
+	// For file-based databases, verify that the schema has been properly initialized
+	if dbPath != ":memory:" {
+		if err := verifyDatabaseSchema(store); err != nil {
+			logger.Fatal("Database schema verification failed: %v", err)
+			logger.Fatal("Please run migrations using: goose -dir db/migrations/sqlite sqlite3 %s up", dbPath)
+		}
+	}
 
 	// Initialize JWT secret
 	logger.Info("Initializing JWT secret...")

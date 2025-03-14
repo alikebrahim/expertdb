@@ -17,8 +17,8 @@ import (
 func main() {
 	// Parse command line arguments
 	var (
-		csvPath   = flag.String("csv", "", "Path to the CSV file with expert data")
-		dbPath    = flag.String("db", "./expertdb.sqlite", "Path to the SQLite database")
+		csvPath = flag.String("csv", "", "Path to the CSV file with expert data")
+		dbPath  = flag.String("db", "./db/sqlite/expertdb.sqlite", "Path to the SQLite database")
 	)
 	flag.Parse()
 
@@ -52,12 +52,54 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
+	// Check if the necessary tables exist (we assume migrations were run using goose)
+	if err := verifyTablesExist(db); err != nil {
+		log.Fatalf("Database schema is not initialized properly. Please run migrations first with: goose -dir db/migrations/sqlite sqlite3 %s up", *dbPath)
+	}
+
 	// Import the CSV data
 	if err := ImportExperts(db, *csvPath); err != nil {
 		log.Fatalf("Failed to import experts: %v", err)
 	}
 
 	log.Println("Expert data import completed successfully!")
+}
+
+// verifyTablesExist checks if the necessary tables exist in the database
+func verifyTablesExist(db *sql.DB) error {
+	// List of required tables
+	requiredTables := []string{
+		"experts",
+		"expert_areas",
+		"isced_levels",
+		"isced_fields",
+	}
+
+	// Query to get list of all tables
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table'")
+	if err != nil {
+		return fmt.Errorf("failed to get tables: %w", err)
+	}
+	defer rows.Close()
+
+	// Build a map of existing tables
+	existingTables := make(map[string]bool)
+	for rows.Next() {
+		var tableName string
+		if err := rows.Scan(&tableName); err != nil {
+			return fmt.Errorf("failed to scan table name: %w", err)
+		}
+		existingTables[tableName] = true
+	}
+
+	// Check if all required tables exist
+	for _, table := range requiredTables {
+		if !existingTables[table] {
+			return fmt.Errorf("required table '%s' not found", table)
+		}
+	}
+
+	return nil
 }
 
 // ImportExperts reads the experts CSV file and imports the data into the database
@@ -170,7 +212,7 @@ func ImportExperts(db *sql.DB, csvFilePath string) error {
 		designation := getFieldByHeaderName(header, record, "Designation")
 		institution := getFieldByHeaderName(header, record, "Institution")
 		isBahraini := convertYesNoToBoolean(getFieldByHeaderName(header, record, "BH"))
-		
+
 		// Set nationality based on BH field
 		nationality := "Unknown"
 		if isBahraini {
@@ -181,7 +223,7 @@ func ImportExperts(db *sql.DB, csvFilePath string) error {
 				nationality = "Non-Bahraini"
 			}
 		}
-		
+
 		isAvailable := convertYesNoToBoolean(getFieldByHeaderName(header, record, "Available"))
 		rating := getFieldByHeaderName(header, record, "Rating")
 		role := getFieldByHeaderName(header, record, "Validator/ Evaluator")
@@ -194,16 +236,20 @@ func ImportExperts(db *sql.DB, csvFilePath string) error {
 		email := getFieldByHeaderName(header, record, "Email")
 		isPublished := convertYesNoToBoolean(getFieldByHeaderName(header, record, "Published"))
 
-		// Insert expert record
+		// Set a simple biography for all experts
+		biography := "Expert BIO"
+		
+		// Insert expert record with all required columns
 		result, err := tx.Exec(
 			`INSERT INTO experts (
 				expert_id, name, designation, institution, is_bahraini, nationality, is_available,
 				rating, role, employment_type, general_area, specialized_area,
-				is_trained, cv_path, phone, email, is_published, created_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				is_trained, cv_path, phone, email, is_published, biography,
+				isced_level_id, isced_field_id, original_request_id, created_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?)`,
 			expertID, name, designation, institution, isBahraini, nationality, isAvailable,
 			rating, role, employmentType, generalArea, specializedArea,
-			isTrained, cvPath, phone, email, isPublished, time.Now(),
+			isTrained, cvPath, phone, email, isPublished, biography, time.Now(),
 		)
 		if err != nil {
 			return fmt.Errorf("error inserting expert '%s': %w", name, err)
@@ -235,7 +281,7 @@ func ImportExperts(db *sql.DB, csvFilePath string) error {
 				return fmt.Errorf("error inserting expert specialized area: %w", err)
 			}
 		}
-		
+
 		// Map to ISCED classification
 		err = mapExpertToISCED(tx, expertDBID, generalArea, specializedArea, designation)
 		if err != nil {
@@ -256,18 +302,18 @@ func ImportExperts(db *sql.DB, csvFilePath string) error {
 // mapExpertToISCED maps an expert to appropriate ISCED classifications
 func mapExpertToISCED(tx *sql.Tx, expertID int64, generalArea, specializedArea, designation string) error {
 	var iscedFieldID, iscedLevelID int64
-	
+
 	// Map general area to ISCED field
 	generalAreaLower := strings.ToLower(generalArea)
 	specializedAreaLower := strings.ToLower(specializedArea)
-	
+
 	// First try to find exact match by broad field name
 	err := tx.QueryRow(`
 		SELECT id FROM isced_fields 
 		WHERE LOWER(broad_name) LIKE ? 
-		LIMIT 1`, 
+		LIMIT 1`,
 		"%"+generalAreaLower+"%").Scan(&iscedFieldID)
-		
+
 	// If no match, try to map based on keywords
 	if err == sql.ErrNoRows {
 		iscedFieldID, err = mapAreaToISCEDField(tx, generalAreaLower, specializedAreaLower)
@@ -277,13 +323,13 @@ func mapExpertToISCED(tx *sql.Tx, expertID int64, generalArea, specializedArea, 
 	} else if err != nil {
 		return fmt.Errorf("error finding ISCED field: %w", err)
 	}
-	
+
 	// Map designation to ISCED level
 	iscedLevelID, err = mapDesignationToISCEDLevel(tx, designation)
 	if err != nil {
 		return fmt.Errorf("failed to map designation to ISCED level: %w", err)
 	}
-	
+
 	// Update expert record with ISCED classifications
 	_, err = tx.Exec(
 		"UPDATE experts SET isced_field_id = ?, isced_level_id = ? WHERE id = ?",
@@ -292,7 +338,7 @@ func mapExpertToISCED(tx *sql.Tx, expertID int64, generalArea, specializedArea, 
 	if err != nil {
 		return fmt.Errorf("error updating expert ISCED classifications: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -304,119 +350,119 @@ func mapAreaToISCEDField(tx *sql.Tx, generalArea, specializedArea string) (int64
 	if err != nil {
 		return 0, fmt.Errorf("error finding default ISCED field: %w", err)
 	}
-	
+
 	// Map of keywords to ISCED field codes
 	keywordMapping := map[string]string{
 		// ISCED 00 - Generic programmes and qualifications
 		"generic": "00",
-		
+
 		// ISCED 01 - Education
-		"education": "01",
-		"teaching": "01",
+		"education":  "01",
+		"teaching":   "01",
 		"instructor": "01",
-		"training": "01",
-		
+		"training":   "01",
+
 		// ISCED 02 - Arts and humanities
-		"art": "02",
-		"design": "02",
-		"humanities": "02",
-		"language": "02",
-		"literature": "02",
-		"philosophy": "02",
-		"history": "02",
-		"fashion": "02",
-		"graphic": "02",
+		"art":             "02",
+		"design":          "02",
+		"humanities":      "02",
+		"language":        "02",
+		"literature":      "02",
+		"philosophy":      "02",
+		"history":         "02",
+		"fashion":         "02",
+		"graphic":         "02",
 		"interior design": "02",
-		"visual design": "02",
-		
+		"visual design":   "02",
+
 		// ISCED 03 - Social sciences, journalism and information
-		"social science": "03",
-		"journalism": "03",
-		"media": "03",
-		"communication": "03",
+		"social science":   "03",
+		"journalism":       "03",
+		"media":            "03",
+		"communication":    "03",
 		"public relations": "03",
-		"sociology": "03",
-		"psychology": "03",
-		"political": "03",
-		
+		"sociology":        "03",
+		"psychology":       "03",
+		"political":        "03",
+
 		// ISCED 04 - Business, administration and law
-		"business": "04",
-		"administration": "04",
-		"management": "04",
-		"marketing": "04",
-		"finance": "04",
-		"accounting": "04",
-		"audit": "04",
-		"banking": "04",
-		"economics": "04",
-		"human resource": "04",
-		"law": "04",
-		"legal": "04",
-		"compliance": "04",
-		"insurance": "04",
-		"logistics": "04",
+		"business":           "04",
+		"administration":     "04",
+		"management":         "04",
+		"marketing":          "04",
+		"finance":            "04",
+		"accounting":         "04",
+		"audit":              "04",
+		"banking":            "04",
+		"economics":          "04",
+		"human resource":     "04",
+		"law":                "04",
+		"legal":              "04",
+		"compliance":         "04",
+		"insurance":          "04",
+		"logistics":          "04",
 		"project management": "04",
-		
+
 		// ISCED 05 - Natural sciences, mathematics and statistics
-		"science": "05",
+		"science":     "05",
 		"mathematics": "05",
-		"statistics": "05",
-		"physics": "05",
-		"chemistry": "05",
-		"biology": "05",
+		"statistics":  "05",
+		"physics":     "05",
+		"chemistry":   "05",
+		"biology":     "05",
 		"environment": "05",
-		
+
 		// ISCED 06 - Information and Communication Technologies
-		"information technology": "06",
-		"computer": "06",
-		"software": "06",
-		"programming": "06",
-		"database": "06",
-		"network": "06",
-		"web": "06",
-		"multimedia": "06",
-		"it": "06",
+		"information technology":  "06",
+		"computer":                "06",
+		"software":                "06",
+		"programming":             "06",
+		"database":                "06",
+		"network":                 "06",
+		"web":                     "06",
+		"multimedia":              "06",
+		"it":                      "06",
 		"artificial intelligence": "06",
-		
+
 		// ISCED 07 - Engineering, manufacturing and construction
-		"engineering": "07",
-		"mechanical": "07",
-		"electrical": "07",
-		"electronic": "07",
-		"civil": "07",
-		"chemical": "07",
+		"engineering":   "07",
+		"mechanical":    "07",
+		"electrical":    "07",
+		"electronic":    "07",
+		"civil":         "07",
+		"chemical":      "07",
 		"architectural": "07",
-		"architecture": "07",
+		"architecture":  "07",
 		"manufacturing": "07",
-		"construction": "07",
-		
+		"construction":  "07",
+
 		// ISCED 08 - Agriculture, forestry, fisheries and veterinary
 		"agriculture": "08",
-		"forestry": "08",
-		"fisheries": "08",
-		"veterinary": "08",
-		
+		"forestry":    "08",
+		"fisheries":   "08",
+		"veterinary":  "08",
+
 		// ISCED 09 - Health and welfare
-		"health": "09",
-		"medicine": "09",
-		"medical": "09",
-		"nursing": "09",
-		"pharmacy": "09",
-		"dental": "09",
-		"radiology": "09",
+		"health":        "09",
+		"medicine":      "09",
+		"medical":       "09",
+		"nursing":       "09",
+		"pharmacy":      "09",
+		"dental":        "09",
+		"radiology":     "09",
 		"physiotherapy": "09",
-		"welfare": "09",
-		
+		"welfare":       "09",
+
 		// ISCED 10 - Services
-		"services": "10",
-		"hospitality": "10",
-		"tourism": "10",
+		"services":       "10",
+		"hospitality":    "10",
+		"tourism":        "10",
 		"transportation": "10",
-		"aviation": "10",
-		"security": "10",
-		"safety": "10",
+		"aviation":       "10",
+		"security":       "10",
+		"safety":         "10",
 	}
-	
+
 	// First check general area
 	for keyword, code := range keywordMapping {
 		if strings.Contains(generalArea, keyword) {
@@ -427,7 +473,7 @@ func mapAreaToISCEDField(tx *sql.Tx, generalArea, specializedArea string) (int64
 			}
 		}
 	}
-	
+
 	// Then check specialized area (higher priority)
 	for keyword, code := range keywordMapping {
 		if strings.Contains(specializedArea, keyword) {
@@ -438,7 +484,7 @@ func mapAreaToISCEDField(tx *sql.Tx, generalArea, specializedArea string) (int64
 			}
 		}
 	}
-	
+
 	// Return default if no match found
 	return defaultFieldID, nil
 }
@@ -446,27 +492,27 @@ func mapAreaToISCEDField(tx *sql.Tx, generalArea, specializedArea string) (int64
 // mapDesignationToISCEDLevel maps designation to ISCED level
 func mapDesignationToISCEDLevel(tx *sql.Tx, designation string) (int64, error) {
 	designationLower := strings.ToLower(designation)
-	
+
 	// Get all ISCED levels
 	rows, err := tx.Query("SELECT id, code FROM isced_levels ORDER BY id")
 	if err != nil {
 		return 0, fmt.Errorf("error querying ISCED levels: %w", err)
 	}
 	defer rows.Close()
-	
+
 	// Store levels in a map
 	levelMap := make(map[string]int64)
-	var doctoralID, mastersID, bachelorsID int64
-	
+	var doctoralID, mastersID int64
+
 	for rows.Next() {
 		var id int64
 		var code string
 		if err := rows.Scan(&id, &code); err != nil {
 			return 0, fmt.Errorf("error scanning ISCED level: %w", err)
 		}
-		
+
 		levelMap[code] = id
-		
+
 		// Store common levels
 		switch code {
 		case "8": // Doctoral
@@ -474,22 +520,23 @@ func mapDesignationToISCEDLevel(tx *sql.Tx, designation string) (int64, error) {
 		case "7": // Master's
 			mastersID = id
 		case "6": // Bachelor's
-			bachelorsID = id
+			// Store the id in the map but we don't need a separate variable for it
+			// as it's not used elsewhere
 		}
 	}
-	
+
 	// Map based on designation
-	if strings.Contains(designationLower, "dr.") || 
-	   strings.Contains(designationLower, "prof.") || 
-	   strings.Contains(designationLower, "professor") {
+	if strings.Contains(designationLower, "dr.") ||
+		strings.Contains(designationLower, "prof.") ||
+		strings.Contains(designationLower, "professor") {
 		return doctoralID, nil
 	} else if strings.Contains(designationLower, "mr.") ||
-              strings.Contains(designationLower, "mrs.") ||
-              strings.Contains(designationLower, "ms.") ||
-              strings.Contains(designationLower, "miss") {
+		strings.Contains(designationLower, "mrs.") ||
+		strings.Contains(designationLower, "ms.") ||
+		strings.Contains(designationLower, "miss") {
 		return mastersID, nil
 	}
-	
+
 	// Default to master's level if not specified
 	return mastersID, nil
 }

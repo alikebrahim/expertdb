@@ -11,9 +11,9 @@ func (s *SQLiteStore) CreateExpertRequest(request *ExpertRequest) (int64, error)
 		INSERT INTO expert_requests (
 			name, designation, institution, is_bahraini, is_available,
 			rating, role, employment_type, general_area, specialized_area,
-			is_trained, cv_path, phone, email, is_published,
+			is_trained, cv_path, phone, email, is_published, biography,
 			status, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	
 	// Set default values if not provided
@@ -30,7 +30,7 @@ func (s *SQLiteStore) CreateExpertRequest(request *ExpertRequest) (int64, error)
 		request.IsBahraini, request.IsAvailable, request.Rating,
 		request.Role, request.EmploymentType, request.GeneralArea,
 		request.SpecializedArea, request.IsTrained, request.CVPath,
-		request.Phone, request.Email, request.IsPublished,
+		request.Phone, request.Email, request.IsPublished, request.Biography,
 		request.Status, request.CreatedAt,
 	)
 	

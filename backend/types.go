@@ -13,8 +13,13 @@ type CreateExpertRequest struct {
 	PrimaryContact string   `json:"primaryContact"`
 	ContactType    string   `json:"contactType"` // "email" or "phone"
 	Skills         []string `json:"skills"`
+	Role           string   `json:"role"`
+	EmploymentType string   `json:"employmentType"`
+	GeneralArea    string   `json:"generalArea"`
+	CVPath         string   `json:"cvPath"`
 	Biography      string   `json:"biography"`
-	Availability   string   `json:"availability"` // "full-time", "part-time", "weekends"
+	IsBahraini     bool     `json:"isBahraini"`
+	Availability   string   `json:"availability"` // Availability means still active or not. A way to mark as inactive. to be removed
 }
 
 type CreateExpertResponse struct {
@@ -33,42 +38,43 @@ type ISCEDLevel struct {
 
 // ISCEDField represents a field of education according to ISCED classification
 type ISCEDField struct {
-	ID          int64  `json:"id"`
-	BroadCode   string `json:"broadCode"`
-	BroadName   string `json:"broadName"`
-	NarrowCode  string `json:"narrowCode,omitempty"`
-	NarrowName  string `json:"narrowName,omitempty"`
+	ID           int64  `json:"id"`
+	BroadCode    string `json:"broadCode"`
+	BroadName    string `json:"broadName"`
+	NarrowCode   string `json:"narrowCode,omitempty"`
+	NarrowName   string `json:"narrowName,omitempty"`
 	DetailedCode string `json:"detailedCode,omitempty"`
 	DetailedName string `json:"detailedName,omitempty"`
-	Description string `json:"description,omitempty"`
+	Description  string `json:"description,omitempty"`
 }
 
 type Expert struct {
-	ID              int64       `json:"id"`
-	ExpertID        string      `json:"expertId"`
-	Name            string      `json:"name"`
-	Designation     string      `json:"designation"`
-	Institution     string      `json:"institution"`
-	IsBahraini      bool        `json:"isBahraini"`
-	Nationality     string      `json:"nationality"`
-	IsAvailable     bool        `json:"isAvailable"`
-	Rating          string      `json:"rating"`
-	Role            string      `json:"role"`
-	EmploymentType  string      `json:"employmentType"`
-	GeneralArea     string      `json:"generalArea"`
-	SpecializedArea string      `json:"specializedArea"`
-	IsTrained       bool        `json:"isTrained"`
-	CVPath          string      `json:"cvPath"`
-	Phone           string      `json:"phone"`
-	Email           string      `json:"email"`
-	IsPublished     bool        `json:"isPublished"`
-	ISCEDLevel      *ISCEDLevel `json:"iscedLevel,omitempty"`
-	ISCEDField      *ISCEDField `json:"iscedField,omitempty"`
-	Areas           []Area      `json:"areas,omitempty"`
-	Documents       []Document  `json:"documents,omitempty"`
+	ID              int64        `json:"id"`
+	ExpertID        string       `json:"expertId"`
+	Name            string       `json:"name"`
+	Designation     string       `json:"designation"`
+	Institution     string       `json:"institution"`
+	IsBahraini      bool         `json:"isBahraini"`
+	Nationality     string       `json:"nationality"`
+	IsAvailable     bool         `json:"isAvailable"`
+	Rating          string       `json:"rating"`
+	Role            string       `json:"role"`
+	EmploymentType  string       `json:"employmentType"`
+	GeneralArea     string       `json:"generalArea"`
+	SpecializedArea string       `json:"specializedArea"`
+	IsTrained       bool         `json:"isTrained"`
+	CVPath          string       `json:"cvPath"`
+	Phone           string       `json:"phone"`
+	Email           string       `json:"email"`
+	IsPublished     bool         `json:"isPublished"`
+	ISCEDLevel      *ISCEDLevel  `json:"iscedLevel,omitempty"`
+	ISCEDField      *ISCEDField  `json:"iscedField,omitempty"`
+	Areas           []Area       `json:"areas,omitempty"`
+	Documents       []Document   `json:"documents,omitempty"`
 	Engagements     []Engagement `json:"engagements,omitempty"`
-	CreatedAt       time.Time   `json:"createdAt"`
-	UpdatedAt       time.Time   `json:"updatedAt,omitempty"`
+	Biography       string       `json:"biography"`
+	CreatedAt       time.Time    `json:"createdAt"`
+	UpdatedAt       time.Time    `json:"updatedAt,omitempty"`
 }
 
 // Area represents an expert specialization area
@@ -97,6 +103,8 @@ type ExpertRequest struct {
 	Email           string    `json:"email"`
 	IsPublished     bool      `json:"isPublished"`
 	Status          string    `json:"status"`
+	RejectionReason string    `json:"rejectionReason,omitempty"`
+	Biography       string    `json:"biography"`
 	CreatedAt       time.Time `json:"createdAt"`
 	ReviewedAt      time.Time `json:"reviewedAt,omitempty"`
 	ReviewedBy      int64     `json:"reviewedBy,omitempty"`
@@ -134,7 +142,7 @@ type Engagement struct {
 	StartDate      time.Time `json:"startDate"`
 	EndDate        time.Time `json:"endDate,omitempty"`
 	ProjectName    string    `json:"projectName,omitempty"`
-	Status         string    `json:"status"` // "pending", "active", "completed", "cancelled"
+	Status         string    `json:"status"`                  // "pending", "active", "completed", "cancelled"
 	FeedbackScore  int       `json:"feedbackScore,omitempty"` // 1-5 rating
 	Notes          string    `json:"notes,omitempty"`
 	CreatedAt      time.Time `json:"createdAt"`
@@ -145,9 +153,9 @@ type AIAnalysisResult struct {
 	ID              int64     `json:"id"`
 	ExpertID        int64     `json:"expertId,omitempty"`
 	DocumentID      int64     `json:"documentId,omitempty"`
-	AnalysisType    string    `json:"analysisType"` // "profile", "isced_suggestion", "skills_extraction"
-	AnalysisResult  string    `json:"analysisResult"`   // JSON or text data
-	ResultData      string    `json:"resultData"`   // JSON or text data (alias for AnalysisResult)
+	AnalysisType    string    `json:"analysisType"`   // "profile", "isced_suggestion", "skills_extraction"
+	AnalysisResult  string    `json:"analysisResult"` // JSON or text data
+	ResultData      string    `json:"resultData"`     // JSON or text data (alias for AnalysisResult)
 	ConfidenceScore float64   `json:"confidenceScore,omitempty"`
 	ModelUsed       string    `json:"modelUsed,omitempty"`
 	CreatedAt       time.Time `json:"createdAt"`
@@ -156,14 +164,15 @@ type AIAnalysisResult struct {
 
 // Statistics represents system-wide statistics
 type Statistics struct {
-	TotalExperts          int       `json:"totalExperts"`
-	BahrainiPercentage    float64   `json:"bahrainiPercentage"`
-	TopAreas              []AreaStat `json:"topAreas"`
-	ExpertsByISCEDField   []AreaStat `json:"expertsByISCEDField"`
-	EngagementsByType     []AreaStat `json:"engagementsByType"`
-	MonthlyGrowth         []GrowthStat `json:"monthlyGrowth"`
-	MostRequestedExperts  []ExpertStat `json:"mostRequestedExperts"`
-	LastUpdated           time.Time    `json:"lastUpdated"`
+	TotalExperts         int          `json:"totalExperts"`
+	ActiveCount          int          `json:"activeCount"`
+	BahrainiPercentage   float64      `json:"bahrainiPercentage"`
+	TopAreas             []AreaStat   `json:"topAreas"`
+	ExpertsByISCEDField  []AreaStat   `json:"expertsByISCEDField"`
+	EngagementsByType    []AreaStat   `json:"engagementsByType"`
+	MonthlyGrowth        []GrowthStat `json:"monthlyGrowth"`
+	MostRequestedExperts []ExpertStat `json:"mostRequestedExperts"`
+	LastUpdated          time.Time    `json:"lastUpdated"`
 }
 
 // AreaStat represents statistics for a specific area/category
@@ -195,10 +204,10 @@ type DocumentUploadRequest struct {
 
 // AIAnalysisRequest represents a request for AI analysis
 type AIAnalysisRequest struct {
-	ExpertID    int64  `json:"expertId,omitempty"`
-	DocumentID  int64  `json:"documentId,omitempty"`
+	ExpertID     int64  `json:"expertId,omitempty"`
+	DocumentID   int64  `json:"documentId,omitempty"`
 	AnalysisType string `json:"analysisType"`
-	InputData   string `json:"inputData,omitempty"` // Optional additional input data
+	InputData    string `json:"inputData,omitempty"` // Optional additional input data
 }
 
 // Authentication types
@@ -247,20 +256,26 @@ func NewExpert(req CreateExpertRequest) *Expert {
 	} else {
 		email = ""
 	}
-	
+
 	if req.ContactType == "phone" {
 		phone = req.PrimaryContact
 	} else {
 		phone = ""
 	}
-	
+
 	return &Expert{
-		Name:         req.Name,
-		Institution:  req.Affiliation,
-		IsAvailable:  req.Availability == "yes" || req.Availability == "full-time",
-		Email:        email,
-		Phone:        phone,
-		CreatedAt:    time.Now().UTC(),
+		Name:           req.Name,
+		Institution:    req.Affiliation,
+		IsAvailable:    req.Availability == "yes" || req.Availability == "full-time",
+		Email:          email,
+		Phone:          phone,
+		Role:           req.Role,           // New field
+		EmploymentType: req.EmploymentType, // New field
+		GeneralArea:    req.GeneralArea,    // New field
+		CVPath:         req.CVPath,         // New field
+		Biography:      req.Biography,      // New field
+		IsBahraini:     req.IsBahraini,     // Added mapping
+		CreatedAt:      time.Now().UTC(),
 	}
 }
 
@@ -270,11 +285,11 @@ func ValidateCreateExpertRequest(req *CreateExpertRequest) error {
 	if strings.TrimSpace(req.Name) == "" {
 		return errors.New("name is required")
 	}
-	
+
 	if strings.TrimSpace(req.PrimaryContact) == "" {
 		return errors.New("primary contact is required")
 	}
-	
+
 	// Validate contact based on type
 	if req.ContactType == "email" {
 		emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
@@ -287,16 +302,51 @@ func ValidateCreateExpertRequest(req *CreateExpertRequest) error {
 			return errors.New("invalid phone number format")
 		}
 	}
-	
+
 	// Set default contact type if not provided
 	if req.ContactType == "" {
 		req.ContactType = "email"
+	}
+
+	// Validate new required fields
+	if strings.TrimSpace(req.Role) == "" {
+		return errors.New("role is required")
+	}
+
+	if strings.TrimSpace(req.EmploymentType) == "" {
+		return errors.New("employment type is required")
+	}
+
+	if strings.TrimSpace(req.GeneralArea) == "" {
+		return errors.New("general area is required")
+	}
+
+	// Validate role values
+	validRoles := []string{"evaluator", "validator", "consultant", "trainer", "expert"}
+	if !containsString(validRoles, strings.ToLower(req.Role)) {
+		return errors.New("role must be one of: evaluator, validator, consultant, trainer, expert")
+	}
+
+	// Validate employment type values
+	validEmploymentTypes := []string{"academic", "employer", "freelance", "government", "other"}
+	if !containsString(validEmploymentTypes, strings.ToLower(req.EmploymentType)) {
+		return errors.New("employment type must be one of: academic, employer, freelance, government, other")
 	}
 
 	// Limit biography length
 	if len(req.Biography) > 1000 {
 		return errors.New("biography exceeds maximum length of 1000 characters")
 	}
-	
+
 	return nil
+}
+
+// Helper function to check if a string is in a slice
+func containsString(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
 }

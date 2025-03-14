@@ -1,3 +1,4 @@
+-- +goose Up
 -- Create the expert_engagements table to track expert utilization
 CREATE TABLE expert_engagements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

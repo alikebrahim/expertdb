@@ -1,0 +1,4 @@
+~/dev/expertdb_grok/backend  master ⇡1 !18 ?10 ❯ goose -dir db/migrations/sqlite/ sqlite3 db/sqlite/expertdb.sqlite up
+2025/03/09 14:04:21 OK    0007_add_isced_classification.sql
+2025/03/09 14:04:21 OK    0008_map_experts_to_isced.sql
+2025/03/09 14:04:21 goose run: ERROR 0009_create_expert_documents_table.sql: failed to parse SQL migration file: failed to parse migration: unexpected state '\x00' on line "CREATE TABLE expert_documents (", see https://github.com/pressly/goose#sql-migrations

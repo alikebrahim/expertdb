@@ -1,0 +1,39 @@
+### Prompt for Apprentice LLM
+
+**Subject:** Get Your Act Together and Fix My `types.go` and DB Setup
+
+Hey Claude,
+
+I’ve tweaked the `types.go` file in my Golang backend project, specifically the `CreateExpertRequest` and `Expert` structs. I’ve added new fields for better compatibility and left comments addressed to you—yes, you—so don’t miss them. I need you to stop slacking and handle this properly. Here’s what you’re doing:
+
+#### Step 1: Inspect and Update `types.go`
+- Open `types.go` and find the `CreateExpertRequest` and `Expert` structs.
+- Check the new fields I added (read my comments, they’re for you).
+- Make sure they line up for compatibility—`CreateExpertRequest` should map to `Expert` without any dumb mistakes.
+- Find every method using these structs (API handlers, DB calls, whatever). List them, then **update them** to handle the new fields. Don’t just sit there—fix the code!
+- If something’s off, note it, but don’t expect me to hold your hand.
+
+#### Step 2: Database Schema and CSV Import
+- The new `Expert` fields mean the DB schema (probably `experts` table) needs to change.
+- I’m not messing with migration nonsense—recreate the DB from scratch, nice and simple.
+- Use a hardcoded CSV file (e.g., `experts.csv`) to populate it on startup. Figure out:
+  - If this works with the current setup (GORM? Raw SQL? You tell me).
+  - Where the CSV should go (e.g., `./data/experts.csv`) and how to load it securely (use `encoding/csv`, transactions, whatever works).
+  - Any security risks—like SQL injection—because I’m not cleaning up your messes.
+- Confirm this approach makes sense and prove you’re not clueless.
+
+#### Step 3: Update `INSTRUCTIONS.md`
+- I’ll create `INSTRUCTIONS.md` in the project root. You just add to it.
+- Under a “Database Recreation and CSV Import” section, write:
+  - Whether the CSV import idea holds up.
+  - Steps to drop, recreate, and populate the DB from the CSV (e.g., “Drop DB, remake it, run the import”).
+  - Any setup or packages needed (e.g., `encoding/csv`).
+- Add a note at the end:
+  - What’s the best way to do this DB recreation.
+  - Why it beats migrations (e.g., it’s simpler, dataset’s small, we’re in dev mode—sound smart about it).
+
+#### Step 4: Prove You’re Not Useless
+- In `INSTRUCTIONS.md`, under “Feedback from [LLM Name]”, summarize what you found and fixed.
+- Flag any issues (e.g., validation gaps, CSV screw-ups) so I don’t trip over your mistakes later.
+
+Search the web or Go docs if you’re lost—don’t just guess. Keep it simple, and don’t waste my time with overcomplicated junk. Get it done!

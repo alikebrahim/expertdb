@@ -41,11 +41,10 @@ services:
     depends_on:
       - backend
 
-# AI service commented out for initial testing
+# AI service to be implemented
 #  ai:
 #    build: 
-#      context: ./backend
-#      dockerfile: ./ai-placeholder/Dockerfile
+#      context: ./ai
 #    container_name: expertdb-ai
 #    ports:
 #      - "9000:9000"
@@ -53,7 +52,6 @@ services:
 #      - expertdb-data:/app/data
 #    environment:
 #      - PORT=9000
-#      - MODEL_PATH=/app/models
 #      - DATA_PATH=/app/data
 #    networks:
 #      - expertdb-network
