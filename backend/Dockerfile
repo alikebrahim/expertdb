@@ -39,7 +39,6 @@ ENV PORT=8080
 ENV DB_PATH=/app/data/expertdb.sqlite
 ENV UPLOAD_PATH=/app/data/documents
 ENV CORS_ALLOWED_ORIGINS=http://localhost:3000
-ENV AI_SERVICE_URL=http://ai-service:9000
 
 # Expose port
 EXPOSE 8080

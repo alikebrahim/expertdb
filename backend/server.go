@@ -1,5 +1,8 @@
 package main
 
+// NOTE: Refactored to remove AI integration, cleaned up unused files (e.g., import_csv executable, py_import.py),
+// and adjusted directory structure (removed issues/, retained http/).
+
 import (
 	"fmt"
 	"log"

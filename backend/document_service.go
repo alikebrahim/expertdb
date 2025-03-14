@@ -132,14 +132,3 @@ func (s *DocumentService) DeleteDocument(id int64) error {
 	return nil
 }
 
-// ExtractTextFromDocument extracts text from a document for AI processing
-func (s *DocumentService) ExtractTextFromDocument(docPath string) (string, error) {
-	// This is a simplified placeholder
-	// In a real implementation, you would use libraries to extract text from different document types
-	
-	ext := strings.ToLower(filepath.Ext(docPath))
-	
-	// This is where you'd integrate with libraries like pdfcpu, docx, etc.
-	// For now, we'll return a placeholder
-	return fmt.Sprintf("Text extracted from %s document", ext), nil
-}

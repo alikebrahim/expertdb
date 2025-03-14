@@ -1,6 +1,9 @@
 # ExpertDB Backend
 
-A Go-based backend for the ExpertDB system that manages expert profiles, documents, engagements, and provides statistics. It's designed to integrate with separate frontend and AI services via Docker Compose.
+## Overview
+Refactored to remove AI integration and streamline the codebase.
+
+A Go-based backend for the ExpertDB system that manages expert profiles, documents, engagements, and provides statistics.
 
 ## Features
 
@@ -8,16 +11,14 @@ A Go-based backend for the ExpertDB system that manages expert profiles, documen
 - **Document Handling**: Upload, store, and manage expert documents (CVs, certificates, etc.)
 - **Engagement Tracking**: Record and monitor expert assignments and activities
 - **ISCED Classification**: Support for international standard classification of education
-- **AI Integration**: APIs for AI-generated profiles, ISCED suggestions, and skills extraction
 - **Statistics**: Comprehensive metrics on experts, engagements, and system usage
 
 ## Architecture
 
-The system is designed with a microservice architecture:
+The system is designed with a clean architecture:
 
 - **Backend (this repository)**: Handles data storage, business logic, and API serving
 - **Frontend** (separate repository): UI for user interaction
-- **AI Service** (separate repository): Provides AI-powered features for profile generation and document analysis
 
 ## Getting Started
 
@@ -33,7 +34,6 @@ The system is designed with a microservice architecture:
 - `DB_PATH`: SQLite database path (default: ./db/sqlite/expertdb.sqlite)
 - `UPLOAD_PATH`: Document storage path (default: ./data/documents)
 - `CORS_ALLOWED_ORIGINS`: CORS configuration (default: *)
-- `AI_SERVICE_URL`: URL for AI service (default: http://localhost:9000)
 
 ### Local Development
 
@@ -51,45 +51,15 @@ The system is designed with a microservice architecture:
 
 3. Import expert data from CSV (optional):
    ```bash
-   go build -o import_csv ./cmd/import_csv
-   ./import_csv -csv path/to/your/experts.csv -db ./db/sqlite/expertdb.sqlite
+   python py_import.py
    ```
+   Note: This requires a valid experts.csv file in the project directory.
 
 4. Run the server:
    ```bash
    go run *.go
    ```
 
-### CSV Import Instructions
-
-The CSV import tool is a standalone utility for importing expert data. It requires that you have already run the database migrations using goose before importing:
-
-1. Build the import utility:
-   ```
-   go build -o import_csv ./cmd/import_csv
-   ```
-
-2. Run the import utility:
-   ```
-   ./import_csv -csv path/to/your/data.csv -db ./db/sqlite/expertdb.sqlite
-   ```
-
-The CSV file should have the following columns:
-- ID - Unique identifier
-- Name - Expert's full name
-- Designation - Professional title
-- Institution - Affiliated institution
-- BH - Whether the expert is Bahraini (Yes/No)
-- Available - Availability status (Yes/No)
-- Rating - Expert rating
-- Validator/ Evaluator - Role specification
-- Academic/Employer - Employment type
-- General Area - Main area of expertise
-- Specialised Area - Specific specialization
-- Trained - Training status (Yes/No)
-- Phone - Contact number
-- Email - Contact email
-- Published - Whether profile is published (Yes/No)
 
 ### Docker Deployment
 
@@ -122,10 +92,6 @@ This will start the backend service and create necessary volumes for data persis
 - `DELETE /api/engagements/{id}`: Delete engagement
 - `GET /api/experts/{id}/engagements`: Get expert's engagements
 
-### AI Integration
-- `POST /api/ai/generate-profile`: Generate an expert profile
-- `POST /api/ai/suggest-isced`: Suggest ISCED classification
-- `POST /api/ai/extract-skills`: Extract skills from document
 
 ### Statistics
 - `GET /api/statistics`: Get all statistics
@@ -141,7 +107,6 @@ The system uses SQLite with the following key tables:
 - `experts`: Expert profiles and details
 - `expert_documents`: Documents uploaded for experts
 - `expert_engagements`: Records of expert assignments
-- `ai_analysis_results`: Results from AI processing
 - `isced_levels`: Education levels (ISCED classification)
 - `isced_fields`: Education fields (ISCED classification)
 - `system_statistics`: Cached statistics for performance
