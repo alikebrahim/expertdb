@@ -13,3 +13,10 @@ CREATE TABLE system_statistics (
 
 -- Ensure index for nationality filtering exists
 CREATE INDEX IF NOT EXISTS idx_experts_nationality ON experts(nationality);
+
+-- +goose Down
+-- Drop index first
+DROP INDEX IF EXISTS idx_experts_nationality;
+
+-- Drop table
+DROP TABLE IF EXISTS system_statistics;

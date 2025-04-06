@@ -7,25 +7,41 @@ CREATE TABLE IF NOT EXISTS "expert_areas" (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create a junction table for expert-to-area many-to-many relationship
-CREATE TABLE IF NOT EXISTS "expert_specializations" (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    expert_id INTEGER NOT NULL,
-    area_id INTEGER NOT NULL,
-    proficiency_level TEXT,  -- beginner, intermediate, expert
-    years_experience INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (expert_id) REFERENCES experts(id) ON DELETE CASCADE,
-    FOREIGN KEY (area_id) REFERENCES expert_areas(id) ON DELETE CASCADE,
-    UNIQUE(expert_id, area_id)
-);
-
--- Create indexes for the junction table
-CREATE INDEX idx_expert_specializations_expert_id ON expert_specializations(expert_id);
-CREATE INDEX idx_expert_specializations_area_id ON expert_specializations(area_id);
+-- Populate the expert_areas table with predefined specializations
+INSERT INTO expert_areas (name) VALUES
+    ("Art and Design"),
+    ("Aviation"),
+    ("Business"),
+    ("Business - Accounting & Audit"),
+    ("Business - Banking & Finance"),
+    ("Business - Compliance"),
+    ("Business - Economics"),
+    ("Business - Insurance"),
+    ("Business - Islamic Banking & Finance"),
+    ("Business - Management & Marketing"),
+    ("Business - Project Management"),
+    ("Education"),
+    ("Engineering"),
+    ("Engineering - Architectural"),
+    ("Engineering - Chemical"),
+    ("Engineering - Civil"),
+    ("Engineering - Electrical and Electronic"),
+    ("Engineering - Mechanical"),
+    ("English"),
+    ("Health & Safety"),
+    ("Hospitality and Tourism"),
+    ("Information Technology"),
+    ("Law"),
+    ("Medical Science"),
+    ("Quality Assurance"),
+    ("Science"),
+    ("Science - Biology"),
+    ("Science - Chemistry"),
+    ("Science - Environment"),
+    ("Science - Mathematics"),
+    ("Science - Physics"),
+    ("Social Sciences"),
+    ("Training");
 
 -- +goose Down
-DROP INDEX IF EXISTS idx_expert_specializations_area_id;
-DROP INDEX IF EXISTS idx_expert_specializations_expert_id;
-DROP TABLE IF EXISTS "expert_specializations";
 DROP TABLE IF EXISTS "expert_areas";

@@ -13,9 +13,9 @@ func (s *SQLiteStore) CreateExpert(expert *Expert) (int64, error) {
 			expert_id, name, designation, institution, is_bahraini, 
 			nationality, is_available, rating, role, employment_type, 
 			general_area, specialized_area, is_trained, cv_path, 
-			phone, email, is_published, isced_level_id, isced_field_id,
+			phone, email, is_published, biography,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	
 	// Set default values if not provided
@@ -26,23 +26,13 @@ func (s *SQLiteStore) CreateExpert(expert *Expert) (int64, error) {
 		expert.UpdatedAt = expert.CreatedAt
 	}
 	
-	var iscedLevelID, iscedFieldID sql.NullInt64
-	if expert.ISCEDLevel != nil {
-		iscedLevelID.Int64 = expert.ISCEDLevel.ID
-		iscedLevelID.Valid = true
-	}
-	if expert.ISCEDField != nil {
-		iscedFieldID.Int64 = expert.ISCEDField.ID
-		iscedFieldID.Valid = true
-	}
-	
 	result, err := s.db.Exec(
 		query,
 		expert.ExpertID, expert.Name, expert.Designation, expert.Institution,
 		expert.IsBahraini, expert.Nationality, expert.IsAvailable, expert.Rating,
 		expert.Role, expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
 		expert.IsTrained, expert.CVPath, expert.Phone, expert.Email, expert.IsPublished,
-		iscedLevelID, iscedFieldID, expert.CreatedAt, expert.UpdatedAt,
+		expert.Biography, expert.CreatedAt, expert.UpdatedAt,
 	)
 	
 	if err != nil {

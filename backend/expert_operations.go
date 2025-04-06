@@ -10,7 +10,7 @@ import (
 // GetExpert retrieves a complete expert profile by ID including all related data
 //
 // This function retrieves an expert by ID and loads all associated data including
-// education classification, specialization areas, documents, and engagement history.
+// general area, documents, and engagement history.
 //
 // Inputs:
 //   - id (int64): The unique identifier of the expert to retrieve
@@ -20,38 +20,42 @@ import (
 //   - error: ErrNotFound if the expert doesn't exist, or any database error
 //
 // Flow:
-//   1. Retrieve base expert data from experts table
+//   1. Retrieve base expert data from experts table with joined general area name
 //   2. Parse and convert timestamp fields
-//   3. Load related ISCED education classification data
-//   4. Load expert specialization areas
-//   5. Load associated documents
-//   6. Load engagement history records
+//   3. Load associated documents
+//   4. Load engagement history records
 func (s *SQLiteStore) GetExpert(id int64) (*Expert, error) {
 	logger := GetLogger()
 	
-	// Step 1: Retrieve base expert data with main query
+	// Step 1: Retrieve base expert data
 	// This query gets all core expert fields from the experts table
 	query := `
 		SELECT e.id, e.expert_id, e.name, e.designation, e.institution, e.is_bahraini, 
 			   e.is_available, e.rating, e.role, e.employment_type, e.general_area, 
 			   e.specialized_area, e.is_trained, e.cv_path, e.phone, e.email, e.is_published, 
-			   e.biography, e.isced_level_id, e.isced_field_id, e.created_at, e.updated_at
+			   e.biography, e.created_at, e.updated_at
 		FROM experts e
 		WHERE e.id = ?
 	`
 	
 	var expert Expert
 	var createdAt, updatedAt string
-	var iscedLevelID, iscedFieldID sql.NullInt64
+	var generalAreaName string
 	
 	// Execute the query and scan results into expert struct
+	var generalAreaName sql.NullString
 	err := s.db.QueryRow(query, id).Scan(
 		&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation, &expert.Institution,
 		&expert.IsBahraini, &expert.IsAvailable, &expert.Rating, &expert.Role, &expert.EmploymentType,
-		&expert.GeneralArea, &expert.SpecializedArea, &expert.IsTrained, &expert.CVPath,
-		&expert.Phone, &expert.Email, &expert.IsPublished, &expert.Biography, &iscedLevelID, &iscedFieldID,
+		&expert.GeneralArea, &generalAreaName, &expert.SpecializedArea, &expert.IsTrained, &expert.CVPath,
+		&expert.Phone, &expert.Email, &expert.IsPublished, &expert.Biography,
 		&createdAt, &updatedAt,
 	)
+	
+	// Store area name if available
+	if generalAreaName.Valid {
+		expert.GeneralAreaName = generalAreaName.String
+	}
 	
 	// Handle query errors
 	if err != nil {
@@ -69,59 +73,7 @@ func (s *SQLiteStore) GetExpert(id int64) (*Expert, error) {
 		expert.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
 	}
 	
-	// Step 3: Load related ISCED education classification data if available
-	
-	// Load ISCED level if the expert has one assigned
-	if iscedLevelID.Valid {
-		var level ISCEDLevel
-		// Query ISCED level details
-		err := s.db.QueryRow(
-			"SELECT id, code, name, description FROM isced_levels WHERE id = ?",
-			iscedLevelID.Int64,
-		).Scan(&level.ID, &level.Code, &level.Name, &level.Description)
-		if err == nil {
-			expert.ISCEDLevel = &level
-		} else {
-			logger.Debug("Failed to load ISCED level %d for expert %d: %v", 
-				iscedLevelID.Int64, id, err)
-		}
-	}
-	
-	// Load ISCED field if the expert has one assigned
-	if iscedFieldID.Valid {
-		var field ISCEDField
-		// Query ISCED field details
-		err := s.db.QueryRow(
-			"SELECT id, broad_code, broad_name, narrow_code, narrow_name, detailed_code, detailed_name, description FROM isced_fields WHERE id = ?",
-			iscedFieldID.Int64,
-		).Scan(&field.ID, &field.BroadCode, &field.BroadName, &field.NarrowCode, &field.NarrowName, &field.DetailedCode, &field.DetailedName, &field.Description)
-		if err == nil {
-			expert.ISCEDField = &field
-		} else {
-			logger.Debug("Failed to load ISCED field %d for expert %d: %v", 
-				iscedFieldID.Int64, id, err)
-		}
-	}
-	
-	// Step 4: Load expert specialization areas
-	// Query to get all areas associated with this expert through the mapping table
-	areaRows, err := s.db.Query(
-		"SELECT a.id, a.name FROM expert_areas a JOIN expert_area_map m ON a.id = m.area_id WHERE m.expert_id = ?",
-		expert.ID,
-	)
-	if err == nil {
-		defer areaRows.Close()
-		for areaRows.Next() {
-			var area Area
-			if err := areaRows.Scan(&area.ID, &area.Name); err == nil {
-				expert.Areas = append(expert.Areas, area)
-			}
-		}
-	} else {
-		logger.Debug("Failed to load areas for expert %d: %v", id, err)
-	}
-	
-	// Step 5: Load associated documents
+	// Step 3: Load associated documents
 	docs, err := s.GetDocumentsByExpertID(expert.ID)
 	if err != nil {
 		logger.Debug("Failed to load documents for expert %d: %v", id, err)
@@ -131,7 +83,7 @@ func (s *SQLiteStore) GetExpert(id int64) (*Expert, error) {
 		}
 	}
 	
-	// Step 6: Load engagement history
+	// Step 4: Load engagement history
 	expertEngagements, err := s.GetEngagementsByExpertID(expert.ID)
 	if err != nil {
 		logger.Debug("Failed to load engagements for expert %d: %v", id, err)
@@ -148,8 +100,7 @@ func (s *SQLiteStore) GetExpert(id int64) (*Expert, error) {
 // UpdateExpert updates an expert's record in the database
 //
 // This function updates all fields of an expert record with the provided values.
-// It sets the updated_at timestamp to the current time and handles nullable fields
-// like ISCED classification IDs.
+// It sets the updated_at timestamp to the current time.
 //
 // Inputs:
 //   - expert (*Expert): The expert object with updated field values to save
@@ -158,7 +109,7 @@ func (s *SQLiteStore) GetExpert(id int64) (*Expert, error) {
 //   - error: Any database error that occurs during the update operation
 //
 // Note: This method updates only the core expert data. Associated data like
-// documents, areas, and engagements must be updated separately using their
+// documents and engagements must be updated separately using their
 // respective methods.
 func (s *SQLiteStore) UpdateExpert(expert *Expert) error {
 	logger := GetLogger()
@@ -173,43 +124,27 @@ func (s *SQLiteStore) UpdateExpert(expert *Expert) error {
 			is_bahraini = ?, nationality = ?, is_available = ?, rating = ?, role = ?,
 			employment_type = ?, general_area = ?, specialized_area = ?,
 			is_trained = ?, cv_path = ?, phone = ?, email = ?, is_published = ?,
-			biography = ?, isced_level_id = ?, isced_field_id = ?, updated_at = ?
+			biography = ?, updated_at = ?
 		WHERE id = ?
 	`
 	
-	// Step 3: Handle nullable foreign key fields (ISCED classifications)
-	// Convert pointers to sql.NullInt64 for nullable database fields
-	var iscedLevelID, iscedFieldID sql.NullInt64
-	
-	// Set ISCED level ID if present
-	if expert.ISCEDLevel != nil {
-		iscedLevelID.Int64 = expert.ISCEDLevel.ID
-		iscedLevelID.Valid = true
-	}
-	
-	// Set ISCED field ID if present
-	if expert.ISCEDField != nil {
-		iscedFieldID.Int64 = expert.ISCEDField.ID
-		iscedFieldID.Valid = true
-	}
-	
-	// Step 4: Execute the update query
+	// Step 3: Execute the update query
 	result, err := s.db.Exec(
 		query,
 		expert.ExpertID, expert.Name, expert.Designation, expert.Institution,
 		expert.IsBahraini, expert.Nationality, expert.IsAvailable, expert.Rating,
 		expert.Role, expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
 		expert.IsTrained, expert.CVPath, expert.Phone, expert.Email, expert.IsPublished,
-		expert.Biography, iscedLevelID, iscedFieldID, expert.UpdatedAt, expert.ID,
+		expert.Biography, expert.UpdatedAt, expert.ID,
 	)
 	
-	// Step 5: Handle database errors
+	// Step 4: Handle database errors
 	if err != nil {
 		logger.Error("Failed to update expert ID %d: %v", expert.ID, err)
 		return fmt.Errorf("failed to update expert: %w", err)
 	}
 	
-	// Step 6: Check if any rows were affected (optional validation)
+	// Step 5: Check if any rows were affected (optional validation)
 	rowsAffected, err := result.RowsAffected()
 	if err == nil && rowsAffected == 0 {
 		// This indicates the expert ID doesn't exist
@@ -265,12 +200,7 @@ func (s *SQLiteStore) DeleteExpert(id int64) error {
 	
 	// Step 2: Delete related records in order that maintains referential integrity
 	
-	// Step 2.1: Delete expert-area mappings first
-	// These are junction table records linking experts to their specialization areas
-	_, err = tx.Exec("DELETE FROM expert_area_map WHERE expert_id = ?", id)
-	if err != nil {
-		return rollback(err, "failed to delete expert area mappings")
-	}
+	// Note: expert_area_map junction table has been removed in schema simplification
 	
 	// Step 2.2: Delete expert engagements
 	// These track participation of experts in various activities
@@ -314,3 +244,51 @@ func (s *SQLiteStore) DeleteExpert(id int64) error {
 // NOTE: Consider implementing a confirmation mechanism or soft delete feature
 // to prevent accidental data loss. The current implementation permanently deletes
 // all expert data with no recovery option.
+
+// GetExpertAreaByID retrieves a single expert area by ID
+func (s *SQLiteStore) GetExpertAreaByID(id int64) (*Area, error) {
+	logger := GetLogger()
+	
+	var area Area
+	err := s.db.QueryRow("SELECT id, name FROM expert_areas WHERE id = ?", id).Scan(&area.ID, &area.Name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			logger.Debug("Expert area not found with ID: %d", id)
+			return nil, ErrNotFound
+		}
+		logger.Error("Database error retrieving expert area ID %d: %v", id, err)
+		return nil, fmt.Errorf("failed to get expert area: %w", err)
+	}
+	
+	return &area, nil
+}
+
+// GetExpertAreas retrieves all expert areas
+func (s *SQLiteStore) GetExpertAreas() ([]Area, error) {
+	logger := GetLogger()
+	
+	rows, err := s.db.Query("SELECT id, name FROM expert_areas ORDER BY name")
+	if err != nil {
+		logger.Error("Database error retrieving expert areas: %v", err)
+		return nil, fmt.Errorf("failed to get expert areas: %w", err)
+	}
+	defer rows.Close()
+	
+	var areas []Area
+	for rows.Next() {
+		var area Area
+		if err := rows.Scan(&area.ID, &area.Name); err != nil {
+			logger.Error("Error scanning expert area row: %v", err)
+			return nil, fmt.Errorf("failed to scan expert area: %w", err)
+		}
+		areas = append(areas, area)
+	}
+	
+	if err = rows.Err(); err != nil {
+		logger.Error("Error iterating expert area rows: %v", err)
+		return nil, fmt.Errorf("failed to iterate expert areas: %w", err)
+	}
+	
+	logger.Debug("Successfully retrieved %d expert areas", len(areas))
+	return areas, nil
+}

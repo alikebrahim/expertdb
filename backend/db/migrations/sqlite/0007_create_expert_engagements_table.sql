@@ -18,3 +18,12 @@ CREATE TABLE expert_engagements (
 CREATE INDEX idx_engagements_expert_id ON expert_engagements(expert_id);
 CREATE INDEX idx_engagements_status ON expert_engagements(status);
 CREATE INDEX idx_engagements_date ON expert_engagements(start_date);
+
+-- +goose Down
+-- Drop indexes first
+DROP INDEX IF EXISTS idx_engagements_expert_id;
+DROP INDEX IF EXISTS idx_engagements_status;
+DROP INDEX IF EXISTS idx_engagements_date;
+
+-- Drop table
+DROP TABLE IF EXISTS expert_engagements;

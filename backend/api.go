@@ -94,6 +94,7 @@ func (s *APIServer) Run() error {
 	mux.HandleFunc("GET /api/expert-requests", makeHTTPHandleFunc(requireAuth(s.handleGetExpertRequests)))
 	mux.HandleFunc("GET /api/expert-requests/{id}", makeHTTPHandleFunc(requireAuth(s.handleGetExpertRequest)))
 	mux.HandleFunc("PUT /api/expert-requests/{id}", makeHTTPHandleFunc(requireAdmin(s.handleUpdateExpertRequest)))
+	mux.HandleFunc("GET /api/expert/areas", makeHTTPHandleFunc(s.handleGetExpertAreas))
 
 	// Step 1.3: ISCED classification reference data routes
 	logger.Debug("Registering ISCED classification routes")
@@ -554,6 +555,38 @@ func (s *APIServer) handleGetISCEDLevels(w http.ResponseWriter, r *http.Request)
 	// Step 2: Return levels as JSON response
 	logger.Debug("Returning %d ISCED levels", len(levels))
 	return WriteJson(w, http.StatusOK, levels)
+}
+
+// handleGetExpertAreas handles GET /api/expert/areas requests.
+//
+// This handler retrieves all expert areas from the database and returns them
+// as a JSON response. Expert areas are used for classifying experts by their
+// field of specialization.
+//
+// Inputs:
+//   - w (http.ResponseWriter): The response writer for returning results
+//   - r (*http.Request): The HTTP request
+//
+// Returns:
+//   - error: Any error that occurs during processing
+//
+// Flow:
+//   1. Query the database for all expert areas
+//   2. Return the areas as a JSON response
+func (s *APIServer) handleGetExpertAreas(w http.ResponseWriter, r *http.Request) error {
+	logger := GetLogger()
+	logger.Debug("Processing GET /api/expert/areas request")
+	
+	// Step 1: Query expert areas from database
+	areas, err := s.store.GetExpertAreas()
+	if err != nil {
+		logger.Error("Failed to fetch expert areas: %v", err)
+		return WriteJson(w, http.StatusInternalServerError, ApiError{Error: fmt.Sprintf("Failed to fetch expert areas: %v", err)})
+	}
+	
+	// Step 2: Return areas as JSON response
+	logger.Debug("Returning %d expert areas", len(areas))
+	return WriteJson(w, http.StatusOK, areas)
 }
 
 // handleGetISCEDFields handles GET /api/isced/fields requests.

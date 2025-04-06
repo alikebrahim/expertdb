@@ -1,0 +1,450 @@
+~/dev/expertdb/backend  master !18 ?5 ❯ python3 py_import.py                                                                                                                               ▼
+Loaded expert_areas: {'Art and Design': 1, 'Aviation': 2, 'Business': 3, 'Business - Accounting & Audit': 4, 'Business - Banking & Finance': 5, 'Business - Compliance': 6, 'Business - Economics': 7, 'Business - Insurance': 8, 'Business - Islamic Banking & Finance': 9, 'Business - Management & Marketing': 10, 'Business - Project Management': 11, 'Education': 12, 'Engineering': 13, 'Engineering - Architectural': 14, 'Engineering - Chemical': 15, 'Engineering - Civil': 16, 'Engineering - Electrical and Electronic': 17, 'Engineering - Mechanical': 18, 'English': 19, 'Health & Safety': 20, 'Hospitality and Tourism': 21, 'Information Technology': 22, 'Law': 23, 'Medical Science': 24, 'Quality Assurance': 25, 'Science': 26, 'Science - Biology': 27, 'Science - Chemistry': 28, 'Science - Environment': 29, 'Science - Mathematics': 30, 'Science - Physics': 31, 'Social Sciences': 32, 'Training': 33}
+CSV Headers found (cleaned): ['ID', 'Designation', 'Name', 'Institution', 'BH', 'Available', 'Rating', 'Validator/ Evaluator', 'Academic/Employer', 'General Area', 'Specialised Area', 'Trained', 'CV', 'Phone', 'Email', 'Published']
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Ammar Jreisat
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Aalla Hajih
+Matched 'Business' to 'Business' (ID 3) for expert Abbas Janahi
+Matched 'Education' to 'Education' (ID 12) for expert Abbas Nasser
+Matched 'Engineering - Chemical' to 'Engineering - Chemical' (ID 15) for expert Abdelhamid Ajbar
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Abdulrahman Adam
+Matched 'Business - Islamic Banking & Finance' to 'Business - Islamic Banking & Finance' (ID 9) for expert Abdulahman Tolefat
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Abdulaziz Abdulrahman
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Abdulaziz Al Mahmeed
+Matched 'Business' to 'Business' (ID 3) for expert Abdulhasan Al-Dairi
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Abdulla Al Kooheji
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Abdulla Mohammed
+Matched 'Science - Chemistry' to 'Science - Chemistry' (ID 28) for expert Abdulla Al Mutawah
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Abdulla Habib Mustafa
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Abdulla Rawanbakhsh
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Abdulla Saleh
+Matched 'Business - Islamic Banking & Finance' to 'Business - Islamic Banking & Finance' (ID 9) for expert Abdulrahman Al Saadi
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert Abdulrahman Abduljalil
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Adel A.Kareem
+Matched 'Science- Mathematics' to 'Science - Mathematics' (ID 30) for expert Adel Dagher
+Matched 'Health & Safety' to 'Health & Safety' (ID 20) for expert Adel Dairi
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Adel Ismail Ali
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Adel Kamal
+Matched 'Aviation' to 'Aviation' (ID 2) for expert Adel Al Sabah
+Matched 'Law' to 'Law' (ID 23) for expert Adel Hassan
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Adnan Al Ameer
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Afnan Ali Saqer
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Afnan Abdulaziz
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Ahlam Hasan
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Ahmad Al Araida
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Ahmed Al Awadhi
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert Ahmed Nuruddin
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Ahmed Al Rayes
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Ahmed El Masri
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Ahmed Al Taan
+Matched 'Engineering' to 'Engineering' (ID 13) for expert Ahmed Husain Abdulla
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Ahmed Jedidi
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Ahmed Al Alawi
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Ahmed Naeemi
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Ahmed Buong
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Aisha Akbari
+Matched 'Business - Islamic Banking & Finance' to 'Business - Islamic Banking & Finance' (ID 9) for expert Alfatih Aryasantana
+Matched 'Hospitality and Tourism' to 'Hospitality and Tourism' (ID 21) for expert Ali Saeed
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Ali Adel
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Ali Al Thawadi
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Ali Alsoufi
+Matched 'Science - Environment' to 'Science - Environment' (ID 29) for expert Ali Fardan
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Ali Lari
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert Ali Yousif Al Yousif
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Allam Hamdan
+Matched 'English' to 'English' (ID 19) for expert Alya Al Mulla
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Amal Al Rayes
+Matched 'Education' to 'Education' (ID 12) for expert Amal Al Awadhi
+Matched 'Education' to 'Education' (ID 12) for expert Amal Al Gallaf
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Amani Al Mobayedheen
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Ameera Karam El Din
+Matched 'Law' to 'Law' (ID 23) for expert Amer Al Saeedi
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Amin Al Agha
+Matched 'Science- Mathematics' to 'Science - Mathematics' (ID 30) for expert Amina Alaqal
+Matched 'Education' to 'Education' (ID 12) for expert Amjad Abuloum
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Ammar Mansoor
+Matched 'Law' to 'Law' (ID 23) for expert Amr Qandeel
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Anand Omanakuttan
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Andrew Doherty
+Matched 'Education' to 'Education' (ID 12) for expert Andrew Thomas
+Matched 'Science - Physics' to 'Science - Physics' (ID 31) for expert Andy Ma
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Aneesa Al Sindi
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Anisa Al Saad
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Anji Amara
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Annamarie Lawrence
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Anton Storey
+Matched 'Education' to 'Education' (ID 12) for expert Anurada Menon
+Matched 'Science - Chemistry' to 'Science - Chemistry' (ID 28) for expert Anwar Abdulrazaq
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Aqeel Ebrahim
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Aref Faqih
+Matched 'Business' to 'Business' (ID 3) for expert Arpita Mehrotra
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Ayman Al Basri
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Aysha AlMoayyed
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Azhar Naseeb
+Matched 'Engineering' to 'Engineering' (ID 13) for expert Bader Al-Mansoori
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Basma Fathy Ammar
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Bassam Al Hamad
+Matched 'Health & Safety' to 'Health & Safety' (ID 20) for expert Bassam Zayed
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Batool Al Mohandis
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Batool Kasim Asiri
+Matched 'English' to 'English' (ID 19) for expert Beata Susanszky
+Matched 'Business' to 'Business' (ID 3) for expert Bharateesh Kasi
+Matched 'Business - Islamic Banking & Finance' to 'Business - Islamic Banking & Finance' (ID 9) for expert Bishr Lutfi
+Matched 'Education' to 'Education' (ID 12) for expert Brian Bennison
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Buthaina Bucheery
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Charles Batach
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Christakis Papageorgiou
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert Christina Georgantopoulou
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Christos Gatzoulis
+Matched 'Business' to 'Business' (ID 3) for expert Clare Walsh
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Conor Sheedy
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert Daige Khalifa
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Dalal Al Khuzai
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Dalal Al Sindi
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Dana Mutaywea
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Dana Bukhammas
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Danah Smith
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Darren Morris
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert David Fairely
+Warning: 'General Area' is missing or empty for expert David Krause, using 'Unknown' (ID 34)
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert David Thomson
+Matched 'Science - Chemistry' to 'Science - Chemistry' (ID 28) for expert Declan Gaynor
+Matched 'English' to 'English' (ID 19) for expert Dexter Cadiente
+Matched 'Business - Islamic Banking & Finance' to 'Business - Islamic Banking & Finance' (ID 9) for expert Ebrahim Al Mahari
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Ebrahim Malalla
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Ehsan Al Kooheji
+Warning: 'General Area' is missing or empty for expert Elham Abdulla, using 'Unknown' (ID 34)
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Elizabeth Samuel
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Ema Janahi
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Emma Salari
+Matched 'Education' to 'Education' (ID 12) for expert Enaz Mahmoud
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Esra Wali
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Esraa Al Dhaen
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Esam Hadi
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Fadhel Al Basri
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Fadhel Rabea
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Fahdia Khalid
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Faisal Hammad
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Faisal Qaed
+Matched 'Aviation' to 'Aviation' (ID 2) for expert Fajer Mufeez
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Fariba Al Durazi
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Fareed Al Bayat
+Matched 'Business - Economics' to 'Business - Economics' (ID 7) for expert Farkhanda Shamim
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Fatema Qaed
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Fatema Yusuf Abbas
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Fatima Al Samaheeji
+Matched 'English' to 'English' (ID 19) for expert Fatima Wali
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Fawaz Al Otaibi
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Fryad Zeki Henari
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert Fuad Al Maidan
+Matched 'Business - Economics' to 'Business - Economics' (ID 7) for expert Fuad M.Kreishan
+Matched 'Science- Mathematics' to 'Science - Mathematics' (ID 30) for expert George Toworfe
+Matched 'Engineering - Chemical' to 'Engineering - Chemical' (ID 15) for expert Geraldo Talisic
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Ghadeer Ismail
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Ghassan Abu Al Soud
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Ghufran Jassim
+Matched 'Business' to 'Business' (ID 3) for expert Gökhan Bora Aktan
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Haitham Anwar
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Hakeema Al Hashmi
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Hala Elias
+Matched 'Science - Environment' to 'Science - Environment' (ID 29) for expert Halel Engineer
+Matched 'Business' to 'Business' (ID 3) for expert Hamad Al Kaabi
+Matched 'Engineering - Civil' to 'Engineering - Civil' (ID 16) for expert Hamdy El Sayed
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Hamza Ali
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Hana Al Mossa
+Matched 'Business - Economics' to 'Business - Economics' (ID 7) for expert Hana Kanoo
+Matched 'Science - Physics' to 'Science - Physics' (ID 31) for expert Hanan Albuflasa
+Matched 'Education' to 'Education' (ID 12) for expert Haneen Bukamal
+Matched 'Education' to 'Education' (ID 12) for expert Hasan Al Mulla
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Hasan Kamal
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Hashim Al Alawi
+Matched 'Engineering - Civil' to 'Engineering - Civil' (ID 16) for expert Hashim Al Madani
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Hassan Salman
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Hassan Ghonaim
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Haytham Yaseen
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Hesham Al Ammal
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Hesham Al Marsafawy
+Matched 'Engineering - Civil' to 'Engineering - Civil' (ID 16) for expert Hisham Ibrahim
+Matched 'Business - Economics' to 'Business - Economics' (ID 7) for expert Hisham El Gaabeiri
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Houssam Yaacoub
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Humam El Agha
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Husain Nasaif
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Husain Ghuloom
+Matched 'Business - Islamic Banking & Finance' to 'Business - Islamic Banking & Finance' (ID 9) for expert Iftikhar Ali
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Iqbal Hawaldar
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Ishaq Ameen
+Warning: 'General Area' is missing or empty for expert Ismail Hussain, using 'Unknown' (ID 34)
+Matched 'Business' to 'Business' (ID 3) for expert Jaafar AlHayki
+Matched 'Business' to 'Business' (ID 3) for expert Jaber AlMosallem
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Jaber Bader
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Jacob Nel
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Jalila Arbab
+Matched 'Aviation' to 'Aviation' (ID 2) for expert Jamal Hashim
+Matched 'Science - Environment' to 'Science - Environment' (ID 29) for expert Jamal Al Saleh
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Jamal Dahneem
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert Jameel Hasan
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Janon Kadhim
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Jassim Al Mutawaa
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Joana Macam
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert John Donald
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert John Leek
+Matched 'Training' to 'Training' (ID 33) for expert Jolly Thomas
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Josiane Farah
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert K. K. Anilkumar
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Karima Saleh
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Kathryn Strachan
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Khalid Abdulla
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Khalid Al Mutawaa
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Khalid Allam
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Khalil Shamsi
+Matched 'Science - Chemistry' to 'Science - Chemistry' (ID 28) for expert Lalit Vaid
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Lameea Al Tahoo
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Lamya Al Jasmi
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Latifa Abdulrahman
+Matched 'Education' to 'Education' (ID 12) for expert Layla Al Mulla
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Layla Al Halwachi
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Lillian Hallack
+Matched 'Business - Compliance' to 'Business - Compliance' (ID 6) for expert Lubna Sulaiman
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Luisella Balbis
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Lulwa Khuzam
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Madina Hamiane
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Mahmood Al Hashimi
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Mahmood Ghuloom
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Mahmoud Jazzar
+Matched 'Engineering - Chemical' to 'Engineering - Chemical' (ID 15) for expert Maitham Al Oraibi
+Matched 'Science- Mathematics' to 'Science - Mathematics' (ID 30) for expert Maitham Al Muharraqi
+Matched 'Business' to 'Business' (ID 3) for expert Maki Abbas
+Matched 'Engineering - Civil' to 'Engineering - Civil' (ID 16) for expert Manaf Hamza
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Manal Khalaf
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Manal Mashkoor
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Mansoor Al A’ali
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Maryam Abdulla
+Matched 'Training' to 'Training' (ID 33) for expert Mariam Al Noaimi
+Matched 'English' to 'English' (ID 19) for expert Mariam Al Thawadi
+Matched 'Business' to 'Business' (ID 3) for expert Mariam Abu Al Fateh
+Matched 'Business' to 'Business' (ID 3) for expert Mariam Bani Hamad
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Mariam Janahi
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Mariya Kamacharova
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Marwa Ul-Haq
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Mazen Ali
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Mesfer Al Muhanadi
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Meshal Al Hellow
+Matched 'Science - Biology' to 'Science - Biology' (ID 27) for expert Michael Keogh
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert Mohamed Husain
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert Mohamed Baqi
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Mohamed Mansour
+Matched 'Business' to 'Business' (ID 3) for expert Mohamed Al Zayani
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Mohamed Al Sakran
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Mohamed Al Haddad
+Matched 'Business - Economics' to 'Business - Economics' (ID 7) for expert Mohamed Abdalla
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Mohamed Mahmood
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Mohammed Hassan
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Mohammed Aldoseri
+Matched 'Engineering - Civil' to 'Engineering - Civil' (ID 16) for expert Mohammed Ammar
+Matched 'Science- Mathematics' to 'Science - Mathematics' (ID 30) for expert Mona Ebrahim
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Mona Jawad
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Moneer E Seroor
+Matched 'Business - Project Management' to 'Business - Project Management' (ID 11) for expert Munther AlMudawi
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Mustafa Qattorah
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Muyassar Sabri
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Myrna Mejia
+Matched 'Business - Compliance' to 'Business - Compliance' (ID 6) for expert Nabeela Janahi
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Nada Al Gassab
+Matched 'Health & Safety' to 'Health & Safety' (ID 20) for expert Nader Ahmed
+Matched 'Business' to 'Business' (ID 3) for expert Nader Al-Soufi
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Nader Sonbol
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Nadine al Shirawi
+Matched 'Business - Compliance' to 'Business - Compliance' (ID 6) for expert Naeema Taheri
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Naglaa El Dessouky
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Naheed Al Awadhi
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Najwa Abdul Rahim
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Namasiku Liandu
+Matched 'Business - Islamic Banking & Finance' to 'Business - Islamic Banking & Finance' (ID 9) for expert Nasreen Al Qaseer
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Nasreen Alasoomi
+Matched 'Business - Islamic Banking & Finance' to 'Business - Islamic Banking & Finance' (ID 9) for expert Nasser Al Alawi
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Nassima Debab
+Matched 'Education' to 'Education' (ID 12) for expert Nawal Zuwayed
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Nehal Al Murbati
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Nehal El Naggar
+Matched 'Education' to 'Education' (ID 12) for expert Nina Abdulrazaq
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Noora Al Shamlan
+Matched 'Business - Insurance' to 'Business - Insurance' (ID 8) for expert Noora Al Haddad
+Matched 'Law' to 'Law' (ID 23) for expert Omar Fakhry
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Omar Juhmani
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Parsa Zoqaqi
+Matched 'Engineering - Chemical' to 'Engineering - Chemical' (ID 15) for expert Paul Vona
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Philippe Mouillot
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Rafat Mohtasib
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Rammi Mokha
+Matched 'Law' to 'Law' (ID 23) for expert Ramzan AlNoaimi
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Rana Al Majed
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Rashed Al Banna
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Reem Alboainain
+Matched 'Engineering - Civil' to 'Engineering - Civil' (ID 16) for expert Reem AlOtaibi
+Matched 'Law' to 'Law' (ID 23) for expert Reyad Seyadi
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Rubina Khan
+Matched 'Business - Insurance' to 'Business - Insurance' (ID 8) for expert S. Ahmed Yaseen
+Matched 'Engineering - Civil' to 'Engineering - Civil' (ID 16) for expert Saeed Asbool
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Saeed Al Nasheet
+Matched 'Science - Chemistry' to 'Science - Chemistry' (ID 28) for expert Saeed Ahmed Husain
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Said Tann El Hajjar
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Saja Hammad
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Salah Janahi
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Salah Al Hamad
+Matched 'Business - Insurance' to 'Business - Insurance' (ID 8) for expert Salah Nowrooz
+Matched 'Business - Project Management' to 'Business - Project Management' (ID 11) for expert Salman Ali Salman
+Matched 'Aviation' to 'Aviation' (ID 2) for expert Salman Maidan
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Sama'a Al Hashimi
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Samar Al Barghouti
+Matched 'Law' to 'Law' (ID 23) for expert Samer Al Zubi
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Sami Dagash
+Matched 'Engineering - Chemical' to 'Engineering - Chemical' (ID 15) for expert Samih Al Alawi
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Sana Ayoob
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Sana Al Mansoori
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Sara Al Balooshi
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Sayed Yousif Mahfoodh
+Matched 'Education' to 'Education' (ID 12) for expert Seddiqa Sabooni
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Seema Haji
+Matched 'Business - Islamic Banking & Finance' to 'Business - Islamic Banking & Finance' (ID 9) for expert Shaban Barwari
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Shagufta Ahmed
+Matched 'Education' to 'Education' (ID 12) for expert Shahnaz Bahman
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Shaju George
+Matched 'Engineering - Chemical' to 'Engineering - Chemical' (ID 15) for expert Shaker Haji
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Sharique Ahmed
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Shawqi Ameen
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Shereen Nedham
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Sherif El Wageeh
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Sherif e Khashaba
+Matched 'Science - Chemistry' to 'Science - Chemistry' (ID 28) for expert Simon Montgomery
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Sofia Ligawen
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Sumathi Kumaraswamy
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Sumaya Faraj
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Sumaya Al Mulla
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Talal Al Malood
+Matched 'Aviation' to 'Aviation' (ID 2) for expert Tariq Al Mahal
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Thangam Jayarajan
+Matched 'Quality Assurance' to 'Quality Assurance' (ID 25) for expert Thuraya Jumaa
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Vivien L. Exartier
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Wael Abdelhafeez
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Wafa Abdul Rahman AlMansoori
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Wafa AlSayed
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Wasan Awad
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Waseem Mirza
+Matched 'Aviation' to 'Aviation' (ID 2) for expert Wesley Lee
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Yaqoob Al-Slais
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Yonis Attiya
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Yousif Al Malood
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Yousif Al Mass
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Yousuf Mustafa
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Yusuf Ahmed Abdulhameed Abdulghani AlShaikh
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Yusuf Mohammed Almahroos
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Zahra,a Mustafa Ghanim Ahmed
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Zainab Riyadh Kamal Alhakeem
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Zeeba Askar
+Matched 'Law' to 'Law' (ID 23) for expert Zeenat AlMansoori
+Matched 'Science- Mathematics' to 'Science - Mathematics' (ID 30) for expert Zeinab Amin
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Lobna Al Khalifa
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Jasim Al Tamimi
+Matched 'Education' to 'Education' (ID 12) for expert Abdulghani Al Hattami
+Matched 'Science' to 'Science' (ID 26) for expert Adnan Farah
+Matched 'Law' to 'Law' (ID 23) for expert Awadallah El Sayed
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Aysha Al Sayed
+Matched 'Law' to 'Law' (ID 23) for expert Basem Al Sharji
+Matched 'Education' to 'Education' (ID 12) for expert Mohammed Issah
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Esameldeen Mohamed
+Matched 'Education' to 'Education' (ID 12) for expert Esra Ayse Almulla
+Matched 'Law' to 'Law' (ID 23) for expert Ghalib Al Bulooshi
+Matched 'Education' to 'Education' (ID 12) for expert Hasan Alwadi
+Matched 'Education' to 'Education' (ID 12) for expert Ismail Alam Elmahdi
+Matched 'Law' to 'Law' (ID 23) for expert Marwan Al Modares
+Matched 'Science' to 'Science' (ID 26) for expert Mervat  Albufalasa
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Mohammed Yousif Mohammed
+Matched 'Science' to 'Science' (ID 26) for expert Muna Yaqoob Al Qouz
+Matched 'Business - Economics' to 'Business - Economics' (ID 7) for expert Noora Hasan Al Ghatam
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Reham Almesaeed
+Matched 'Law' to 'Law' (ID 23) for expert Wafa Alwafi
+Matched 'Engineering - Electrical and Electronic' to 'Engineering - Electrical and Electronic' (ID 17) for expert Fawzi Al Jawder
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Hameeda Al Malki
+Matched 'Science' to 'Science' (ID 26) for expert Ebrahim Al Hashel
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Sameera Baba
+Matched 'Health & Safety' to 'Health & Safety' (ID 20) for expert Dilip Roshan
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Abdalmuttaleb Al Sartawi
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Hend Mohamed Mahmood
+Matched 'Science' to 'Science' (ID 26) for expert Hamad Althunayyan
+Matched 'Engineering - Civil' to 'Engineering - Civil' (ID 16) for expert Nuha Al-Zayani
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Maryam Al Ahmed
+Matched 'Law' to 'Law' (ID 23) for expert Amal Lari
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Sébastien Taurin
+Matched 'Law' to 'Law' (ID 23) for expert Hussain Bani Issa
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Entisar Abdulla Mohammed
+Matched 'Engineering - Civil' to 'Engineering - Civil' (ID 16) for expert Sayed hasan Alfalla
+Matched 'Engineering - Civil' to 'Engineering - Civil' (ID 16) for expert Rouya Hdeib
+Matched 'Business' to 'Business' (ID 3) for expert Lorraine Cowly
+Matched 'Education' to 'Education' (ID 12) for expert Naima G. Ismail
+Matched 'Business - Economics' to 'Business - Economics' (ID 7) for expert Fatema Alaali
+Matched 'Business - Economics' to 'Business - Economics' (ID 7) for expert Hanan Naser
+Matched 'Aviation' to 'Aviation' (ID 2) for expert Mohammed Salim Awadh Al Najjar
+Matched 'Aviation' to 'Aviation' (ID 2) for expert Haytham Al Arrayed
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Jasim Al Ajmi
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Zahra Al Shamma
+Matched 'Education' to 'Education' (ID 12) for expert Abdel-Nasser Diab
+Matched 'Education' to 'Education' (ID 12) for expert Amal Bahar
+Matched 'Education' to 'Education' (ID 12) for expert Huda Jawad
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Mohamed Yusuf Fakhro
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Yomna Abdulla
+Matched 'Engineering' to 'Engineering' (ID 13) for expert Nasser Aljamea
+Matched 'Business - Banking &  Finance' to 'Business - Banking & Finance' (ID 5) for expert Rabab Hasan
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Abdulsadek Hassan
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Khalid Al Soufi
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Aala Mohamed
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Samah Fujo
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Jassim Haji
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Latifa Abdulla Buhamood
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Shafiq Rehman
+Matched 'Engineering - Civil' to 'Engineering - Civil' (ID 16) for expert Marwan Salah
+Matched 'Engineering' to 'Engineering' (ID 13) for expert Aysha Alsayed
+Matched 'Engineering' to 'Engineering' (ID 13) for expert Ibtisam Mohammad
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Amani Al Aali
+Matched 'Art and Design' to 'Art and Design' (ID 1) for expert Mohammed Fawzi
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Manolo Logrono
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert La’aleh  Alaali
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Fatema Alaali
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Hasan Kadhem
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Mohamed Abdulla Husain
+Matched 'Business - Accounting & Audit' to 'Business - Accounting & Audit' (ID 4) for expert Afaf Al Othman
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert Ahmed Mohammed Abdelrhman
+Matched 'Business - Management & Marketing' to 'Business - Management & Marketing' (ID 10) for expert Noor Alhayki
+Matched 'Law' to 'Law' (ID 23) for expert Yousif Alharam
+Matched 'Education' to 'Education' (ID 12) for expert Manal Al-Fazari
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Mohamed Al-Sayed
+Matched 'Business' to 'Business' (ID 3) for expert Rashid AlRasheed
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Gohar Ali
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Hussain AlMatooq
+Matched 'Information Technology' to 'Information Technology' (ID 22) for expert Mustafa Abdulla
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Arunn Bhaardwaj
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Mohammed Alsendi
+Matched 'Engineering' to 'Engineering' (ID 13) for expert Maram Alsabbagh
+Matched 'Science - Chemistry' to 'Science - Chemistry' (ID 28) for expert El-Said I. El-Shafey
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Fatima Khalil
+Matched 'Engineering - Mechanical' to 'Engineering - Mechanical' (ID 18) for expert Ebrahim El-Sharkawy
+Matched 'Science - Chemistry' to 'Science - Chemistry' (ID 28) for expert Mohamed Abouleish
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Sumaya Yusuf Hasan
+Matched 'Science' to 'Science' (ID 26) for expert Yassir M. Khalid
+Matched 'Science' to 'Science' (ID 26) for expert Alaa Tareq Mohamed
+Matched 'Engineering - Architectural' to 'Engineering - Architectural' (ID 14) for expert Mr. Mohammed Alsendi
+Matched 'Science' to 'Science' (ID 26) for expert Murtaza Shabbir Dhirani
+Matched 'Education' to 'Education' (ID 12) for expert Nafeesa Al Shaala
+Matched 'Science' to 'Science' (ID 26) for expert Rashed Alrasheed
+Matched 'Science' to 'Science' (ID 26) for expert Mona Alressais
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Ebrahim Rajab
+Matched 'Medical Science' to 'Medical Science' (ID 24) for expert Fatima Razzaqi
+Total rows in experts table after import: 436
+
+Verified fail case records:
+('E020', 'Adel Dagher', 30, 'Science - Mathematics')
+('E059', 'Amina Alaqal', 30, 'Science - Mathematics')
+('E105', 'David Krause', 34, 'Unknown')
+('E112', 'Elham Abdulla', 34, 'Unknown')
+('E137', 'George Toworfe', 30, 'Science - Mathematics')
+('E211', 'Maitham Al Muharraqi', 30, 'Science - Mathematics')
+('E240', 'Mona Ebrahim', 30, 'Science - Mathematics')
+('E341', 'Zeinab Amin', 30, 'Science - Mathematics')

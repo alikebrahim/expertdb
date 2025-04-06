@@ -15,7 +15,7 @@ type CreateExpertRequest struct {
 	Skills         []string `json:"skills"`         // List of expert's skills and competencies
 	Role           string   `json:"role"`           // Expert's role (evaluator, validator, consultant, etc.)
 	EmploymentType string   `json:"employmentType"` // Type of employment (academic, employer, freelance, etc.)
-	GeneralArea    string   `json:"generalArea"`    // Broad area of expertise
+	GeneralArea    int64    `json:"generalArea"`    // ID referencing expert_areas table
 	CVPath         string   `json:"cvPath"`         // Path to the expert's CV file
 	Biography      string   `json:"biography"`      // Short biography or professional summary
 	IsBahraini     bool     `json:"isBahraini"`     // Flag indicating if expert is Bahraini citizen
@@ -28,25 +28,7 @@ type CreateExpertResponse struct {
 	Message string `json:"message,omitempty"` // Optional message providing additional details
 }
 
-// ISCEDLevel represents an educational level according to ISCED classification
-type ISCEDLevel struct {
-	ID          int64  `json:"id"`          // Unique identifier for the ISCED level
-	Code        string `json:"code"`        // Standard ISCED level code (e.g., "2", "6", "8")
-	Name        string `json:"name"`        // Name of the education level (e.g., "Bachelor's", "Doctoral")
-	Description string `json:"description,omitempty"` // Detailed description of the education level
-}
-
-// ISCEDField represents a field of education according to ISCED classification
-type ISCEDField struct {
-	ID           int64  `json:"id"`           // Unique identifier for the ISCED field
-	BroadCode    string `json:"broadCode"`    // Broad field code (first level, e.g., "01")
-	BroadName    string `json:"broadName"`    // Broad field name (e.g., "Education")
-	NarrowCode   string `json:"narrowCode,omitempty"`   // Narrow field code (second level, e.g., "011")
-	NarrowName   string `json:"narrowName,omitempty"`   // Narrow field name (e.g., "Education science")
-	DetailedCode string `json:"detailedCode,omitempty"` // Detailed field code (third level, e.g., "0111")
-	DetailedName string `json:"detailedName,omitempty"` // Detailed field name (e.g., "Education science")
-	Description  string `json:"description,omitempty"`  // Additional description of the field
-}
+// ISCED classification types have been removed as part of schema simplification
 
 type Expert struct {
 	ID              int64        `json:"id"`              // Primary key identifier
@@ -60,16 +42,13 @@ type Expert struct {
 	Rating          string       `json:"rating"`          // Performance rating based on past engagements
 	Role            string       `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
 	EmploymentType  string       `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
-	GeneralArea     string       `json:"generalArea"`     // Broad area of expertise
+	GeneralArea     int64        `json:"generalArea"`     // ID referencing expert_areas table
 	SpecializedArea string       `json:"specializedArea"` // Specific field of specialization
 	IsTrained       bool         `json:"isTrained"`       // Indicates if expert has completed required training
 	CVPath          string       `json:"cvPath"`          // Path to the expert's CV file
 	Phone           string       `json:"phone"`           // Contact phone number
 	Email           string       `json:"email"`           // Contact email address
 	IsPublished     bool         `json:"isPublished"`     // Indicates if expert profile is publicly visible
-	ISCEDLevel      *ISCEDLevel  `json:"iscedLevel,omitempty"`  // Education level classification
-	ISCEDField      *ISCEDField  `json:"iscedField,omitempty"`  // Field of education classification
-	Areas           []Area       `json:"areas,omitempty"`       // Expert's specialized areas
 	Documents       []Document   `json:"documents,omitempty"`   // Associated documents (certificates, publications)
 	Engagements     []Engagement `json:"engagements,omitempty"` // History of project assignments
 	Biography       string       `json:"biography"`       // Professional summary or background
@@ -95,7 +74,7 @@ type ExpertRequest struct {
 	Rating          string    `json:"rating"`          // Performance rating (if provided)
 	Role            string    `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
 	EmploymentType  string    `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
-	GeneralArea     string    `json:"generalArea"`     // Broad area of expertise
+	GeneralArea     int64     `json:"generalArea"`     // ID referencing expert_areas table
 	SpecializedArea string    `json:"specializedArea"` // Specific field of specialization
 	IsTrained       bool      `json:"isTrained"`       // Indicates if expert has completed required training
 	CVPath          string    `json:"cvPath"`          // Path to the expert's CV file
@@ -155,7 +134,6 @@ type Statistics struct {
 	ActiveCount          int          `json:"activeCount"`          // Number of experts marked as available
 	BahrainiPercentage   float64      `json:"bahrainiPercentage"`   // Percentage of experts who are Bahraini nationals
 	TopAreas             []AreaStat   `json:"topAreas"`             // Most common expertise areas
-	ExpertsByISCEDField  []AreaStat   `json:"expertsByISCEDField"`  // Distribution of experts by ISCED field
 	EngagementsByType    []AreaStat   `json:"engagementsByType"`    // Distribution of engagements by type
 	MonthlyGrowth        []GrowthStat `json:"monthlyGrowth"`        // Monthly growth in expert count
 	MostRequestedExperts []ExpertStat `json:"mostRequestedExperts"` // Most frequently requested experts
@@ -248,12 +226,12 @@ func NewExpert(req CreateExpertRequest) *Expert {
 		IsAvailable:    req.Availability == "yes" || req.Availability == "full-time",
 		Email:          email,
 		Phone:          phone,
-		Role:           req.Role,           // New field
-		EmploymentType: req.EmploymentType, // New field
-		GeneralArea:    req.GeneralArea,    // New field
-		CVPath:         req.CVPath,         // New field
-		Biography:      req.Biography,      // New field
-		IsBahraini:     req.IsBahraini,     // Added mapping
+		Role:           req.Role,
+		EmploymentType: req.EmploymentType,
+		GeneralArea:    req.GeneralArea,    // Now expecting an int64 ID referencing expert_areas
+		CVPath:         req.CVPath,
+		Biography:      req.Biography,
+		IsBahraini:     req.IsBahraini,
 		CreatedAt:      time.Now().UTC(),
 	}
 }
@@ -296,7 +274,7 @@ func ValidateCreateExpertRequest(req *CreateExpertRequest) error {
 		return errors.New("employment type is required")
 	}
 
-	if strings.TrimSpace(req.GeneralArea) == "" {
+	if req.GeneralArea == 0 {
 		return errors.New("general area is required")
 	}
 

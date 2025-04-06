@@ -15,3 +15,11 @@ CREATE TABLE expert_documents (
 -- Create indexes for efficient queries
 CREATE INDEX idx_documents_expert_id ON expert_documents(expert_id);
 CREATE INDEX idx_documents_type ON expert_documents(document_type);
+
+-- +goose Down
+-- Drop indexes first
+DROP INDEX IF EXISTS idx_documents_expert_id;
+DROP INDEX IF EXISTS idx_documents_type;
+
+-- Drop table
+DROP TABLE IF EXISTS expert_documents;

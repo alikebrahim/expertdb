@@ -47,9 +47,9 @@ type Storage interface {
 	GetEngagementStatistics() ([]AreaStat, error)
 	GetExpertGrowthByMonth(months int) ([]GrowthStat, error)
 	
-	// ISCED methods
-	GetISCEDLevels() ([]ISCEDLevel, error)
-	GetISCEDFields() ([]ISCEDField, error)
+	// Expert area methods
+	GetExpertAreas() ([]Area, error)
+	GetExpertAreaByID(id int64) (*Area, error)
 	
 	
 	// User methods

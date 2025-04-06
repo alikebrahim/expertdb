@@ -10,10 +10,10 @@ CREATE TABLE IF NOT EXISTS "expert_requests" (
     rating TEXT,
     role TEXT,               -- Evaluator, Validator or both
     employment_type TEXT,    -- Academic, Employer or both
-    general_area TEXT,
+    general_area INTEGER,    -- Reference to expert_areas table
     specialized_area TEXT,
     is_trained BOOLEAN,
-    cv_path TEXT,            -- Path to the CV file
+    cv_path TEXT,            -- Path to the CV file NOTE: This is better be replaced with expert_documents(id)
     phone TEXT,
     email TEXT,
     is_published BOOLEAN,
@@ -28,8 +28,10 @@ CREATE TABLE IF NOT EXISTS "expert_requests" (
 -- Create indexes for tracking
 CREATE INDEX idx_expert_requests_status ON expert_requests(status);
 CREATE INDEX idx_expert_requests_created_at ON expert_requests(created_at);
+CREATE INDEX idx_expert_requests_general_area ON expert_requests(general_area);
 
 -- +goose Down
+DROP INDEX IF EXISTS idx_expert_requests_general_area;
 DROP INDEX IF EXISTS idx_expert_requests_created_at;
 DROP INDEX IF EXISTS idx_expert_requests_status;
 DROP TABLE IF EXISTS "expert_requests";
