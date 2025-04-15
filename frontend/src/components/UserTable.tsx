@@ -10,6 +10,11 @@ interface UserTableProps {
   error: string | null;
   onEditUser: (user: User) => void;
   onRefresh: () => void;
+  pagination?: {
+    currentPage: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+  };
 }
 
 const UserTable = ({ 
@@ -17,7 +22,8 @@ const UserTable = ({
   isLoading, 
   error, 
   onEditUser,
-  onRefresh 
+  onRefresh,
+  pagination
 }: UserTableProps) => {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -96,7 +102,7 @@ const UserTable = ({
           <p className="text-neutral-600">No users found.</p>
         </div>
       ) : (
-        <Table headers={headers}>
+        <Table headers={headers} pagination={pagination}>
           {users.map((user) => (
             <TableRow key={user.id}>
               <TableCell>{user.name}</TableCell>

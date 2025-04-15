@@ -30,30 +30,32 @@ type CreateExpertResponse struct {
 
 // ISCED classification types have been removed as part of schema simplification
 
+// Expert represents a domain expert in the system
 type Expert struct {
-	ID              int64        `json:"id"`              // Primary key identifier
-	ExpertID        string       `json:"expertId"`        // Business identifier (public facing ID)
-	Name            string       `json:"name"`            // Full name of the expert
-	Designation     string       `json:"designation"`     // Professional title or position
-	Institution     string       `json:"institution"`     // Organization or institution affiliation
-	IsBahraini      bool         `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
-	Nationality     string       `json:"nationality"`     // Expert's nationality
-	IsAvailable     bool         `json:"isAvailable"`     // Current availability status for assignments
-	Rating          string       `json:"rating"`          // Performance rating based on past engagements
-	Role            string       `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
-	EmploymentType  string       `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
-	GeneralArea     int64        `json:"generalArea"`     // ID referencing expert_areas table
-	SpecializedArea string       `json:"specializedArea"` // Specific field of specialization
-	IsTrained       bool         `json:"isTrained"`       // Indicates if expert has completed required training
-	CVPath          string       `json:"cvPath"`          // Path to the expert's CV file
-	Phone           string       `json:"phone"`           // Contact phone number
-	Email           string       `json:"email"`           // Contact email address
-	IsPublished     bool         `json:"isPublished"`     // Indicates if expert profile is publicly visible
-	Documents       []Document   `json:"documents,omitempty"`   // Associated documents (certificates, publications)
-	Engagements     []Engagement `json:"engagements,omitempty"` // History of project assignments
-	Biography       string       `json:"biography"`       // Professional summary or background
-	CreatedAt       time.Time    `json:"createdAt"`       // Timestamp when record was created
-	UpdatedAt       time.Time    `json:"updatedAt,omitempty"` // Timestamp when record was last updated
+	ID              int64     `json:"id"`              // Primary key identifier
+	ExpertID        string    `json:"expertId,omitempty"` // Business identifier
+	Name            string    `json:"name"`            // Full name of the expert
+	Designation     string    `json:"designation"`     // Professional title or position
+	Institution     string    `json:"institution"`     // Organization or institution affiliation
+	IsBahraini      bool      `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
+	Nationality     string    `json:"nationality"`     // Expert's nationality 
+	IsAvailable     bool      `json:"isAvailable"`     // Current availability status for assignments
+	Rating          string    `json:"rating"`          // Performance rating (if provided)
+	Role            string    `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
+	EmploymentType  string    `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
+	GeneralArea     int64     `json:"generalArea"`     // ID referencing expert_areas table 
+	GeneralAreaName string    `json:"generalAreaName"` // Name of the general area (from expert_areas table)
+	SpecializedArea string    `json:"specializedArea"` // Specific field of specialization
+	IsTrained       bool      `json:"isTrained"`       // Indicates if expert has completed required training
+	CVPath          string    `json:"cvPath"`          // Path to the expert's CV file
+	Phone           string    `json:"phone"`           // Contact phone number
+	Email           string    `json:"email"`           // Contact email address
+	IsPublished     bool      `json:"isPublished"`     // Indicates if expert profile should be publicly visible
+	Biography       string    `json:"biography"`       // Professional summary or background
+	Documents       []Document `json:"documents,omitempty"` // Associated documents
+	Engagements     []Engagement `json:"engagements,omitempty"` // Associated engagements
+	CreatedAt       time.Time `json:"createdAt"`       // Timestamp when expert was created
+	UpdatedAt       time.Time `json:"updatedAt"`       // Timestamp when expert was last updated
 }
 
 // Area represents an expert specialization area
@@ -106,6 +108,7 @@ type Document struct {
 	ID           int64     `json:"id"`           // Primary key identifier
 	ExpertID     int64     `json:"expertId"`     // Foreign key reference to expert
 	DocumentType string    `json:"documentType"` // Type of document: "cv", "certificate", "publication", etc.
+	Type         string    `json:"type"`         // Alias for DocumentType for API compatibility
 	Filename     string    `json:"filename"`     // Original filename as uploaded
 	FilePath     string    `json:"filePath"`     // Path where file is stored on server
 	ContentType  string    `json:"contentType"`  // MIME type of the document

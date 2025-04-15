@@ -9,7 +9,7 @@ interface ExpertFilters {
   role?: string;
   type?: string;
   affiliation?: string;
-  isced?: string;
+  expertArea?: string;
   nationality?: string;
   isAvailable?: boolean;
 }
@@ -19,8 +19,11 @@ const SearchPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<ExpertFilters>({});
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [limit] = useState(10);
   
-  // Fetch experts on mount and when filters change
+  // Fetch experts on mount and when filters or pagination change
   useEffect(() => {
     const fetchExperts = async () => {
       setIsLoading(true);
@@ -34,7 +37,7 @@ const SearchPage = () => {
         if (filters.role) params.role = filters.role;
         if (filters.type) params.employmentType = filters.type;
         if (filters.affiliation) params.institution = filters.affiliation;
-        if (filters.isced) params.isced_field_id = filters.isced;
+        if (filters.expertArea) params.general_area = filters.expertArea;
         if (filters.nationality) params.nationality = filters.nationality;
         if (filters.isAvailable !== undefined) params.is_available = filters.isAvailable;
         
@@ -43,12 +46,15 @@ const SearchPage = () => {
           params.is_available = true;
         }
         
-        const response = await expertsApi.getExperts(params);
+        const response = await expertsApi.getExperts(page, limit, params);
         
         if (response.success) {
-          setExperts(response.data);
+          setExperts(response.data.data);
+          setTotalPages(response.data.totalPages);
         } else {
           setError(response.message || 'Failed to fetch experts');
+          setExperts([]);
+          setTotalPages(1);
         }
       } catch (error) {
         console.error('Error fetching experts:', error);
@@ -59,10 +65,15 @@ const SearchPage = () => {
     };
     
     fetchExperts();
-  }, [filters]);
+  }, [filters, page, limit]);
   
   const handleFilterChange = (newFilters: ExpertFilters) => {
     setFilters(newFilters);
+    setPage(1); // Reset to first page when filters change
+  };
+  
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
   };
   
   return (
@@ -80,6 +91,11 @@ const SearchPage = () => {
         experts={experts} 
         isLoading={isLoading}
         error={error}
+        pagination={{
+          currentPage: page,
+          totalPages: totalPages,
+          onPageChange: handlePageChange
+        }}
       />
     </div>
   );

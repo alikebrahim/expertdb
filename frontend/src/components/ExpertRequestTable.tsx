@@ -7,13 +7,19 @@ interface ExpertRequestTableProps {
   isLoading: boolean;
   error: string | null;
   onResubmit?: (request: ExpertRequest) => void;
+  pagination?: {
+    currentPage: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+  };
 }
 
 const ExpertRequestTable = ({ 
   requests, 
   isLoading, 
   error, 
-  onResubmit 
+  onResubmit,
+  pagination
 }: ExpertRequestTableProps) => {
   const headers = [
     'Name',
@@ -66,7 +72,7 @@ const ExpertRequestTable = ({
           </p>
         </div>
       ) : (
-        <Table headers={headers}>
+        <Table headers={headers} pagination={pagination}>
           {requests.map((request) => (
             <TableRow key={request.id}>
               <TableCell>{request.name}</TableCell>

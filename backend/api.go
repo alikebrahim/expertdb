@@ -96,10 +96,7 @@ func (s *APIServer) Run() error {
 	mux.HandleFunc("PUT /api/expert-requests/{id}", makeHTTPHandleFunc(requireAdmin(s.handleUpdateExpertRequest)))
 	mux.HandleFunc("GET /api/expert/areas", makeHTTPHandleFunc(s.handleGetExpertAreas))
 
-	// Step 1.3: ISCED classification reference data routes
-	logger.Debug("Registering ISCED classification routes")
-	mux.HandleFunc("GET /api/isced/levels", makeHTTPHandleFunc(s.handleGetISCEDLevels))
-	mux.HandleFunc("GET /api/isced/fields", makeHTTPHandleFunc(s.handleGetISCEDFields))
+	// ISCED routes have been removed
 	
 	// Step 1.4: Document management routes
 	logger.Debug("Registering document management routes")
@@ -120,7 +117,7 @@ func (s *APIServer) Run() error {
 	logger.Debug("Registering statistics routes")
 	mux.HandleFunc("GET /api/statistics", makeHTTPHandleFunc(requireAuth(s.handleGetStatistics)))
 	mux.HandleFunc("GET /api/statistics/nationality", makeHTTPHandleFunc(requireAuth(s.handleGetNationalityStats)))
-	mux.HandleFunc("GET /api/statistics/isced", makeHTTPHandleFunc(requireAuth(s.handleGetISCEDStats)))
+	// ISCED statistics endpoint removed
 	mux.HandleFunc("GET /api/statistics/engagements", makeHTTPHandleFunc(requireAuth(s.handleGetEngagementStats)))
 	mux.HandleFunc("GET /api/statistics/growth", makeHTTPHandleFunc(requireAuth(s.handleGetGrowthStats)))
 	
@@ -217,17 +214,7 @@ func (s *APIServer) handleGetExperts(w http.ResponseWriter, r *http.Request) err
 		filters["role"] = role
 	}
 
-	// Step 1.4: Process ISCED classification filters
-	if iscedLevelID := queryParams.Get("isced_level_id"); iscedLevelID != "" {
-		if id, err := strconv.ParseInt(iscedLevelID, 10, 64); err == nil {
-			filters["isced_level_id"] = id
-		}
-	}
-	if iscedFieldID := queryParams.Get("isced_field_id"); iscedFieldID != "" {
-		if id, err := strconv.ParseInt(iscedFieldID, 10, 64); err == nil {
-			filters["isced_field_id"] = id
-		}
-	}
+	// ISCED classification filters have been removed
 	
 	// Step 1.5: Process rating filter
 	if minRating := queryParams.Get("min_rating"); minRating != "" {
@@ -365,7 +352,40 @@ func (s *APIServer) handleCreateExpert(w http.ResponseWriter, r *http.Request) e
 	
 	// Step 1: Parse request body
 	createReq := new(CreateExpertRequest)
-	if err := json.NewDecoder(r.Body).Decode(createReq); err != nil {
+	
+	// First, decode into a map to handle potential type conversion issues
+	var rawData map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&rawData); err != nil {
+		logger.Warn("Failed to parse expert creation request: %v", err)
+		return WriteJson(w, http.StatusBadRequest, ApiError{Error: "Invalid request payload"})
+	}
+	
+	// Handle potential type conversion for generalArea field
+	if generalAreaVal, ok := rawData["generalArea"]; ok {
+		switch v := generalAreaVal.(type) {
+		case string:
+			// Try to convert string to int64
+			if areaID, err := strconv.ParseInt(v, 10, 64); err == nil {
+				rawData["generalArea"] = areaID
+			} else {
+				logger.Warn("Invalid generalArea value: %v", v)
+				return WriteJson(w, http.StatusBadRequest, ApiError{Error: "generalArea must be a valid number"})
+			}
+		case float64:
+			// JSON numbers are parsed as float64 by default
+			rawData["generalArea"] = int64(v)
+		}
+	}
+	
+	// Convert the map back to JSON
+	jsonData, err := json.Marshal(rawData)
+	if err != nil {
+		logger.Error("Failed to re-marshal expert data: %v", err)
+		return WriteJson(w, http.StatusInternalServerError, ApiError{Error: "Server error processing request"})
+	}
+	
+	// Decode into the actual struct
+	if err := json.Unmarshal(jsonData, createReq); err != nil {
 		logger.Warn("Failed to parse expert creation request: %v", err)
 		return WriteJson(w, http.StatusBadRequest, ApiError{Error: "Invalid request payload"})
 	}
@@ -382,6 +402,15 @@ func (s *APIServer) handleCreateExpert(w http.ResponseWriter, r *http.Request) e
 	id, err := s.store.CreateExpert(expert)
 	if err != nil {
 		logger.Error("Failed to create expert in database: %v", err)
+		
+		// Check specifically for UNIQUE constraint violations on expert_id
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") && 
+		   strings.Contains(err.Error(), "expert_id") {
+			return WriteJson(w, http.StatusConflict, ApiError{
+				Error: "An expert with this ID already exists. Please use a different expert ID."
+			})
+		}
+		
 		return WriteJson(w, http.StatusInternalServerError, ApiError{Error: fmt.Sprintf("Failed to create expert: %v", err)})
 	}
 
@@ -525,37 +554,7 @@ func (s *APIServer) handleDeleteExpert(w http.ResponseWriter, r *http.Request) e
 	})
 }
 
-// handleGetISCEDLevels handles GET /api/isced/levels requests.
-//
-// This handler retrieves all ISCED education levels from the database.
-// ISCED (International Standard Classification of Education) levels are used
-// for categorizing and comparing education qualifications internationally.
-//
-// Inputs:
-//   - w (http.ResponseWriter): The response writer for returning results
-//   - r (*http.Request): The HTTP request
-//
-// Returns:
-//   - error: Any error that occurs during processing
-//
-// Flow:
-//   1. Query the database for all ISCED levels
-//   2. Return the levels as a JSON response
-func (s *APIServer) handleGetISCEDLevels(w http.ResponseWriter, r *http.Request) error {
-	logger := GetLogger()
-	logger.Debug("Processing GET /api/isced/levels request")
-	
-	// Step 1: Query ISCED levels from database
-	levels, err := s.store.GetISCEDLevels()
-	if err != nil {
-		logger.Error("Failed to fetch ISCED levels: %v", err)
-		return WriteJson(w, http.StatusInternalServerError, ApiError{Error: fmt.Sprintf("Failed to fetch ISCED levels: %v", err)})
-	}
-
-	// Step 2: Return levels as JSON response
-	logger.Debug("Returning %d ISCED levels", len(levels))
-	return WriteJson(w, http.StatusOK, levels)
-}
+// handleGetISCEDLevels has been removed
 
 // handleGetExpertAreas handles GET /api/expert/areas requests.
 //
@@ -589,55 +588,7 @@ func (s *APIServer) handleGetExpertAreas(w http.ResponseWriter, r *http.Request)
 	return WriteJson(w, http.StatusOK, areas)
 }
 
-// handleGetISCEDFields handles GET /api/isced/fields requests.
-//
-// This handler retrieves all ISCED fields of education from the database,
-// transforms them to match frontend expectations, and returns them as a JSON response.
-// ISCED (International Standard Classification of Education) fields categorize
-// areas of study and research.
-//
-// Inputs:
-//   - w (http.ResponseWriter): The response writer for returning results
-//   - r (*http.Request): The HTTP request
-//
-// Returns:
-//   - error: Any error that occurs during processing
-//
-// Flow:
-//   1. Query the database for all ISCED fields
-//   2. Transform the data to match frontend expectations
-//   3. Return the simplified fields as a JSON response
-func (s *APIServer) handleGetISCEDFields(w http.ResponseWriter, r *http.Request) error {
-	logger := GetLogger()
-	logger.Debug("Processing GET /api/isced/fields request")
-	
-	// Step 1: Query ISCED fields from database
-	fields, err := s.store.GetISCEDFields()
-	if err != nil {
-		// Return empty array instead of 500 error for better UX
-		logger.Error("Failed to fetch ISCED fields: %v", err)
-		return WriteJson(w, http.StatusOK, []map[string]interface{}{})
-	}
-
-	// Step 2: Transform the data to match frontend expectations
-	logger.Debug("Transforming %d ISCED fields to simplified format", len(fields))
-	simplifiedFields := make([]map[string]interface{}, 0, len(fields))
-	
-	// Process each field and create a simplified representation
-	for _, field := range fields {
-		// Skip any entry with empty ID or name
-		if field.ID != 0 && field.BroadName != "" {
-			simplifiedFields = append(simplifiedFields, map[string]interface{}{
-				"id":   fmt.Sprintf("%d", field.ID), // Convert ID to string for frontend
-				"name": field.BroadName,             // Use BroadName as the name field
-			})
-		}
-	}
-
-	// Step 3: Return simplified fields as JSON response
-	logger.Debug("Returning %d simplified ISCED fields", len(simplifiedFields))
-	return WriteJson(w, http.StatusOK, simplifiedFields)
-}
+// handleGetISCEDFields has been removed
 
 // Document handlers
 
@@ -1211,37 +1162,7 @@ func (s *APIServer) handleGetNationalityStats(w http.ResponseWriter, r *http.Req
 	return WriteJson(w, http.StatusOK, result)
 }
 
-// handleGetISCEDStats handles GET /api/statistics/isced requests.
-//
-// This handler retrieves statistics on expert distribution across ISCED fields (educational areas).
-// It requires authentication via the requireAuth middleware.
-//
-// Inputs:
-//   - w (http.ResponseWriter): The response writer for returning results
-//   - r (*http.Request): The HTTP request
-//
-// Returns:
-//   - error: Any error that occurs during processing
-//
-// Flow:
-//   1. Retrieve ISCED field distribution statistics from the database
-//   2. Return the statistics as a JSON response
-func (s *APIServer) handleGetISCEDStats(w http.ResponseWriter, r *http.Request) error {
-	logger := GetLogger()
-	logger.Debug("Processing GET /api/statistics/isced request")
-	
-	// Step 1: Retrieve ISCED field distribution statistics from database
-	logger.Debug("Retrieving ISCED field distribution statistics")
-	stats, err := s.store.GetExpertsByISCEDField()
-	if err != nil {
-		logger.Error("Failed to retrieve ISCED statistics: %v", err)
-		return WriteJson(w, http.StatusInternalServerError, ApiError{Error: fmt.Sprintf("Failed to retrieve ISCED statistics: %v", err)})
-	}
-	
-	// Step 2: Return statistics as JSON response
-	logger.Debug("Successfully retrieved ISCED field statistics: %d categories", len(stats))
-	return WriteJson(w, http.StatusOK, stats)
-}
+// handleGetISCEDStats has been removed
 
 // handleGetEngagementStats handles GET /api/statistics/engagements requests.
 //
@@ -1352,8 +1273,40 @@ func (s *APIServer) handleCreateExpertRequest(w http.ResponseWriter, r *http.Req
 	logger.Debug("Processing POST /api/expert-requests request")
 	
 	// Step 1: Parse request body
+	// First, decode into a map to handle potential type conversion issues
+	var rawData map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&rawData); err != nil {
+		logger.Warn("Failed to parse expert request: %v", err)
+		return WriteJson(w, http.StatusBadRequest, ApiError{Error: "Invalid request payload"})
+	}
+	
+	// Handle potential type conversion for generalArea field
+	if generalAreaVal, ok := rawData["generalArea"]; ok {
+		switch v := generalAreaVal.(type) {
+		case string:
+			// Try to convert string to int64
+			if areaID, err := strconv.ParseInt(v, 10, 64); err == nil {
+				rawData["generalArea"] = areaID
+			} else {
+				logger.Warn("Invalid generalArea value: %v", v)
+				return WriteJson(w, http.StatusBadRequest, ApiError{Error: "generalArea must be a valid number"})
+			}
+		case float64:
+			// JSON numbers are parsed as float64 by default
+			rawData["generalArea"] = int64(v)
+		}
+	}
+	
+	// Convert the map back to JSON
+	jsonData, err := json.Marshal(rawData)
+	if err != nil {
+		logger.Error("Failed to re-marshal expert request data: %v", err)
+		return WriteJson(w, http.StatusInternalServerError, ApiError{Error: "Server error processing request"})
+	}
+	
+	// Decode into the actual struct
 	var request ExpertRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	if err := json.Unmarshal(jsonData, &request); err != nil {
 		logger.Warn("Failed to parse expert request: %v", err)
 		return WriteJson(w, http.StatusBadRequest, ApiError{Error: "Invalid request payload"})
 	}
@@ -1561,7 +1514,12 @@ func (s *APIServer) handleUpdateExpertRequest(w http.ResponseWriter, r *http.Req
 		// Generate a unique expert ID if not provided or too short
 		expertIDStr := updateRequest.ExpertID
 		if expertIDStr == "" || len(expertIDStr) < 3 {
-			expertIDStr = fmt.Sprintf("EXP-%d-%d", id, time.Now().Unix())
+			var genErr error
+			expertIDStr, genErr = s.store.GenerateUniqueExpertID()
+			if genErr != nil {
+				logger.Error("Failed to generate unique expert ID: %v", genErr)
+				return WriteJson(w, http.StatusInternalServerError, ApiError{Error: fmt.Sprintf("Failed to generate unique expert ID: %v", genErr)})
+			}
 			logger.Debug("Generated unique expert ID: %s", expertIDStr)
 		}
 		
@@ -1592,6 +1550,12 @@ func (s *APIServer) handleUpdateExpertRequest(w http.ResponseWriter, r *http.Req
 		createdID, err := s.store.CreateExpert(expert)
 		if err != nil {
 			logger.Error("Failed to create expert from request: %v", err)
+			
+			// Check if this is a uniqueness constraint error
+			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				return WriteJson(w, http.StatusConflict, ApiError{Error: "An expert with this ID already exists"})
+			}
+			
 			return WriteJson(w, http.StatusInternalServerError, ApiError{Error: fmt.Sprintf("Failed to create expert from request: %v", err)})
 		}
 		

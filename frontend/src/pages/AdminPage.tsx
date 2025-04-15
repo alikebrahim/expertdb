@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User, ExpertRequest } from '../types';
 import { usersApi, expertRequestsApi } from '../services/api';
 import UserTable from '../components/UserTable';
 import UserForm from '../components/UserForm';
 import Button from '../components/ui/Button';
+import ExpertRequestTable from '../components/ExpertRequestTable';
 
 type ActiveTab = 'users' | 'requests';
 
@@ -16,22 +17,29 @@ const AdminPage = () => {
   const [userError, setUserError] = useState<string | null>(null);
   const [showUserForm, setShowUserForm] = useState(false);
   const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
+  const [userPage, setUserPage] = useState(1);
+  const [userTotalPages, setUserTotalPages] = useState(1);
+  const [userLimit] = useState(10);
   
   // Expert requests state
   const [requests, setRequests] = useState<ExpertRequest[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [requestPage, setRequestPage] = useState(1);
+  const [requestTotalPages, setRequestTotalPages] = useState(1);
+  const [requestLimit] = useState(10);
   
   // Fetch users on mount and when needed
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setIsLoadingUsers(true);
     setUserError(null);
     
     try {
-      const response = await usersApi.getUsers();
+      const response = await usersApi.getUsers(userPage, userLimit);
       
       if (response.success) {
-        setUsers(response.data);
+        setUsers(response.data.data);
+        setUserTotalPages(response.data.totalPages);
       } else {
         // Check if this is likely a "no users" situation or a real error
         if (response.message?.includes("not found") || 
@@ -39,6 +47,7 @@ const AdminPage = () => {
             response.message?.toLowerCase().includes("no users")) {
           // This is likely just an empty database, not an error
           setUsers([]);
+          setUserTotalPages(1);
         } else {
           setUserError(response.message || 'Failed to fetch users');
         }
@@ -49,18 +58,23 @@ const AdminPage = () => {
     } finally {
       setIsLoadingUsers(false);
     }
+  }, [userPage, userLimit]);
+  
+  const handleUserPageChange = (page: number) => {
+    setUserPage(page);
   };
   
   // Fetch expert requests on mount and when needed
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     setIsLoadingRequests(true);
     setRequestError(null);
     
     try {
-      const response = await expertRequestsApi.getExpertRequests();
+      const response = await expertRequestsApi.getExpertRequests(requestPage, requestLimit);
       
       if (response.success) {
-        setRequests(response.data);
+        setRequests(response.data.data);
+        setRequestTotalPages(response.data.totalPages);
       } else {
         // Check if this is likely a "no requests" situation or a real error
         if (response.message?.includes("not found") || 
@@ -68,6 +82,7 @@ const AdminPage = () => {
             response.message?.toLowerCase().includes("no requests")) {
           // This is likely just an empty database, not an error
           setRequests([]);
+          setRequestTotalPages(1);
         } else {
           setRequestError(response.message || 'Failed to fetch expert requests');
         }
@@ -78,6 +93,10 @@ const AdminPage = () => {
     } finally {
       setIsLoadingRequests(false);
     }
+  }, [requestPage, requestLimit]);
+  
+  const handleRequestPageChange = (page: number) => {
+    setRequestPage(page);
   };
   
   // Initial fetch
@@ -87,7 +106,20 @@ const AdminPage = () => {
     } else {
       fetchRequests();
     }
-  }, [activeTab]);
+  }, [activeTab, fetchUsers, fetchRequests]);
+  
+  // Fetch data when pagination changes
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsers();
+    }
+  }, [userPage, activeTab, fetchUsers]);
+  
+  useEffect(() => {
+    if (activeTab === 'requests') {
+      fetchRequests();
+    }
+  }, [requestPage, activeTab, fetchRequests]);
   
   // Tab switching
   const handleTabClick = (tab: ActiveTab) => {
@@ -114,38 +146,9 @@ const AdminPage = () => {
     setShowUserForm(false);
   };
   
-  // Handle approving or rejecting an expert request
-  const handleUpdateRequest = async (requestId: string, status: 'approved' | 'rejected', rejectionReason?: string) => {
-    try {
-      const response = await expertRequestsApi.updateExpertRequest(requestId, {
-        status,
-        rejectionReason
-      });
-      
-      if (response.success) {
-        fetchRequests();
-      } else {
-        alert(`Failed to update request: ${response.message}`);
-      }
-    } catch (error) {
-      console.error('Error updating request:', error);
-      alert('An error occurred while updating the request');
-    }
-  };
+  // Request update function no longer needed with ExpertRequestTable component
   
-  // Handle request actions
-  const handleApproveRequest = (request: ExpertRequest) => {
-    if (window.confirm(`Are you sure you want to approve the expert request from ${request.name}?`)) {
-      handleUpdateRequest(request.id, 'approved');
-    }
-  };
-  
-  const handleRejectRequest = (request: ExpertRequest) => {
-    const reason = window.prompt('Please provide a reason for rejection:');
-    if (reason !== null) {
-      handleUpdateRequest(request.id, 'rejected', reason);
-    }
-  };
+  // Request actions no longer needed with ExpertRequestTable component
   
   return (
     <div>
@@ -214,6 +217,11 @@ const AdminPage = () => {
               error={userError}
               onEditUser={handleEditUser}
               onRefresh={fetchUsers}
+              pagination={{
+                currentPage: userPage,
+                totalPages: userTotalPages,
+                onPageChange: handleUserPageChange
+              }}
             />
           </div>
         </div>
@@ -226,103 +234,16 @@ const AdminPage = () => {
             Expert Requests
           </h2>
           
-          <div className="space-y-4">
-            {isLoadingRequests ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-                <span className="sr-only">Loading...</span>
-              </div>
-            ) : requestError ? (
-              // Check if the error indicates no data vs an actual error
-              requestError.toLowerCase().includes("not found") || 
-              requestError.toLowerCase().includes("empty") || 
-              requestError.toLowerCase().includes("no requests") ? (
-                <div className="bg-accent p-6 rounded text-center">
-                  <p className="text-neutral-600">No expert requests have been submitted yet.</p>
-                  <p className="text-sm text-neutral-500 mt-2">
-                    Users can submit expert requests from the Requests page.
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-secondary bg-opacity-10 text-secondary p-4 rounded">
-                  <p>Error loading requests: {requestError}</p>
-                  <p className="text-sm mt-2">Please try refreshing the page or contact support if the problem persists.</p>
-                </div>
-              )
-            ) : requests.length === 0 ? (
-              <div className="bg-accent p-6 rounded text-center">
-                <p className="text-neutral-600">No expert requests found.</p>
-                <p className="text-sm text-neutral-500 mt-2">
-                  When users submit expert requests, they will appear here for your review.
-                </p>
-              </div>
-            ) : (
-              <table className="min-w-full bg-white border border-neutral-200 rounded-md overflow-hidden">
-                <thead className="bg-primary text-white">
-                  <tr>
-                    <th className="py-3 px-4 text-left font-medium text-sm">Name</th>
-                    <th className="py-3 px-4 text-left font-medium text-sm">Affiliation</th>
-                    <th className="py-3 px-4 text-left font-medium text-sm">Role</th>
-                    <th className="py-3 px-4 text-left font-medium text-sm">Status</th>
-                    <th className="py-3 px-4 text-left font-medium text-sm">Submitted By</th>
-                    <th className="py-3 px-4 text-left font-medium text-sm">Date</th>
-                    <th className="py-3 px-4 text-left font-medium text-sm">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200">
-                  {requests.map((request) => (
-                    <tr key={request.id}>
-                      <td className="py-3 px-4 text-sm text-neutral-800">{request.name}</td>
-                      <td className="py-3 px-4 text-sm text-neutral-800">{request.affiliation}</td>
-                      <td className="py-3 px-4 text-sm text-neutral-800">{request.role}</td>
-                      <td className="py-3 px-4 text-sm text-neutral-800">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          request.status === 'approved' 
-                            ? 'bg-green-100 text-green-800' 
-                            : request.status === 'rejected'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-neutral-800">{request.userId}</td>
-                      <td className="py-3 px-4 text-sm text-neutral-800">
-                        {new Date(request.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-neutral-800">
-                        {request.status === 'pending' && (
-                          <div className="flex space-x-2">
-                            <Button 
-                              variant="outline"
-                              size="sm"
-                              className="bg-green-50 text-green-700 border-green-300 hover:bg-green-100"
-                              onClick={() => handleApproveRequest(request)}
-                            >
-                              Approve
-                            </Button>
-                            <Button 
-                              variant="outline"
-                              size="sm"
-                              className="bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
-                              onClick={() => handleRejectRequest(request)}
-                            >
-                              Reject
-                            </Button>
-                          </div>
-                        )}
-                        {request.status === 'rejected' && request.rejectionReason && (
-                          <span className="text-xs text-neutral-500">
-                            Reason: {request.rejectionReason}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <ExpertRequestTable
+            requests={requests}
+            isLoading={isLoadingRequests}
+            error={requestError}
+            pagination={{
+              currentPage: requestPage,
+              totalPages: requestTotalPages,
+              onPageChange: handleRequestPageChange
+            }}
+          />
         </div>
       )}
     </div>

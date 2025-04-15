@@ -1,10 +1,11 @@
-import React, { ButtonHTMLAttributes } from 'react';
+import React, { ButtonHTMLAttributes, ReactNode } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   isLoading?: boolean;
+  icon?: ReactNode;
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -15,6 +16,7 @@ const Button: React.FC<ButtonProps> = ({
   fullWidth = false,
   isLoading = false,
   disabled,
+  icon,
   ...props
 }) => {
   const baseClasses = 'font-medium rounded focus:outline-none transition-colors';
@@ -24,6 +26,7 @@ const Button: React.FC<ButtonProps> = ({
     secondary: 'bg-secondary hover:bg-secondary-light text-white',
     outline: 'border border-primary text-primary hover:bg-primary hover:text-white',
     ghost: 'text-primary hover:bg-primary hover:bg-opacity-10',
+    danger: 'bg-red-600 hover:bg-red-700 text-white',
   };
   
   const sizeClasses = {
@@ -57,7 +60,10 @@ const Button: React.FC<ButtonProps> = ({
           Loading...
         </div>
       ) : (
-        children
+        <div className="flex items-center justify-center">
+          {icon && <span className="mr-2">{icon}</span>}
+          {children}
+        </div>
       )}
     </button>
   );

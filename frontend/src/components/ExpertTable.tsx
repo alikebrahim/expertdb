@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Expert } from '../types';
 import { Table, TableRow, TableCell } from './ui/Table';
 import Button from './ui/Button';
@@ -7,23 +8,36 @@ interface ExpertTableProps {
   experts: Expert[];
   isLoading: boolean;
   error: string | null;
+  pagination?: {
+    currentPage: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+  };
+  onEdit?: (expert: Expert) => void;
+  onDelete?: (expert: Expert) => void;
 }
 
-const ExpertTable = ({ experts, isLoading, error }: ExpertTableProps) => {
+const ExpertTable = ({ experts, isLoading, error, pagination, onEdit, onDelete }: ExpertTableProps) => {
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
+  const navigate = useNavigate();
   
   const headers = [
     'Name',
     'Role',
-    'Type',
+    'Employment',
     'Affiliation',
-    'Specialization',
-    'ISCED',
+    'Contact',
+    'Rating',
     'Actions',
   ];
   
   const handleSelectExpert = (expert: Expert) => {
     setSelectedExpert(expert);
+  };
+  
+  const handleViewExpertDetails = (expert: Expert, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/experts/${expert.id}`);
   };
   
   if (error) {
@@ -47,7 +61,7 @@ const ExpertTable = ({ experts, isLoading, error }: ExpertTableProps) => {
           <p className="text-sm text-neutral-500 mt-1">Try adjusting your search criteria.</p>
         </div>
       ) : (
-        <Table headers={headers}>
+        <Table headers={headers} pagination={pagination}>
           {experts.map((expert) => (
             <TableRow 
               key={expert.id} 
@@ -56,21 +70,54 @@ const ExpertTable = ({ experts, isLoading, error }: ExpertTableProps) => {
             >
               <TableCell>{expert.name}</TableCell>
               <TableCell>{expert.role}</TableCell>
-              <TableCell>{expert.type}</TableCell>
+              <TableCell>{expert.employmentType}</TableCell>
               <TableCell>{expert.affiliation}</TableCell>
-              <TableCell>{expert.specialization}</TableCell>
-              <TableCell>{expert.isced}</TableCell>
+              <TableCell>{expert.primaryContact}</TableCell>
+              <TableCell>{expert.rating}/5</TableCell>
               <TableCell>
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSelectExpert(expert);
-                  }}
-                >
-                  Details
-                </Button>
+                <div className="flex space-x-2">
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectExpert(expert);
+                    }}
+                  >
+                    Quick View
+                  </Button>
+                  <Button 
+                    variant="primary"
+                    size="sm"
+                    onClick={(e) => handleViewExpertDetails(expert, e)}
+                  >
+                    Full Profile
+                  </Button>
+                  {onEdit && (
+                    <Button 
+                      variant="secondary"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit(expert);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button 
+                      variant="danger"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(expert);
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}
@@ -102,8 +149,8 @@ const ExpertTable = ({ experts, isLoading, error }: ExpertTableProps) => {
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Type</h3>
-                  <p className="mt-1">{selectedExpert.type}</p>
+                  <h3 className="text-sm font-medium text-neutral-500">Employment Type</h3>
+                  <p className="mt-1">{selectedExpert.employmentType}</p>
                 </div>
                 
                 <div>
@@ -112,30 +159,48 @@ const ExpertTable = ({ experts, isLoading, error }: ExpertTableProps) => {
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Nationality</h3>
-                  <p className="mt-1">{selectedExpert.nationality}</p>
+                  <h3 className="text-sm font-medium text-neutral-500">Contact</h3>
+                  <p className="mt-1">{selectedExpert.primaryContact} ({selectedExpert.contactType})</p>
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Specialization</h3>
-                  <p className="mt-1">{selectedExpert.specialization}</p>
+                  <h3 className="text-sm font-medium text-neutral-500">Skills</h3>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {selectedExpert.skills.map((skill, index) => (
+                      <span 
+                        key={index}
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary bg-opacity-10 text-primary"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-500">ISCED</h3>
-                  <p className="mt-1">{selectedExpert.isced}</p>
+                  <h3 className="text-sm font-medium text-neutral-500">Rating</h3>
+                  <p className="mt-1">{selectedExpert.rating}/5</p>
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Status</h3>
+                  <h3 className="text-sm font-medium text-neutral-500">Availability</h3>
                   <p className="mt-1">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      selectedExpert.status === 'available' 
+                      selectedExpert.availability === 'Available' 
                         ? 'bg-green-100 text-green-800'
+                        : selectedExpert.availability === 'Limited'
+                        ? 'bg-yellow-100 text-yellow-800'
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {selectedExpert.status === 'available' ? 'Available' : 'Unavailable'}
+                      {selectedExpert.availability}
                     </span>
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-neutral-500">Origin</h3>
+                  <p className="mt-1">
+                    {selectedExpert.isBahraini ? 'Bahraini' : 'International'}
                   </p>
                 </div>
               </div>
@@ -146,6 +211,11 @@ const ExpertTable = ({ experts, isLoading, error }: ExpertTableProps) => {
                   <p className="mt-1 text-neutral-800">{selectedExpert.biography}</p>
                 </div>
               )}
+              
+              <div className="mt-4 text-sm text-neutral-500">
+                <p>Created: {new Date(selectedExpert.created_at).toLocaleDateString()}</p>
+                <p>Last updated: {new Date(selectedExpert.updated_at).toLocaleDateString()}</p>
+              </div>
               
               <div className="mt-6 flex justify-end space-x-3">
                 <Button 

@@ -6,7 +6,6 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -81,6 +80,7 @@ func (s *DocumentService) CreateDocument(expertID int64, file multipart.File, he
 	doc := &Document{
 		ExpertID:     expertID,
 		DocumentType: docType,
+		Type:         docType, // Add Type field as alias of DocumentType
 		Filename:     header.Filename,
 		FilePath:     filePath,
 		ContentType:  contentType,

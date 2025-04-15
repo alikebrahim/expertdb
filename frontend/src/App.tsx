@@ -5,6 +5,9 @@ import SearchPage from './pages/SearchPage';
 import ExpertRequestPage from './pages/ExpertRequestPage';
 import AdminPage from './pages/AdminPage';
 import StatsPage from './pages/StatsPage';
+import ExpertDetailPage from './pages/ExpertDetailPage';
+import ExpertManagementPage from './pages/ExpertManagementPage';
+import EngagementManagementPage from './pages/EngagementManagementPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 
@@ -44,12 +47,39 @@ function App() {
             } 
           />
           
+          <Route 
+            path="/experts/:id" 
+            element={
+              <ProtectedRoute>
+                <ExpertDetailPage />
+              </ProtectedRoute>
+            } 
+          />
+          
           {/* Admin-only route */}
           <Route 
             path="/admin" 
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminPage />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/experts/manage" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <ExpertManagementPage />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/engagements" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <EngagementManagementPage />
               </ProtectedRoute>
             } 
           />

@@ -4,19 +4,14 @@ import { expertRequestsApi } from '../services/api';
 import Input from './ui/Input';
 import Button from './ui/Button';
 
+// Updated form data interface to match API documentation
 interface ExpertRequestFormData {
-  name: string;
-  designation: string;
-  institution: string;
-  role: string;
-  employmentType: string;
-  generalArea: string;
-  specializedArea: string;
-  isBahraini: boolean;
-  isAvailable: boolean;
-  isTrained: boolean;
-  email: string;
-  phone: string;
+  organizationName: string;
+  projectName: string;
+  projectDescription: string;
+  expertiseRequired: string;
+  timeframe: string;
+  notes: string;
 }
 
 interface ExpertRequestFormProps {
@@ -26,7 +21,7 @@ interface ExpertRequestFormProps {
 const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   
   const { 
     register, 
@@ -35,25 +30,16 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
     reset
   } = useForm<ExpertRequestFormData>();
   
-  const roles = [
-    { value: 'evaluator', label: 'Evaluator' },
-    { value: 'validator', label: 'Validator' },
-    { value: 'consultant', label: 'Consultant' },
-    { value: 'trainer', label: 'Trainer' },
-    { value: 'expert', label: 'Expert' }
-  ];
-  
-  const employmentTypes = [
-    { value: 'academic', label: 'Academic' },
-    { value: 'employer', label: 'Employer' },
-    { value: 'freelance', label: 'Freelance' },
-    { value: 'government', label: 'Government' },
-    { value: 'other', label: 'Other' }
+  const timeframeOptions = [
+    { value: 'urgent', label: 'Urgent (1-2 weeks)' },
+    { value: 'short', label: 'Short-term (1-3 months)' },
+    { value: 'medium', label: 'Medium-term (3-6 months)' },
+    { value: 'long', label: 'Long-term (6+ months)' }
   ];
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
-    setCvFile(file);
+    setAttachmentFile(file);
   };
   
   const onSubmit = async (data: ExpertRequestFormData) => {
@@ -69,20 +55,16 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
         formData.append(key, value.toString());
       });
       
-      // Add CV file if available
-      if (cvFile) {
-        formData.append('cvFile', cvFile);
-      } else {
-        setError('CV file is required');
-        setIsSubmitting(false);
-        return;
+      // Add attachment file if available
+      if (attachmentFile) {
+        formData.append('attachmentFile', attachmentFile);
       }
       
       const response = await expertRequestsApi.createExpertRequest(formData);
       
       if (response.success) {
         reset();
-        setCvFile(null);
+        setAttachmentFile(null);
         onSuccess();
       } else {
         setError(response.message || 'Failed to submit expert request');
@@ -105,162 +87,96 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
-          label="Name *"
-          error={errors.name?.message}
-          {...register('name', { required: 'Name is required' })}
+          label="Organization Name *"
+          error={errors.organizationName?.message}
+          {...register('organizationName', { required: 'Organization name is required' })}
         />
         
         <Input
-          label="Designation/Title *"
-          error={errors.designation?.message}
-          {...register('designation', { required: 'Designation is required' })}
+          label="Project Name *"
+          error={errors.projectName?.message}
+          {...register('projectName', { required: 'Project name is required' })}
         />
         
-        <Input
-          label="Institution/Affiliation *"
-          error={errors.institution?.message}
-          {...register('institution', { required: 'Institution is required' })}
-        />
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
+            Project Description *
+          </label>
+          <textarea
+            className="w-full px-3 py-2 bg-white border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+            rows={4}
+            {...register('projectDescription', { required: 'Project description is required' })}
+          ></textarea>
+          {errors.projectDescription && (
+            <p className="mt-1 text-sm text-secondary">{errors.projectDescription.message}</p>
+          )}
+        </div>
+        
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-neutral-700 mb-1">
+            Expertise Required *
+          </label>
+          <textarea
+            className="w-full px-3 py-2 bg-white border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+            rows={3}
+            placeholder="Describe the expertise you are looking for..."
+            {...register('expertiseRequired', { required: 'Required expertise information is required' })}
+          ></textarea>
+          {errors.expertiseRequired && (
+            <p className="mt-1 text-sm text-secondary">{errors.expertiseRequired.message}</p>
+          )}
+        </div>
         
         <div className="mb-4">
           <label className="block text-sm font-medium text-neutral-700 mb-1">
-            Role *
+            Timeframe *
           </label>
           <select
             className="w-full px-3 py-2 bg-white border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-            {...register('role', { required: 'Role is required' })}
+            {...register('timeframe', { required: 'Timeframe is required' })}
           >
-            <option value="">Select a role</option>
-            {roles.map((option) => (
+            <option value="">Select timeframe</option>
+            {timeframeOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
-          {errors.role && (
-            <p className="mt-1 text-sm text-secondary">{errors.role.message}</p>
+          {errors.timeframe && (
+            <p className="mt-1 text-sm text-secondary">{errors.timeframe.message}</p>
           )}
         </div>
         
-        <div className="mb-4">
+        <div className="md:col-span-2">
           <label className="block text-sm font-medium text-neutral-700 mb-1">
-            Employment Type *
+            Additional Notes
           </label>
-          <select
+          <textarea
             className="w-full px-3 py-2 bg-white border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-            {...register('employmentType', { required: 'Employment type is required' })}
-          >
-            <option value="">Select employment type</option>
-            {employmentTypes.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {errors.employmentType && (
-            <p className="mt-1 text-sm text-secondary">{errors.employmentType.message}</p>
-          )}
+            rows={3}
+            placeholder="Any additional information that might help us match you with the right expert..."
+            {...register('notes')}
+          ></textarea>
         </div>
-        
-        <Input
-          label="General Area *"
-          placeholder="e.g. Education, Engineering, Medicine"
-          error={errors.generalArea?.message}
-          {...register('generalArea', { required: 'General area is required' })}
-        />
-        
-        <Input
-          label="Specialized Area *"
-          placeholder="e.g. Math Education, Civil Engineering"
-          error={errors.specializedArea?.message}
-          {...register('specializedArea', { required: 'Specialized area is required' })}
-        />
         
         <div className="mb-4">
           <label className="block text-sm font-medium text-neutral-700 mb-1">
-            Contact Email *
-          </label>
-          <input
-            type="email"
-            className="w-full px-3 py-2 bg-white border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-            {...register('email', { 
-              required: 'Email is required',
-              pattern: {
-                value: /\S+@\S+\.\S+/,
-                message: 'Invalid email format',
-              },
-            })}
-          />
-          {errors.email && (
-            <p className="mt-1 text-sm text-secondary">{errors.email.message}</p>
-          )}
-        </div>
-        
-        <Input
-          label="Contact Phone"
-          type="tel"
-          error={errors.phone?.message}
-          {...register('phone')}
-        />
-        
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-neutral-700 mb-1">
-            CV Upload *
+            Supporting Document (Optional)
           </label>
           <input
             type="file"
-            accept=".pdf,.doc,.docx"
+            accept=".pdf,.doc,.docx,.ppt,.pptx"
             onChange={handleFileChange}
             className="w-full px-3 py-2 bg-white border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
           />
-          {!cvFile && (
-            <p className="mt-1 text-sm text-neutral-500">
-              Upload CV in PDF, DOC, or DOCX format (max 10MB)
-            </p>
-          )}
-          {cvFile && (
+          <p className="mt-1 text-sm text-neutral-500">
+            Upload relevant project documents (max 10MB)
+          </p>
+          {attachmentFile && (
             <p className="mt-1 text-sm text-green-600">
-              File selected: {cvFile.name}
+              File selected: {attachmentFile.name}
             </p>
           )}
-        </div>
-      </div>
-      
-      <div className="space-y-3">
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="isBahraini"
-            className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
-            {...register('isBahraini')}
-          />
-          <label htmlFor="isBahraini" className="ml-2 block text-sm text-neutral-700">
-            Bahraini Citizen
-          </label>
-        </div>
-        
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="isAvailable"
-            className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
-            {...register('isAvailable')}
-          />
-          <label htmlFor="isAvailable" className="ml-2 block text-sm text-neutral-700">
-            Available for Engagements
-          </label>
-        </div>
-        
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="isTrained"
-            className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
-            {...register('isTrained')}
-          />
-          <label htmlFor="isTrained" className="ml-2 block text-sm text-neutral-700">
-            Has Received BQA Training
-          </label>
         </div>
       </div>
       

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 	
 	_ "github.com/mattn/go-sqlite3"
@@ -43,7 +42,7 @@ type Storage interface {
 	// Statistics methods
 	GetStatistics() (*Statistics, error)
 	GetExpertsByNationality() (int, int, error) // Returns (bahrainiCount, nonBahrainiCount, error)
-	GetExpertsByISCEDField() ([]AreaStat, error)
+	// GetExpertsByISCEDField has been removed
 	GetEngagementStatistics() ([]AreaStat, error)
 	GetExpertGrowthByMonth(months int) ([]GrowthStat, error)
 	
@@ -110,266 +109,9 @@ func (s *SQLiteStore) Close() error {
 	return s.db.Close()
 }
 
-// ISCED Methods
-
-// GetISCEDLevels returns all ISCED levels from the database
-func (s *SQLiteStore) GetISCEDLevels() ([]ISCEDLevel, error) {
-	query := `SELECT id, code, name, description FROM isced_levels ORDER BY id`
-	
-	rows, err := s.db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	
-	var levels []ISCEDLevel
-	for rows.Next() {
-		var level ISCEDLevel
-		if err := rows.Scan(&level.ID, &level.Code, &level.Name, &level.Description); err != nil {
-			return nil, err
-		}
-		levels = append(levels, level)
-	}
-	
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-	
-	return levels, nil
-}
-
-// GetISCEDFields returns all ISCED fields from the database
-func (s *SQLiteStore) GetISCEDFields() ([]ISCEDField, error) {
-	query := `
-		SELECT id, broad_code, broad_name, narrow_code, narrow_name, 
-		       detailed_code, detailed_name, description 
-		FROM isced_fields 
-		ORDER BY broad_code, narrow_code, detailed_code
-	`
-	
-	rows, err := s.db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	
-	var fields []ISCEDField
-	for rows.Next() {
-		var field ISCEDField
-		if err := rows.Scan(
-			&field.ID, &field.BroadCode, &field.BroadName,
-			&field.NarrowCode, &field.NarrowName,
-			&field.DetailedCode, &field.DetailedName,
-			&field.Description,
-		); err != nil {
-			return nil, err
-		}
-		fields = append(fields, field)
-	}
-	
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-	
-	return fields, nil
-}
 
 
-// ListExperts retrieves experts based on filters with pagination and sorting
-func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset int) ([]*Expert, error) {
-	// Default limit if not specified
-	if limit <= 0 {
-		limit = 10
-	}
-
-	// Build the query to select all expert fields with optional filtering and sorting
-	// This query retrieves complete expert records from the experts table
-	// with support for filtering by various criteria and sorting options
-	query := `
-		SELECT e.id, e.expert_id, e.name, e.designation, e.institution, e.is_bahraini, 
-		       e.is_available, e.rating, e.role, e.employment_type, e.general_area, 
-		       e.specialized_area, e.is_trained, e.cv_path, e.phone, e.email, e.is_published, 
-		       e.isced_level_id, e.isced_field_id, e.created_at, e.updated_at
-		FROM experts e
-	`
-
-	// Apply filters
-	var conditions []string
-	var args []interface{}
-	var sortBy string = "e.name"
-	var sortOrder string = "ASC"
-	
-	if len(filters) > 0 {
-		for key, value := range filters {
-			switch key {
-			case "name":
-				conditions = append(conditions, "e.name LIKE ?")
-				args = append(args, fmt.Sprintf("%%%s%%", value))
-			case "area":
-				conditions = append(conditions, "e.general_area LIKE ?")
-				args = append(args, fmt.Sprintf("%%%s%%", value))
-			case "is_available":
-				conditions = append(conditions, "e.is_available = ?")
-				args = append(args, value)
-			case "role":
-				conditions = append(conditions, "e.role LIKE ?")
-				args = append(args, fmt.Sprintf("%%%s%%", value))
-			case "isced_level_id":
-				conditions = append(conditions, "e.isced_level_id = ?")
-				args = append(args, value)
-			case "isced_field_id":
-				conditions = append(conditions, "e.isced_field_id = ?")
-				args = append(args, value)
-			case "min_rating":
-				// Handle minimum rating filter (convert to numeric for comparison)
-				conditions = append(conditions, "CAST(e.rating AS REAL) >= ?")
-				args = append(args, value)
-			case "sort_by":
-				// Handle sorting column
-				switch value {
-				case "name":
-					sortBy = "e.name"
-				case "institution":
-					sortBy = "e.institution"
-				case "role":
-					sortBy = "e.role"
-				case "created_at":
-					sortBy = "e.created_at"
-				case "rating":
-					sortBy = "e.rating"
-				case "general_area":
-					sortBy = "e.general_area"
-				default:
-					sortBy = "e.name"
-				}
-			case "sort_order":
-				// Handle sort order
-				orderVal, isString := value.(string)
-				if isString {
-					if strings.ToLower(orderVal) == "desc" {
-						sortOrder = "DESC"
-					}
-				}
-			}
-		}
-	}
-
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	// Add sorting and pagination
-	query += fmt.Sprintf(" ORDER BY %s %s LIMIT ? OFFSET ?", sortBy, sortOrder)
-	args = append(args, limit, offset)
-
-	// Execute the query
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query experts: %w", err)
-	}
-	defer rows.Close()
-
-	// Parse the results
-	var experts []*Expert
-	for rows.Next() {
-		var expert Expert
-		var createdAt, updatedAt string
-		var iscedLevelID, iscedFieldID sql.NullInt64
-
-		err := rows.Scan(
-			&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation, &expert.Institution,
-			&expert.IsBahraini, &expert.IsAvailable, &expert.Rating, &expert.Role, &expert.EmploymentType,
-			&expert.GeneralArea, &expert.SpecializedArea, &expert.IsTrained, &expert.CVPath,
-			&expert.Phone, &expert.Email, &expert.IsPublished, &iscedLevelID, &iscedFieldID,
-			&createdAt, &updatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan expert row: %w", err)
-		}
-
-		// Parse timestamps
-		expert.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		if updatedAt != "" {
-			expert.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
-		}
-
-		// Add ISCED data (basic info only in list view)
-		if iscedLevelID.Valid {
-			var level ISCEDLevel
-			err := s.db.QueryRow(
-				"SELECT id, code, name FROM isced_levels WHERE id = ?",
-				iscedLevelID.Int64,
-			).Scan(&level.ID, &level.Code, &level.Name)
-			if err == nil {
-				expert.ISCEDLevel = &level
-			}
-		}
-
-		if iscedFieldID.Valid {
-			var field ISCEDField
-			err := s.db.QueryRow(
-				"SELECT id, broad_code, broad_name FROM isced_fields WHERE id = ?",
-				iscedFieldID.Int64,
-			).Scan(&field.ID, &field.BroadCode, &field.BroadName)
-			if err == nil {
-				expert.ISCEDField = &field
-			}
-		}
-
-		experts = append(experts, &expert)
-	}
-
-	return experts, nil
-}
-
-// CountExperts counts the total number of experts that match the given filters
-func (s *SQLiteStore) CountExperts(filters map[string]interface{}) (int, error) {
-	query := "SELECT COUNT(*) FROM experts e"
-
-	// Apply filters
-	var conditions []string
-	var args []interface{}
-	
-	if len(filters) > 0 {
-		for key, value := range filters {
-			switch key {
-			case "name":
-				conditions = append(conditions, "e.name LIKE ?")
-				args = append(args, fmt.Sprintf("%%%s%%", value))
-			case "area":
-				conditions = append(conditions, "e.general_area LIKE ?")
-				args = append(args, fmt.Sprintf("%%%s%%", value))
-			case "is_available":
-				conditions = append(conditions, "e.is_available = ?")
-				args = append(args, value)
-			case "role":
-				conditions = append(conditions, "e.role LIKE ?")
-				args = append(args, fmt.Sprintf("%%%s%%", value))
-			case "isced_level_id":
-				conditions = append(conditions, "e.isced_level_id = ?")
-				args = append(args, value)
-			case "isced_field_id":
-				conditions = append(conditions, "e.isced_field_id = ?")
-				args = append(args, value)
-			case "min_rating":
-				conditions = append(conditions, "CAST(e.rating AS REAL) >= ?")
-				args = append(args, value)
-			}
-		}
-	}
-
-	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
-	}
-
-	var count int
-	err := s.db.QueryRow(query, args...).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("failed to count experts: %w", err)
-	}
-
-	return count, nil
-}
+// ListExperts and CountExperts methods implementation are now in list_experts.go
 
 // GetStatistics retrieves system-wide statistics
 func (s *SQLiteStore) GetStatistics() (*Statistics, error) {
@@ -393,7 +135,7 @@ func (s *SQLiteStore) GetStatistics() (*Statistics, error) {
     }
     stats.ActiveCount = activeExperts
     
-    // Get Bahraini percentage
+    // Get Bahraini experts percentage
     bahrainiCount, _, err := s.GetExpertsByNationality()
     if err != nil {
         return nil, fmt.Errorf("failed to count experts by nationality: %w", err)
@@ -432,12 +174,7 @@ func (s *SQLiteStore) GetStatistics() (*Statistics, error) {
     }
     stats.TopAreas = topAreas
     
-    // Get ISCED field distribution
-    iscedStats, err := s.GetExpertsByISCEDField()
-    if err != nil {
-        return nil, err
-    }
-    stats.ExpertsByISCEDField = iscedStats
+    // ISCED field distribution has been removed
     
     // Get engagement statistics
     engagementStats, err := s.GetEngagementStatistics()
@@ -499,45 +236,7 @@ func (s *SQLiteStore) GetExpertsByNationality() (int, int, error) {
     return bahrainiCount, nonBahrainiCount, nil
 }
 
-// GetExpertsByISCEDField retrieves counts of experts by ISCED field
-func (s *SQLiteStore) GetExpertsByISCEDField() ([]AreaStat, error) {
-    // Query to count experts grouped by broad ISCED field category
-    // This helps analyze the distribution of experts across different educational fields
-    // We join experts with their linked ISCED fields and group by the broad field name
-    rows, err := s.db.Query(`
-        SELECT f.broad_name, COUNT(e.id) as count
-        FROM experts e
-        JOIN isced_fields f ON e.isced_field_id = f.id
-        GROUP BY f.broad_name
-        ORDER BY count DESC
-    `)
-    if err != nil {
-        return nil, fmt.Errorf("failed to query experts by ISCED field: %w", err)
-    }
-    defer rows.Close()
-    
-    var stats []AreaStat
-    var totalInCategorizedFields int
-    
-    // First, collect all counts
-    for rows.Next() {
-        var stat AreaStat
-        if err := rows.Scan(&stat.Name, &stat.Count); err != nil {
-            return nil, fmt.Errorf("failed to scan ISCED field row: %w", err)
-        }
-        totalInCategorizedFields += stat.Count
-        stats = append(stats, stat)
-    }
-    
-    // Calculate percentages
-    if totalInCategorizedFields > 0 {
-        for i := range stats {
-            stats[i].Percentage = float64(stats[i].Count) / float64(totalInCategorizedFields) * 100
-        }
-    }
-    
-    return stats, nil
-}
+// GetExpertsByISCEDField has been removed
 
 // GetEngagementStatistics retrieves statistics about expert engagements
 func (s *SQLiteStore) GetEngagementStatistics() ([]AreaStat, error) {

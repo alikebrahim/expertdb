@@ -8,7 +8,7 @@ interface FiltersFormData {
   role?: string;
   type?: string;
   affiliation?: string;
-  isced?: string;
+  expertArea?: string;
   nationality?: string;
   isAvailable?: boolean;
 }
@@ -61,7 +61,7 @@ const ExpertFilters = ({ onFilterChange }: ExpertFiltersProps) => {
       role: '',
       type: '',
       affiliation: '',
-      isced: '',
+      expertArea: '',
       nationality: '',
       isAvailable: undefined
     });
@@ -132,9 +132,9 @@ const ExpertFilters = ({ onFilterChange }: ExpertFiltersProps) => {
               />
               
               <Input
-                label="ISCED Field"
-                placeholder="Field of education"
-                {...register('isced')}
+                label="Expert Area"
+                placeholder="Area of expertise"
+                {...register('expertArea')}
               />
               
               <Input

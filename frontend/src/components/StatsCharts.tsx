@@ -3,13 +3,13 @@ import {
   CartesianGrid, Tooltip, Legend, LineChart, Line, 
   ResponsiveContainer
 } from 'recharts';
-import { NationalityStats, GrowthStats, IscedStats } from '../types';
+import { NationalityStats, GrowthStats } from '../types';
 
 // Custom colors
 const COLORS = ['#003366', '#0055a4', '#e63946', '#457b9d', '#1d3557', '#a8dadc'];
 
 interface NationalityChartProps {
-  data: NationalityStats[];
+  data: NationalityStats;
   isLoading: boolean;
 }
 
@@ -22,7 +22,7 @@ export const NationalityChart = ({ data, isLoading }: NationalityChartProps) => 
     );
   }
   
-  if (!data || data.length === 0) {
+  if (!data) {
     return (
       <div className="flex justify-center items-center h-64 bg-accent rounded">
         <p className="text-neutral-600">No nationality data available</p>
@@ -30,22 +30,28 @@ export const NationalityChart = ({ data, isLoading }: NationalityChartProps) => 
     );
   }
   
+  // Transform the data structure for the pie chart
+  const chartData = [
+    { name: 'Bahraini', value: data.bahraini },
+    { name: 'International', value: data.international }
+  ];
+  
   return (
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
-            data={data}
+            data={chartData}
             cx="50%"
             cy="50%"
             labelLine={false}
             outerRadius={80}
             fill="#8884d8"
-            dataKey="count"
-            nameKey="nationality"
-            label={({ nationality, percent }) => `${nationality}: ${(percent * 100).toFixed(0)}%`}
+            dataKey="value"
+            nameKey="name"
+            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
           >
-            {data.map((_, index) => (
+            {chartData.map((_, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
@@ -55,6 +61,9 @@ export const NationalityChart = ({ data, isLoading }: NationalityChartProps) => 
           <Legend />
         </PieChart>
       </ResponsiveContainer>
+      <div className="text-center mt-2 text-sm text-neutral-500">
+        Overall Bahraini percentage: {data.percentage}%
+      </div>
     </div>
   );
 };
@@ -89,23 +98,40 @@ export const GrowthChart = ({ data, isLoading }: GrowthChartProps) => {
           margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="year" />
+          <XAxis dataKey="month" />
           <YAxis />
-          <Tooltip formatter={(value) => [`${value} experts`, 'Count']} />
+          <Tooltip formatter={(value, name) => [
+            `${value} experts`, 
+            name === 'newExperts' ? 'New Experts' : 'Total Experts'
+          ]} />
           <Legend />
-          <Line type="monotone" dataKey="count" stroke="#003366" activeDot={{ r: 8 }} />
+          <Line 
+            type="monotone" 
+            dataKey="totalExperts" 
+            name="Total Experts"
+            stroke="#003366" 
+            activeDot={{ r: 8 }} 
+          />
+          <Line 
+            type="monotone" 
+            dataKey="newExperts" 
+            name="New Experts"
+            stroke="#e63946" 
+            activeDot={{ r: 8 }} 
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>
   );
 };
 
-interface IscedChartProps {
-  data: IscedStats[];
+// Added ExpertArea chart to replace ISCED chart
+interface ExpertAreaChartProps {
+  data: Array<{name: string, count: number}>;
   isLoading: boolean;
 }
 
-export const IscedChart = ({ data, isLoading }: IscedChartProps) => {
+export const ExpertAreaChart = ({ data, isLoading }: ExpertAreaChartProps) => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -117,7 +143,7 @@ export const IscedChart = ({ data, isLoading }: IscedChartProps) => {
   if (!data || data.length === 0) {
     return (
       <div className="flex justify-center items-center h-64 bg-accent rounded">
-        <p className="text-neutral-600">No ISCED data available</p>
+        <p className="text-neutral-600">No expert area data available</p>
       </div>
     );
   }
@@ -135,7 +161,7 @@ export const IscedChart = ({ data, isLoading }: IscedChartProps) => {
         >
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis type="number" />
-          <YAxis type="category" dataKey="isced" width={120} />
+          <YAxis type="category" dataKey="name" width={120} />
           <Tooltip formatter={(value) => [`${value} experts`, 'Count']} />
           <Legend />
           <Bar dataKey="count" fill="#003366" />
@@ -148,5 +174,5 @@ export const IscedChart = ({ data, isLoading }: IscedChartProps) => {
 export default {
   NationalityChart,
   GrowthChart,
-  IscedChart
+  ExpertAreaChart
 };

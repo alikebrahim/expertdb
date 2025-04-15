@@ -56,8 +56,6 @@ func verifyDatabaseSchema(store Storage) error {
 		"users",
 		"expert_documents",
 		"expert_engagements",
-		"isced_levels",
-		"isced_fields",
 	}
 	
 	// Query to get list of all tables

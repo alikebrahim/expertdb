@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"database/sql"
 )
 
 // ListExpertRequests retrieves expert requests based on filters with pagination
@@ -139,8 +140,14 @@ func (s *SQLiteStore) ListExpertRequests(filters map[string]interface{}, limit, 
 					req.EmploymentType = s
 				}
 			case "general_area":
-				if s, ok := v.(string); ok {
-					req.GeneralArea = s
+				if n, ok := v.(int64); ok {
+					req.GeneralArea = n
+				} else if s, ok := v.(string); ok {
+					// Try to convert string to int64
+					var areaID int64
+					if _, err := fmt.Sscanf(s, "%d", &areaID); err == nil {
+						req.GeneralArea = areaID
+					}
 				}
 			case "specialized_area":
 				if s, ok := v.(string); ok {
@@ -183,8 +190,17 @@ func (s *SQLiteStore) ListExpertRequests(filters map[string]interface{}, limit, 
 					req.RejectionReason = s
 				}
 			case "created_at":
-				if s, ok := v.(string); ok {
-					req.CreatedAt, _ = time.Parse(time.RFC3339, s)
+				if s, ok := v.(string); ok && s != "" {
+					parsedTime, err := time.Parse(time.RFC3339, s)
+					if err == nil {
+						req.CreatedAt = parsedTime
+					} else {
+						// Try alternate formats if RFC3339 fails
+						parsedTime, err = time.Parse("2006-01-02 15:04:05", s)
+						if err == nil {
+							req.CreatedAt = parsedTime
+						}
+					}
 				}
 			case "reviewed_at":
 				reviewedAt = v
@@ -199,8 +215,17 @@ func (s *SQLiteStore) ListExpertRequests(filters map[string]interface{}, limit, 
 		}
 		
 		if reviewedAt != nil {
-			if timeStr, ok := reviewedAt.(string); ok {
-				req.ReviewedAt, _ = time.Parse(time.RFC3339, timeStr)
+			if timeStr, ok := reviewedAt.(string); ok && timeStr != "" {
+				parsedTime, err := time.Parse(time.RFC3339, timeStr)
+				if err == nil {
+					req.ReviewedAt = parsedTime
+				} else {
+					// Try alternate formats if RFC3339 fails
+					parsedTime, err = time.Parse("2006-01-02 15:04:05", timeStr)
+					if err == nil {
+						req.ReviewedAt = parsedTime
+					}
+				}
 			}
 		}
 		
@@ -315,8 +340,14 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*ExpertRequest, error) {
 				req.EmploymentType = s
 			}
 		case "general_area":
-			if s, ok := v.(string); ok {
-				req.GeneralArea = s
+			if n, ok := v.(int64); ok {
+				req.GeneralArea = n
+			} else if s, ok := v.(string); ok {
+				// Try to convert string to int64
+				var areaID int64
+				if _, err := fmt.Sscanf(s, "%d", &areaID); err == nil {
+					req.GeneralArea = areaID
+				}
 			}
 		case "specialized_area":
 			if s, ok := v.(string); ok {
@@ -359,8 +390,17 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*ExpertRequest, error) {
 				req.RejectionReason = s
 			}
 		case "created_at":
-			if s, ok := v.(string); ok {
-				req.CreatedAt, _ = time.Parse(time.RFC3339, s)
+			if s, ok := v.(string); ok && s != "" {
+				parsedTime, err := time.Parse(time.RFC3339, s)
+				if err == nil {
+					req.CreatedAt = parsedTime
+				} else {
+					// Try alternate formats if RFC3339 fails
+					parsedTime, err = time.Parse("2006-01-02 15:04:05", s)
+					if err == nil {
+						req.CreatedAt = parsedTime
+					}
+				}
 			}
 		case "reviewed_at":
 			reviewedAt = v
@@ -375,8 +415,17 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*ExpertRequest, error) {
 	}
 	
 	if reviewedAt != nil {
-		if timeStr, ok := reviewedAt.(string); ok {
-			req.ReviewedAt, _ = time.Parse(time.RFC3339, timeStr)
+		if timeStr, ok := reviewedAt.(string); ok && timeStr != "" {
+			parsedTime, err := time.Parse(time.RFC3339, timeStr)
+			if err == nil {
+				req.ReviewedAt = parsedTime
+			} else {
+				// Try alternate formats if RFC3339 fails
+				parsedTime, err = time.Parse("2006-01-02 15:04:05", timeStr)
+				if err == nil {
+					req.ReviewedAt = parsedTime
+				}
+			}
 		}
 	}
 	

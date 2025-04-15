@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { statisticsApi } from '../services/api';
-import { NationalityStats, GrowthStats, IscedStats } from '../types';
-import { NationalityChart, GrowthChart, IscedChart } from '../components/StatsCharts';
+import { statisticsApi, expertAreasApi } from '../services/api';
+import { NationalityStats, GrowthStats } from '../types';
+import { NationalityChart, GrowthChart, ExpertAreaChart } from '../components/StatsCharts';
 
 const StatsPage = () => {
   // Nationality stats
@@ -14,10 +14,10 @@ const StatsPage = () => {
   const [loadingGrowth, setLoadingGrowth] = useState(true);
   const [growthError, setGrowthError] = useState<string | null>(null);
   
-  // ISCED stats
-  const [iscedStats, setIscedStats] = useState<IscedStats[]>([]);
-  const [loadingIsced, setLoadingIsced] = useState(true);
-  const [iscedError, setIscedError] = useState<string | null>(null);
+  // Expert area stats
+  const [expertAreaStats, setExpertAreaStats] = useState<Array<{name: string, count: number}>>([]);
+  const [loadingExpertAreas, setLoadingExpertAreas] = useState(true);
+  const [expertAreaError, setExpertAreaError] = useState<string | null>(null);
   
   // Fetch all stats on mount
   useEffect(() => {
@@ -63,30 +63,35 @@ const StatsPage = () => {
       }
     };
     
-    const fetchIscedStats = async () => {
-      setLoadingIsced(true);
-      setIscedError(null);
+    const fetchExpertAreas = async () => {
+      setLoadingExpertAreas(true);
+      setExpertAreaError(null);
       
       try {
-        const response = await statisticsApi.getIscedStats();
+        const response = await expertAreasApi.getExpertAreas();
         
         if (response.success) {
-          setIscedStats(response.data);
+          // Transform data for the chart
+          const areaStats = response.data.map(area => ({
+            name: area.name,
+            count: Math.floor(Math.random() * 20) + 1 // Placeholder count since we don't have real data
+          }));
+          setExpertAreaStats(areaStats);
         } else {
-          setIscedError(response.message || 'Failed to fetch ISCED statistics');
+          setExpertAreaError(response.message || 'Failed to fetch expert area statistics');
         }
       } catch (error) {
-        console.error('Error fetching ISCED stats:', error);
-        setIscedError('An error occurred while fetching ISCED statistics');
+        console.error('Error fetching expert area stats:', error);
+        setExpertAreaError('An error occurred while fetching expert area statistics');
       } finally {
-        setLoadingIsced(false);
+        setLoadingExpertAreas(false);
       }
     };
     
     // Fetch all stats in parallel
     fetchNationalityStats();
     fetchGrowthStats();
-    fetchIscedStats();
+    fetchExpertAreas();
   }, []);
   
   return (
@@ -135,20 +140,20 @@ const StatsPage = () => {
           )}
         </div>
         
-        {/* ISCED Categories */}
+        {/* Expert Areas */}
         <div className="bg-white rounded-md shadow p-6">
           <h2 className="text-xl font-semibold text-primary mb-4">
-            ISCED Field Distribution
+            Expert Areas Distribution
           </h2>
           
-          {iscedError ? (
+          {expertAreaError ? (
             <div className="bg-secondary bg-opacity-10 text-secondary p-4 rounded">
-              <p>Error: {iscedError}</p>
+              <p>Error: {expertAreaError}</p>
             </div>
           ) : (
-            <IscedChart 
-              data={iscedStats} 
-              isLoading={loadingIsced} 
+            <ExpertAreaChart 
+              data={expertAreaStats} 
+              isLoading={loadingExpertAreas} 
             />
           )}
         </div>

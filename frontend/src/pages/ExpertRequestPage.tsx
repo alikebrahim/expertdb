@@ -14,6 +14,9 @@ const ExpertRequestPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [resubmittingRequest, setResubmittingRequest] = useState<ExpertRequest | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [limit] = useState(10);
   
   // Fetch user's expert requests
   useEffect(() => {
@@ -24,14 +27,17 @@ const ExpertRequestPage = () => {
       setError(null);
       
       try {
-        const response = await expertRequestsApi.getExpertRequests({
+        const response = await expertRequestsApi.getExpertRequests(page, limit, {
           userId: user.id
         });
         
         if (response.success) {
-          setRequests(response.data);
+          setRequests(response.data.data);
+          setTotalPages(response.data.totalPages);
         } else {
           setError(response.message || 'Failed to fetch expert requests');
+          setRequests([]);
+          setTotalPages(1);
         }
       } catch (error) {
         console.error('Error fetching expert requests:', error);
@@ -42,7 +48,7 @@ const ExpertRequestPage = () => {
     };
     
     fetchRequests();
-  }, [user]);
+  }, [user, page, limit]);
   
   const handleNewRequest = () => {
     setResubmittingRequest(null);
@@ -73,16 +79,21 @@ const ExpertRequestPage = () => {
     // Refresh the list of requests
     if (user) {
       setIsLoading(true);
-      expertRequestsApi.getExpertRequests({ userId: user.id })
+      expertRequestsApi.getExpertRequests(page, limit, { userId: user.id })
         .then(response => {
           if (response.success) {
-            setRequests(response.data);
+            setRequests(response.data.data);
+            setTotalPages(response.data.totalPages);
           }
         })
         .finally(() => setIsLoading(false));
     }
     
     setResubmittingRequest(null);
+  };
+  
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
   };
   
   return (
@@ -134,6 +145,11 @@ const ExpertRequestPage = () => {
           isLoading={isLoading}
           error={error}
           onResubmit={handleResubmit}
+          pagination={{
+            currentPage: page,
+            totalPages: totalPages,
+            onPageChange: handlePageChange
+          }}
         />
       </div>
     </div>

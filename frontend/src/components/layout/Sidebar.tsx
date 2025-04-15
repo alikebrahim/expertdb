@@ -14,6 +14,8 @@ const Sidebar = () => {
     { to: '/search', label: 'Expert Search', roles: ['user', 'admin'] },
     { to: '/requests', label: 'Expert Requests', roles: ['user', 'admin'] },
     { to: '/stats', label: 'Statistics', roles: ['user', 'admin'] },
+    { to: '/experts/manage', label: 'Expert Management', roles: ['admin'] },
+    { to: '/engagements', label: 'Engagements', roles: ['admin'] },
     { to: '/admin', label: 'Admin Panel', roles: ['admin'] },
   ];
 

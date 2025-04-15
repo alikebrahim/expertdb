@@ -1,3 +1,0 @@
-Note the following:
-- There is no need for in memory and file db in storage.go. Remove implementation to have in memory db and simplfiy. DB migrations will be handled through the command line using goose.
-- You will report to me how the csv file import is being handled in this document after investigation. You will also provide advise on how best to manage this part noting that db migration are no more automated with code in storage.go or other related files, but is to be handled manually. I prefer to do the initial migration (that would create the db) manually, but I'm not sure what's the best approach for csv import.

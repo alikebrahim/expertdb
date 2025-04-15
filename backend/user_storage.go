@@ -34,6 +34,17 @@ func (s *SQLiteStore) CreateUser(user *User) error {
 		return ErrDuplicateEmail
 	}
 
+	// Initialize with current time if not set
+	if user.CreatedAt.IsZero() {
+		user.CreatedAt = time.Now().UTC()
+	}
+	
+	// Handle NULL last_login
+	var lastLogin interface{} = nil
+	if !user.LastLogin.IsZero() {
+		lastLogin = user.LastLogin
+	}
+
 	query := `
 		INSERT INTO users (
 			name, email, password_hash, role, is_active, created_at, last_login
@@ -43,7 +54,7 @@ func (s *SQLiteStore) CreateUser(user *User) error {
 	result, err := s.db.Exec(
 		query,
 		user.Name, user.Email, user.PasswordHash, user.Role,
-		user.IsActive, user.CreatedAt, user.LastLogin,
+		user.IsActive, user.CreatedAt, lastLogin,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert user: %w", err)
@@ -67,16 +78,21 @@ func (s *SQLiteStore) GetUserByID(id int64) (*User, error) {
 	`
 
 	var user User
+	var nullableLastLogin sql.NullTime
 	err := s.db.QueryRow(query, id).Scan(
 		&user.ID, &user.Name, &user.Email, &user.PasswordHash,
-		&user.Role, &user.IsActive, &user.CreatedAt, &user.LastLogin,
+		&user.Role, &user.IsActive, &user.CreatedAt, &nullableLastLogin,
 	)
+	
+	if nullableLastLogin.Valid {
+		user.LastLogin = nullableLastLogin.Time
+	}
 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get user by ID: %w", err)
 	}
 
 	return &user, nil
@@ -91,16 +107,21 @@ func (s *SQLiteStore) GetUserByEmail(email string) (*User, error) {
 	`
 
 	var user User
+	var nullableLastLogin sql.NullTime
 	err := s.db.QueryRow(query, email).Scan(
 		&user.ID, &user.Name, &user.Email, &user.PasswordHash,
-		&user.Role, &user.IsActive, &user.CreatedAt, &user.LastLogin,
+		&user.Role, &user.IsActive, &user.CreatedAt, &nullableLastLogin,
 	)
+	
+	if nullableLastLogin.Valid {
+		user.LastLogin = nullableLastLogin.Time
+	}
 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
 
 	return &user, nil
@@ -121,25 +142,31 @@ func (s *SQLiteStore) ListUsers(limit, offset int) ([]*User, error) {
 
 	rows, err := s.db.Query(query, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
 	defer rows.Close()
 
 	var users []*User
 	for rows.Next() {
 		var user User
+		var nullableLastLogin sql.NullTime
 		err := rows.Scan(
 			&user.ID, &user.Name, &user.Email, &user.PasswordHash,
-			&user.Role, &user.IsActive, &user.CreatedAt, &user.LastLogin,
+			&user.Role, &user.IsActive, &user.CreatedAt, &nullableLastLogin,
 		)
+		
+		if nullableLastLogin.Valid {
+			user.LastLogin = nullableLastLogin.Time
+		}
+		
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan user row: %w", err)
 		}
 		users = append(users, &user)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error iterating user rows: %w", err)
 	}
 
 	return users, nil
@@ -147,6 +174,12 @@ func (s *SQLiteStore) ListUsers(limit, offset int) ([]*User, error) {
 
 // UpdateUser updates an existing user
 func (s *SQLiteStore) UpdateUser(user *User) error {
+	// Handle NULL for last_login
+	var lastLogin interface{} = nil
+	if !user.LastLogin.IsZero() {
+		lastLogin = user.LastLogin
+	}
+
 	query := `
 		UPDATE users
 		SET name = ?, email = ?, password_hash = ?, role = ?, 
@@ -154,20 +187,48 @@ func (s *SQLiteStore) UpdateUser(user *User) error {
 		WHERE id = ?
 	`
 
-	_, err := s.db.Exec(
+	result, err := s.db.Exec(
 		query,
 		user.Name, user.Email, user.PasswordHash, user.Role,
-		user.IsActive, user.LastLogin, user.ID,
+		user.IsActive, lastLogin, user.ID,
 	)
+	
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+	
+	// Verify the update affected a row
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for user update: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
 
-	return err
+	return nil
 }
 
 // DeleteUser deletes a user by ID
 func (s *SQLiteStore) DeleteUser(id int64) error {
 	query := "DELETE FROM users WHERE id = ?"
-	_, err := s.db.Exec(query, id)
-	return err
+	result, err := s.db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	
+	// Verify the delete affected a row
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for user delete: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	
+	return nil
 }
 
 // CountUsers returns the total number of users
@@ -175,7 +236,10 @@ func (s *SQLiteStore) CountUsers() (int, error) {
 	var count int
 	query := "SELECT COUNT(*) FROM users"
 	err := s.db.QueryRow(query).Scan(&count)
-	return count, err
+	if err != nil {
+		return 0, fmt.Errorf("failed to count users: %w", err)
+	}
+	return count, nil
 }
 
 // EnsureAdminExists checks if an admin user exists and creates one if not
@@ -185,12 +249,12 @@ func (s *SQLiteStore) EnsureAdminExists(adminEmail, adminName, adminPasswordHash
 	var count int
 	err := s.db.QueryRow(query).Scan(&count)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check for admin user: %w", err)
 	}
 
 	// If no admin exists, create one
 	if count == 0 {
-		now := time.Now()
+		now := time.Now().UTC()
 		admin := &User{
 			Name:         adminName,
 			Email:        adminEmail,

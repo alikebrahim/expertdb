@@ -1,12 +1,12 @@
 // User Types
 export interface User {
-  id: string;
+  id: number;
   email: string;
   name: string;
-  role: 'admin' | 'user';
+  role: string;
   isActive: boolean;
-  createdAt?: string;
-  lastLogin?: string;
+  createdAt: string;
+  lastLogin: string;
 }
 
 export interface AuthState {
@@ -19,60 +19,84 @@ export interface AuthState {
 
 // Expert Types
 export interface Expert {
-  id: string;
+  id: number;
   name: string;
   affiliation: string;
+  primaryContact: string;
+  contactType: string;
+  skills: string[];
   role: string;
-  type: string;
-  specialization: string;
-  isced: string;
-  nationality: string;
-  status: 'available' | 'unavailable';
-  biography?: string;
+  employmentType: string;
+  generalArea: number;
+  cvPath: string;
+  biography: string;
+  isBahraini: boolean;
+  availability: string;
+  rating: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // Expert Request Types
 export interface ExpertRequest {
-  id: string;
-  name: string;
-  affiliation: string;
-  role: string;
-  type: string;
-  specialization: string;
-  isced: string;
-  nationality: string;
-  status: 'pending' | 'approved' | 'rejected';
-  rejectionReason?: string;
-  userId: string;
+  id: number;
+  requestorId: number;
+  requestorName: string;
+  requestorEmail: string;
+  organizationName: string;
+  projectName: string;
+  projectDescription: string;
+  expertiseRequired: string;
+  timeframe: string;
+  status: string;
+  notes: string;
   createdAt: string;
   updatedAt: string;
-  documents?: Document[];
 }
 
 // Document Types
 export interface Document {
-  id: string;
-  name: string;
-  type: string;
-  url: string;
-  expertId?: string;
-  expertRequestId?: string;
+  id: number;
+  expertId: number;
+  filename: string;
+  originalFilename: string;
+  documentType: string;
+  contentType: string;
+  size: number;
+  uploadedBy: number;
+  uploadedAt: string;
 }
 
 // Statistics Types
 export interface NationalityStats {
-  nationality: string;
-  count: number;
+  bahraini: number;
+  international: number;
+  percentage: number;
 }
 
 export interface GrowthStats {
-  year: number;
-  count: number;
+  month: string;
+  newExperts: number;
+  totalExperts: number;
 }
 
-export interface IscedStats {
-  isced: string;
-  count: number;
+// Engagement Types
+export interface Engagement {
+  id: number;
+  expertId: number;
+  requestId: number | null;
+  title: string;
+  description: string;
+  engagementType: string;
+  status: string;
+  startDate: string;
+  endDate: string;
+  contactPerson: string;
+  contactEmail: string;
+  organizationName: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // API Response Types

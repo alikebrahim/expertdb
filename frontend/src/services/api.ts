@@ -1,7 +1,8 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { 
   ApiResponse, User, Expert, ExpertRequest, 
-  NationalityStats, GrowthStats, IscedStats 
+  NationalityStats, GrowthStats,
+  PaginatedResponse
 } from '../types';
 
 // Check if we're in debug mode
@@ -56,26 +57,69 @@ api.interceptors.response.use(
   }
 );
 
-// Generic request function
 const request = async <T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> => {
   try {
-    console.log(`Making request: ${config.method} ${config.url}`, config.data || config.params || '');
+    if (isDebugMode) {
+      console.log(`Making request: ${config.method} ${config.url}`, config.data || config.params || '');
+    }
+    
     const response = await api(config);
-    console.log(`Response from ${config.url}:`, response.data);
+    
+    if (isDebugMode) {
+      console.log(`Response from ${config.url}:`, response.data);
+    }
+    
     return response.data;
   } catch (error) {
-    console.error(`Request failed for ${config.url}:`, error);
+    if (isDebugMode) {
+      console.error(`Request failed for ${config.url}:`, error);
+    }
     
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError<ApiResponse<null>>;
-      if (axiosError.response?.data) {
-        console.error('Error response data:', axiosError.response.data);
-        return axiosError.response.data;
+      
+      // Log specific error information based on status codes
+      if (axiosError.response) {
+        const status = axiosError.response.status;
+        
+        if (isDebugMode) {
+          console.error(`Error ${status} for ${config.url}:`, axiosError.response.data);
+        }
+        
+        // Return backend error response if available
+        if (axiosError.response.data) {
+          return axiosError.response.data;
+        }
+        
+        // Generate appropriate error messages based on status
+        let errorMessage = axiosError.message;
+        if (status === 400) errorMessage = 'Invalid request data';
+        else if (status === 403) errorMessage = 'Permission denied';
+        else if (status === 404) errorMessage = 'Resource not found';
+        else if (status === 500) errorMessage = 'Server error occurred';
+        
+        return {
+          success: false,
+          message: errorMessage,
+          data: null as unknown as T,
+        };
       }
       
-      // Network error or no response
-      if (axiosError.code === 'ECONNABORTED' || !axiosError.response) {
-        console.error('Network error or timeout');
+      // Network error or timeout
+      if (axiosError.code === 'ECONNABORTED') {
+        return {
+          success: false,
+          message: 'Request timed out. Please try again.',
+          data: null as unknown as T,
+        };
+      }
+      
+      if (!axiosError.response) {
+        return {
+          success: false,
+          message: 'Network connection error. Please check your connection.',
+          data: null as unknown as T,
+        };
       }
       
       return {
@@ -86,7 +130,10 @@ const request = async <T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> =
     }
     
     // Non-Axios error (should be rare)
-    console.error('Unexpected non-Axios error:', error);
+    if (isDebugMode) {
+      console.error('Unexpected non-Axios error:', error);
+    }
+    
     return {
       success: false,
       message: 'An unexpected error occurred',
@@ -95,31 +142,27 @@ const request = async <T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> =
   }
 };
 
-// Auth API
 export const authApi = {
   login: async (email: string, password: string) => {
-    // Remove the /api prefix from the log since it's already in the baseURL
-    console.log('Sending login request to:', `${api.defaults.baseURL}/auth/login`);
-    console.log('Login data:', { email, password });
+    console.log('Sending login request to:', `${api.defaults.baseURL}/api/auth/login`);
+    if (isDebugMode) {
+      console.log('Login data:', { email });
+    }
     
     try {
-      // Use direct axios call to get the raw response
       const response = await api({
-        url: '/auth/login',  // Remove the /api prefix since it's already in the baseURL
+        url: '/api/auth/login',
         method: 'POST',
         data: { email, password },
       });
       
-      // Return the raw data as it comes from the backend
       return response.data;
     } catch (error) {
       console.error('Login error in API service:', error);
       if (axios.isAxiosError(error) && error.response) {
-        // Return the error response data
         return error.response.data;
       }
       
-      // Generic error
       return {
         success: false,
         message: 'Failed to connect to authentication service',
@@ -136,22 +179,52 @@ export const authApi = {
 
 // Experts API
 export const expertsApi = {
-  getExperts: (params?: Record<string, string | boolean>) => 
-    request<Expert[]>({
-      url: '/api/experts',
+  getExperts: (page: number = 1, limit: number = 10, params?: Record<string, string | boolean>) => 
+    request<PaginatedResponse<Expert>>({
+      url: '/experts',
       method: 'GET',
-      params,
+      params: {
+        ...params,
+        page,
+        limit
+      },
     }),
 
   getExpertById: (id: string) => 
     request<Expert>({
-      url: `/api/experts/${id}`,
+      url: `/experts/${id}`,
       method: 'GET',
+    }),
+
+  createExpert: (data: FormData) => 
+    request<Expert>({
+      url: '/experts',
+      method: 'POST',
+      data,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
+
+  updateExpert: (id: string, data: FormData) => 
+    request<Expert>({
+      url: `/experts/${id}`,
+      method: 'PUT',
+      data,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
+    
+  deleteExpert: (id: string) => 
+    request<void>({
+      url: `/experts/${id}`,
+      method: 'DELETE',
     }),
 
   downloadExpertPdf: (id: string) => 
     api({
-      url: `/api/experts/${id}/approval-pdf`,
+      url: `/experts/${id}/approval-pdf`,
       method: 'GET',
       responseType: 'blob',
     }),
@@ -159,22 +232,26 @@ export const expertsApi = {
 
 // Expert Requests API
 export const expertRequestsApi = {
-  getExpertRequests: (params?: Record<string, string | boolean>) => 
-    request<ExpertRequest[]>({
-      url: '/api/expert-requests',
+  getExpertRequests: (page: number = 1, limit: number = 10, params?: Record<string, string | boolean>) => 
+    request<PaginatedResponse<ExpertRequest>>({
+      url: '/expert-requests',
       method: 'GET',
-      params,
+      params: {
+        ...params,
+        page,
+        limit
+      },
     }),
 
   getExpertRequestById: (id: string) => 
     request<ExpertRequest>({
-      url: `/api/expert-requests/${id}`,
+      url: `/expert-requests/${id}`,
       method: 'GET',
     }),
 
   createExpertRequest: (data: FormData) => 
     request<ExpertRequest>({
-      url: '/api/expert-requests',
+      url: '/expert-requests',
       method: 'POST',
       data,
       headers: {
@@ -184,50 +261,54 @@ export const expertRequestsApi = {
 
   updateExpertRequest: (id: string, data: Partial<ExpertRequest>) => 
     request<ExpertRequest>({
-      url: `/api/expert-requests/${id}`,
+      url: `/expert-requests/${id}`,
       method: 'PUT',
       data,
     }),
 
   deleteExpertRequest: (id: string) => 
     request<void>({
-      url: `/api/expert-requests/${id}`,
+      url: `/expert-requests/${id}`,
       method: 'DELETE',
     }),
 };
 
 // Users API
 export const usersApi = {
-  getUsers: (params?: Record<string, string | boolean>) => 
-    request<User[]>({
-      url: '/api/users',
+  getUsers: (page: number = 1, limit: number = 10, params?: Record<string, string | boolean>) => 
+    request<PaginatedResponse<User>>({
+      url: '/users',
       method: 'GET',
-      params,
+      params: {
+        ...params,
+        page,
+        limit
+      },
     }),
 
   getUserById: (id: string) => 
     request<User>({
-      url: `/api/users/${id}`,
+      url: `/users/${id}`,
       method: 'GET',
     }),
 
   createUser: (data: Partial<User>) => 
     request<User>({
-      url: '/api/users',
+      url: '/users',
       method: 'POST',
       data,
     }),
 
   updateUser: (id: string, data: Partial<User>) => 
     request<User>({
-      url: `/api/users/${id}`,
+      url: `/users/${id}`,
       method: 'PUT',
       data,
     }),
 
   deleteUser: (id: string) => 
     request<void>({
-      url: `/api/users/${id}`,
+      url: `/users/${id}`,
       method: 'DELETE',
     }),
 };
@@ -235,21 +316,143 @@ export const usersApi = {
 // Statistics API
 export const statisticsApi = {
   getNationalityStats: () => 
-    request<{ stats: NationalityStats[] }>({
-      url: '/api/statistics/nationality',
+    request<NationalityStats>({
+      url: '/statistics/nationality',
       method: 'GET',
     }),
 
-  getGrowthStats: () => 
+  getGrowthStats: (months?: number) => 
     request<GrowthStats[]>({
-      url: '/api/statistics/growth',
+      url: '/statistics/growth',
+      method: 'GET',
+      params: { months },
+    }),
+
+  getOverallStats: () => 
+    request<{
+      totalExperts: number;
+      totalBahraini: number;
+      totalInternational: number;
+      totalEngagements: number;
+      byEmploymentType: Record<string, number>;
+      byAvailability: Record<string, number>;
+    }>({
+      url: '/statistics',
       method: 'GET',
     }),
 
-  getIscedStats: () => 
-    request<IscedStats[]>({
-      url: '/api/statistics/isced',
+  getEngagementStats: () => 
+    request<{
+      total: number;
+      byStatus: Record<string, number>;
+      byType: Record<string, number>;
+    }>({
+      url: '/statistics/engagements',
       method: 'GET',
+    }),
+};
+
+// Expert Areas API
+export const expertAreasApi = {
+  getExpertAreas: () => 
+    request<{
+      id: number;
+      name: string;
+      description: string;
+    }[]>({
+      url: '/expert/areas',
+      method: 'GET',
+    }),
+};
+
+// Document API
+export const documentApi = {
+  uploadDocument: (data: FormData) => 
+    request<{
+      id: number;
+      expertId: number;
+      filename: string;
+      originalFilename: string;
+      documentType: string;
+      contentType: string;
+      size: number;
+      uploadedBy: number;
+      uploadedAt: string;
+    }>({
+      url: '/documents',
+      method: 'POST',
+      data,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
+
+  getDocument: (id: number) => 
+    request<Document>({
+      url: `/documents/${id}`,
+      method: 'GET',
+    }),
+
+  deleteDocument: (id: number) => 
+    request<void>({
+      url: `/documents/${id}`,
+      method: 'DELETE',
+    }),
+
+  getExpertDocuments: (expertId: number) => 
+    request<Document[]>({
+      url: `/experts/${expertId}/documents`,
+      method: 'GET',
+    }),
+};
+
+// Engagement API
+export const engagementApi = {
+  getEngagements: (page: number = 1, limit: number = 10, params?: Record<string, string | boolean>) => 
+    request<PaginatedResponse<Engagement>>({
+      url: '/engagements',
+      method: 'GET',
+      params: {
+        ...params,
+        page,
+        limit
+      },
+    }),
+
+  getEngagementById: (id: string) => 
+    request<Engagement>({
+      url: `/engagements/${id}`,
+      method: 'GET',
+    }),
+
+  createEngagement: (data: Partial<Engagement>) => 
+    request<Engagement>({
+      url: '/engagements',
+      method: 'POST',
+      data,
+    }),
+
+  updateEngagement: (id: string, data: Partial<Engagement>) => 
+    request<Engagement>({
+      url: `/engagements/${id}`,
+      method: 'PUT',
+      data,
+    }),
+
+  deleteEngagement: (id: string) => 
+    request<void>({
+      url: `/engagements/${id}`,
+      method: 'DELETE',
+    }),
+
+  getExpertEngagements: (expertId: string, page: number = 1, limit: number = 10) => 
+    request<PaginatedResponse<Engagement>>({
+      url: `/experts/${expertId}/engagements`,
+      method: 'GET',
+      params: {
+        page,
+        limit
+      },
     }),
 };
 
@@ -259,4 +462,7 @@ export default {
   expertRequests: expertRequestsApi,
   users: usersApi,
   statistics: statisticsApi,
+  expertAreas: expertAreasApi,
+  documents: documentApi,
+  engagements: engagementApi,
 };
