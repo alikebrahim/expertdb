@@ -27,6 +27,7 @@ store/
 
 # Development configurations
 *.env
+*.envrc
 .*.toml
 
 # Data files

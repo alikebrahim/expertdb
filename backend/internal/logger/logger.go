@@ -1,4 +1,5 @@
-package main
+// Package logger provides logging functionality for the ExpertDB application
+package logger
 
 import (
 	"fmt"
@@ -72,8 +73,8 @@ type Logger struct {
 	useColors bool
 }
 
-// NewLogger creates a new logger with the specified configuration
-func NewLogger(level LogLevel, logDir string, useColors bool) (*Logger, error) {
+// New creates a new logger with the specified configuration
+func New(level LogLevel, logDir string, useColors bool) (*Logger, error) {
 	// Create log directory if it doesn't exist
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create log directory: %w", err)
@@ -229,28 +230,20 @@ func (rw *responseWriter) WriteHeader(statusCode int) {
 	rw.ResponseWriter.WriteHeader(statusCode)
 }
 
-// Global logger instance
-var globalLogger *Logger
-
-// InitLogger initializes the global logger
-func InitLogger(level LogLevel, logDir string, useColors bool) error {
-	logger, err := NewLogger(level, logDir, useColors)
-	if err != nil {
-		return err
+// GetLogLevelFromString converts a string log level to LogLevel
+func GetLogLevelFromString(level string) LogLevel {
+	switch level {
+	case "debug":
+		return LevelDebug
+	case "info":
+		return LevelInfo
+	case "warn":
+		return LevelWarn
+	case "error":
+		return LevelError
+	case "fatal":
+		return LevelFatal
+	default:
+		return LevelInfo
 	}
-	globalLogger = logger
-	return nil
-}
-
-// GetLogger returns the global logger instance
-func GetLogger() *Logger {
-	if globalLogger == nil {
-		// Create a default logger if not initialized
-		logger, err := NewLogger(LevelInfo, "./logs", true)
-		if err != nil {
-			log.Fatalf("Failed to create default logger: %v", err)
-		}
-		globalLogger = logger
-	}
-	return globalLogger
 }

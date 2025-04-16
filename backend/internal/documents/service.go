@@ -1,4 +1,5 @@
-package main
+// Package documents provides document management functionality
+package documents
 
 import (
 	"fmt"
@@ -7,24 +8,27 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	
+	"expertdb/internal/domain"
+	"expertdb/internal/storage"
 )
 
-// DocumentService manages document uploads and storage
-type DocumentService struct {
-	store     Storage
-	uploadDir string
-	maxSize   int64
+// Service manages document uploads and storage
+type Service struct {
+	store       storage.Storage
+	uploadDir   string
+	maxSize     int64
 	allowedTypes map[string]bool
 }
 
-// NewDocumentService creates a new DocumentService instance
-func NewDocumentService(store Storage, uploadDir string) (*DocumentService, error) {
+// New creates a new Service instance
+func New(store storage.Storage, uploadDir string) (*Service, error) {
 	// Create the upload directory if it doesn't exist
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create upload directory: %w", err)
 	}
 
-	return &DocumentService{
+	return &Service{
 		store:     store,
 		uploadDir: uploadDir,
 		maxSize:   10 * 1024 * 1024, // 10 MB default limit
@@ -39,7 +43,7 @@ func NewDocumentService(store Storage, uploadDir string) (*DocumentService, erro
 }
 
 // CreateDocument handles file upload and database registration
-func (s *DocumentService) CreateDocument(expertID int64, file multipart.File, header *multipart.FileHeader, docType string) (*Document, error) {
+func (s *Service) CreateDocument(expertID int64, file multipart.File, header *multipart.FileHeader, docType string) (*domain.Document, error) {
 	// Validate file size
 	if header.Size > s.maxSize {
 		return nil, fmt.Errorf("file size exceeds maximum allowed size of %d bytes", s.maxSize)
@@ -77,7 +81,7 @@ func (s *DocumentService) CreateDocument(expertID int64, file multipart.File, he
 	}
 
 	// Create document record
-	doc := &Document{
+	doc := &domain.Document{
 		ExpertID:     expertID,
 		DocumentType: docType,
 		Type:         docType, // Add Type field as alias of DocumentType
@@ -100,17 +104,17 @@ func (s *DocumentService) CreateDocument(expertID int64, file multipart.File, he
 }
 
 // GetDocument retrieves a document by ID
-func (s *DocumentService) GetDocument(id int64) (*Document, error) {
+func (s *Service) GetDocument(id int64) (*domain.Document, error) {
 	return s.store.GetDocument(id)
 }
 
-// GetDocumentsByExpertID retrieves all documents for an expert
-func (s *DocumentService) GetDocumentsByExpertID(expertID int64) ([]*Document, error) {
-	return s.store.GetDocumentsByExpertID(expertID)
+// ListDocuments retrieves all documents for an expert
+func (s *Service) ListDocuments(expertID int64) ([]*domain.Document, error) {
+	return s.store.ListDocuments(expertID)
 }
 
 // DeleteDocument removes a document and its file
-func (s *DocumentService) DeleteDocument(id int64) error {
+func (s *Service) DeleteDocument(id int64) error {
 	// Get the document first to find the file path
 	doc, err := s.store.GetDocument(id)
 	if err != nil {
@@ -131,4 +135,3 @@ func (s *DocumentService) DeleteDocument(id int64) error {
 
 	return nil
 }
-

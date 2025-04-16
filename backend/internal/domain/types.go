@@ -1,10 +1,20 @@
-package main
+// Package domain contains the core business entities for the ExpertDB application
+package domain
 
 import (
 	"errors"
 	"regexp"
 	"strings"
 	"time"
+)
+
+// Domain errors
+var (
+	ErrNotFound           = errors.New("resource not found")
+	ErrUnauthorized       = errors.New("unauthorized access")
+	ErrForbidden          = errors.New("access forbidden")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrValidation         = errors.New("validation error")
 )
 
 type CreateExpertRequest struct {
@@ -201,14 +211,7 @@ type CreateUserResponse struct {
 	Message string `json:"message,omitempty"` // Optional message providing additional details
 }
 
-// Configuration represents application configuration
-type Configuration struct {
-	Port             string `json:"port"`             // HTTP server port
-	DBPath           string `json:"dbPath"`           // Path to SQLite database file
-	UploadPath       string `json:"uploadPath"`       // Directory for uploaded documents
-	CORSAllowOrigins string `json:"corsAllowOrigins"` // CORS allowed origins (comma-separated)
-}
-
+// NewExpert creates a new Expert from a CreateExpertRequest
 func NewExpert(req CreateExpertRequest) *Expert {
 	var email, phone string
 	if req.ContactType == "email" {
@@ -310,5 +313,3 @@ func containsString(slice []string, str string) bool {
 	}
 	return false
 }
-
-// NOTE: Added field comments to all structs for enhanced code documentation and clarity.
