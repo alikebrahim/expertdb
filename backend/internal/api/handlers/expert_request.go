@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 	
+	"expertdb/internal/auth"
+	"expertdb/internal/documents"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -15,76 +17,121 @@ import (
 
 // ExpertRequestHandler handles expert request-related API endpoints
 type ExpertRequestHandler struct {
-	store storage.Storage
+	store           storage.Storage
+	documentService *documents.Service
 }
 
 // NewExpertRequestHandler creates a new expert request handler
-func NewExpertRequestHandler(store storage.Storage) *ExpertRequestHandler {
+func NewExpertRequestHandler(store storage.Storage, documentService *documents.Service) *ExpertRequestHandler {
 	return &ExpertRequestHandler{
-		store: store,
+		store:           store,
+		documentService: documentService,
 	}
+}
+
+// writeJSON is a helper function to write JSON responses
+func writeJSON(w http.ResponseWriter, status int, v interface{}) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	return json.NewEncoder(w).Encode(v)
 }
 
 // HandleCreateExpertRequest handles POST /api/expert-requests requests
 func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, r *http.Request) error {
 	log := logger.Get()
 	log.Debug("Processing POST /api/expert-requests request")
-	
-	// Parse request body
-	var request domain.ExpertRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		log.Warn("Failed to parse expert request: %v", err)
-		return fmt.Errorf("invalid request body: %w", err)
+
+	// Parse multipart form (max 10MB for file)
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		log.Warn("Failed to parse multipart form: %v", err)
+		return fmt.Errorf("failed to parse form: %w", err)
 	}
 
-	// Validate required fields
-	log.Debug("Validating expert request fields")
-	
-	// Validate name
-	if strings.TrimSpace(request.Name) == "" {
-		log.Warn("Missing name in expert request")
-		return fmt.Errorf("name is required")
+	// Parse JSON part (expert request data)
+	var req domain.ExpertRequest
+	jsonData := r.FormValue("data")
+	if jsonData == "" {
+		log.Warn("Missing JSON data in form")
+		return fmt.Errorf("missing request data")
+	}
+	if err := json.Unmarshal([]byte(jsonData), &req); err != nil {
+		log.Warn("Failed to parse JSON data: %v", err)
+		return fmt.Errorf("invalid JSON data: %w", err)
+	}
+
+	// Validate mandatory fields
+	if req.Name == "" || req.Email == "" || req.Phone == "" || req.Biography == "" ||
+		req.Designation == "" || req.Institution == "" || req.GeneralArea == 0 ||
+		req.Role == "" || req.EmploymentType == "" || req.Rating == "" {
+		log.Warn("Missing required fields in expert request")
+		return fmt.Errorf("all fields (name, email, phone, biography, designation, institution, general_area, role, employment_type, rating) are required")
+	}
+
+	// Handle CV file
+	file, fileHeader, err := r.FormFile("cv")
+	if err != nil {
+		log.Warn("Failed to get CV file: %v", err)
+		return fmt.Errorf("CV file is required: %w", err)
+	}
+	defer file.Close()
+
+	// Set created_by from JWT context
+	claims, ok := auth.GetUserClaimsFromContext(r.Context())
+	if !ok {
+		log.Warn("Failed to get user claims from context")
+		return domain.ErrUnauthorized
 	}
 	
-	// Validate institution
-	if strings.TrimSpace(request.Institution) == "" {
-		log.Warn("Missing institution in expert request")
-		return fmt.Errorf("institution is required")
-	}
-	
-	// Validate designation
-	if strings.TrimSpace(request.Designation) == "" {
-		log.Warn("Missing designation in expert request")
-		return fmt.Errorf("designation is required")
-	}
-	
-	// Validate contact information (email or phone)
-	if strings.TrimSpace(request.Email) == "" && strings.TrimSpace(request.Phone) == "" {
-		log.Warn("Missing contact information in expert request")
-		return fmt.Errorf("at least one contact method (email or phone) is required")
+	// Extract user ID from claims
+	if sub, ok := claims["sub"].(string); ok {
+		userID, err := strconv.ParseInt(sub, 10, 64)
+		if err == nil {
+			req.CreatedBy = userID
+		} else {
+			log.Warn("Failed to parse user ID from claims: %v", err)
+			return domain.ErrUnauthorized
+		}
+	} else {
+		log.Warn("Failed to get user ID from claims")
+		return domain.ErrUnauthorized
 	}
 
 	// Set default values
-	log.Debug("Setting default values for expert request")
-	request.Status = "pending" // Default status for new requests
-	request.CreatedAt = time.Now()
+	if req.CreatedAt.IsZero() {
+		req.CreatedAt = time.Now()
+	}
+	if req.Status == "" {
+		req.Status = "pending"
+	}
 
-	// Create the request in database
-	log.Debug("Creating expert request in database: %s, Institution: %s", 
-		request.Name, request.Institution)
-	id, err := h.store.CreateExpertRequest(&request)
+	// Upload CV using document service
+	// Since the expert hasn't been created yet, we'll use a temporary ID
+	// We'll update it later once we have the actual expert ID
+	tempExpertID := int64(-1) // Use a temporary negative ID to indicate this is for a request
+	
+	// Upload document using the document service's method
+	doc, err := h.documentService.CreateDocument(tempExpertID, file, fileHeader, "cv")
 	if err != nil {
-		log.Error("Failed to create expert request in database: %v", err)
+		log.Error("Failed to upload CV: %v", err)
+		return fmt.Errorf("failed to upload CV: %w", err)
+	}
+	req.CVPath = doc.FilePath
+
+	// Create request in database
+	log.Debug("Creating expert request for %s", req.Name)
+	id, err := h.store.CreateExpertRequest(&req)
+	if err != nil {
+		log.Error("Failed to create expert request: %v", err)
 		return fmt.Errorf("failed to create expert request: %w", err)
 	}
 
-	// Set the ID in the response
-	request.ID = id
-	log.Info("Expert request created successfully: ID: %d, Name: %s", id, request.Name)
-	
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	return json.NewEncoder(w).Encode(request)
+	// Return success response
+	log.Info("Expert request created successfully with ID: %d", id)
+	resp := map[string]interface{}{
+		"id": id,
+	}
+	return writeJSON(w, http.StatusCreated, resp)
 }
 
 // HandleGetExpertRequests handles GET /api/expert-requests requests
@@ -166,6 +213,20 @@ func (h *ExpertRequestHandler) HandleGetExpertRequest(w http.ResponseWriter, r *
 func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, r *http.Request) error {
 	log := logger.Get()
 	
+	// Check if user is admin for status updates
+	claims, ok := auth.GetUserClaimsFromContext(r.Context())
+	if !ok {
+		log.Warn("Failed to get user claims from context")
+		return domain.ErrUnauthorized
+	}
+	
+	// Check if user has admin role
+	role, ok := claims["role"].(string)
+	if !ok || role != auth.RoleAdmin {
+		log.Warn("Non-admin attempted to update request status")
+		return domain.ErrForbidden
+	}
+	
 	// Extract and validate expert request ID from path
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -197,88 +258,49 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 	// Ensure ID matches path parameter
 	updateRequest.ID = id
 	
-	// Handle status changes - if status is changing to "approved", create an expert record
-	log.Debug("Processing request update, current status: %s, new status: %s", 
-		existingRequest.Status, updateRequest.Status)
-	
-	if existingRequest.Status != "approved" && updateRequest.Status == "approved" {
-		log.Info("Expert request being approved, creating expert record from request data")
-		
-		// Create a new expert from the request data
-		// Generate a unique expert ID if not provided
-		expertIDStr := updateRequest.ExpertID
-		if expertIDStr == "" || len(expertIDStr) < 3 {
-			var genErr error
-			expertIDStr, genErr = h.store.GenerateUniqueExpertID()
-			if genErr != nil {
-				log.Error("Failed to generate unique expert ID: %v", genErr)
-				return fmt.Errorf("failed to generate unique expert ID: %w", genErr)
-			}
-			log.Debug("Generated unique expert ID: %s", expertIDStr)
-		}
-		
-		// Create expert record with data from the request
-		expert := &domain.Expert{
-			ExpertID:        expertIDStr,
-			Name:            updateRequest.Name,
-			Designation:     updateRequest.Designation,
-			Institution:     updateRequest.Institution,
-			IsBahraini:      updateRequest.IsBahraini,
-			IsAvailable:     updateRequest.IsAvailable,
-			Rating:          updateRequest.Rating,
-			Role:            updateRequest.Role,
-			EmploymentType:  updateRequest.EmploymentType,
-			GeneralArea:     updateRequest.GeneralArea,
-			SpecializedArea: updateRequest.SpecializedArea,
-			IsTrained:       updateRequest.IsTrained,
-			CVPath:          updateRequest.CVPath,
-			Phone:           updateRequest.Phone,
-			Email:           updateRequest.Email,
-			IsPublished:     updateRequest.IsPublished,
-			Biography:       updateRequest.Biography,
-			CreatedAt:       time.Now(),
-		}
-		
-		// Create the expert record in database
-		log.Debug("Creating expert record: %s, Institution: %s", expert.Name, expert.Institution)
-		createdID, err := h.store.CreateExpert(expert)
-		if err != nil {
-			log.Error("Failed to create expert from request: %v", err)
-			
-			// Check if this is a uniqueness constraint error
-			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-				return fmt.Errorf("an expert with this ID already exists: %w", err)
-			}
-			
-			return fmt.Errorf("failed to create expert from request: %w", err)
-		}
-		
-		// Set the reviewed timestamp
-		updateRequest.ReviewedAt = time.Now()
-		
-		// Update the expert request with the expert ID
-		updateRequest.ExpertID = fmt.Sprintf("EXP-%d", createdID)
-		log.Info("Expert created successfully from request: Expert ID: %d", createdID)
+	// Validate status
+	if updateRequest.Status != "" && 
+	   updateRequest.Status != "approved" && 
+	   updateRequest.Status != "rejected" && 
+	   updateRequest.Status != "pending" {
+		log.Warn("Invalid status provided: %s", updateRequest.Status)
+		return fmt.Errorf("invalid status: %s", updateRequest.Status)
 	}
 	
-	// Perform update to the expert request
-	// Use a specific method for status updates
+	// Get user ID from context for reviewer (claims already validated above)
+	var userID int64 = 0
+	if sub, ok := claims["sub"].(string); ok {
+		parsedID, err := strconv.ParseInt(sub, 10, 64)
+		if err == nil {
+			userID = parsedID
+		} else {
+			log.Warn("Failed to parse user ID from claims: %v", err)
+			return domain.ErrUnauthorized
+		}
+	}
+	
+	// Perform update to the expert request status
+	// This will now trigger expert creation automatically in the storage layer
 	if updateRequest.Status != "" && updateRequest.Status != existingRequest.Status {
 		log.Debug("Updating expert request ID: %d, Status: %s", id, updateRequest.Status)
-		if err := h.store.UpdateExpertRequestStatus(id, updateRequest.Status, updateRequest.RejectionReason, 0); err != nil {
+		if err := h.store.UpdateExpertRequestStatus(id, updateRequest.Status, updateRequest.RejectionReason, userID); err != nil {
 			log.Error("Failed to update expert request status: %v", err)
+			return fmt.Errorf("failed to update expert request: %w", err)
+		}
+	} else {
+		// If not a status update, update the entire request
+		// This preserves created_by field
+		updateRequest.CreatedBy = existingRequest.CreatedBy
+		if err := h.store.UpdateExpertRequest(&updateRequest); err != nil {
+			log.Error("Failed to update expert request: %v", err)
 			return fmt.Errorf("failed to update expert request: %w", err)
 		}
 	}
 	
 	// Return success response
 	log.Info("Expert request updated successfully: ID: %d, Status: %s", id, updateRequest.Status)
-	resp := map[string]interface{}{
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Expert request updated successfully",
-	}
-	
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(resp)
+	})
 }

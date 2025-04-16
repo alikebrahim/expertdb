@@ -118,7 +118,7 @@ func (s *Server) registerRoutes() {
 	// Create handlers
 	userHandler := handlers.NewUserHandler(s.store)
 	expertHandler := handlers.NewExpertHandler(s.store)
-	expertRequestHandler := handlers.NewExpertRequestHandler(s.store)
+	expertRequestHandler := handlers.NewExpertRequestHandler(s.store, s.documentService)
 	documentHandler := documents.NewHandler(s.store, s.documentService)
 	engagementHandler := engagements.NewHandler(s.store)
 	statisticsHandler := statistics.NewHandler(s.store)

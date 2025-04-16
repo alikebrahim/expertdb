@@ -1,5 +1,5 @@
-// Package auth provides authentication and authorization functionality
+// Package auth provides JWT functionality for authentication
 package auth
 
-// This file is intentionally empty as the JWT functionality 
-// has been consolidated into auth.go
+// NOTE: This file is intentionally empty as JWT functionality has been
+// consolidated in auth.go to avoid duplication and conflicts.

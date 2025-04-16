@@ -16,8 +16,8 @@ func (s *SQLiteStore) CreateExpertRequest(req *domain.ExpertRequest) (int64, err
 			name, designation, institution, is_bahraini, is_available,
 			rating, role, employment_type, general_area, specialized_area,
 			is_trained, cv_path, phone, email, is_published, biography,
-			status, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			status, created_at, created_by
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	
 	// Set default values if not provided
@@ -70,7 +70,7 @@ func (s *SQLiteStore) CreateExpertRequest(req *domain.ExpertRequest) (int64, err
 		req.Role, req.EmploymentType, req.GeneralArea,
 		specializedArea, req.IsTrained, cvPath,
 		req.Phone, req.Email, req.IsPublished, biography,
-		req.Status, req.CreatedAt,
+		req.Status, req.CreatedAt, req.CreatedBy,
 	)
 	
 	if err != nil {
@@ -96,7 +96,7 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) 
 			is_available, rating, role, employment_type, general_area, 
 			specialized_area, is_trained, cv_path, phone, email, 
 			is_published, biography, status, rejection_reason, 
-			created_at, reviewed_at, reviewed_by
+			created_at, reviewed_at, reviewed_by, created_by
 		FROM expert_requests
 		WHERE id = ?
 	`
@@ -105,6 +105,7 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) 
 	var expertID sql.NullString
 	var reviewedAt sql.NullTime
 	var reviewedBy sql.NullInt64
+	var createdBy sql.NullInt64
 	
 	err := s.db.QueryRow(query, id).Scan(
 		&req.ID, &expertID, &req.Name, &req.Designation, &req.Institution, 
@@ -112,7 +113,7 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) 
 		&req.EmploymentType, &req.GeneralArea, &req.SpecializedArea, 
 		&req.IsTrained, &req.CVPath, &req.Phone, &req.Email, 
 		&req.IsPublished, &req.Biography, &req.Status, &req.RejectionReason, 
-		&req.CreatedAt, &reviewedAt, &reviewedBy,
+		&req.CreatedAt, &reviewedAt, &reviewedBy, &createdBy,
 	)
 	
 	if err != nil {
@@ -135,6 +136,10 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) 
 		req.ReviewedBy = reviewedBy.Int64
 	}
 	
+	if createdBy.Valid {
+		req.CreatedBy = createdBy.Int64
+	}
+	
 	return &req, nil
 }
 
@@ -154,7 +159,7 @@ func (s *SQLiteStore) ListExpertRequests(status string, limit, offset int) ([]*d
 				is_available, rating, role, employment_type, general_area, 
 				specialized_area, is_trained, cv_path, phone, email, 
 				is_published, biography, status, rejection_reason, 
-				created_at, reviewed_at, reviewed_by
+				created_at, reviewed_at, reviewed_by, created_by
 			FROM expert_requests
 			WHERE status = ?
 			ORDER BY created_at DESC
@@ -168,7 +173,7 @@ func (s *SQLiteStore) ListExpertRequests(status string, limit, offset int) ([]*d
 				is_available, rating, role, employment_type, general_area, 
 				specialized_area, is_trained, cv_path, phone, email, 
 				is_published, biography, status, rejection_reason, 
-				created_at, reviewed_at, reviewed_by
+				created_at, reviewed_at, reviewed_by, created_by
 			FROM expert_requests
 			ORDER BY created_at DESC
 			LIMIT ? OFFSET ?
@@ -188,6 +193,7 @@ func (s *SQLiteStore) ListExpertRequests(status string, limit, offset int) ([]*d
 		var expertID sql.NullString
 		var reviewedAt sql.NullTime
 		var reviewedBy sql.NullInt64
+		var createdBy sql.NullInt64
 		
 		err := rows.Scan(
 			&req.ID, &expertID, &req.Name, &req.Designation, &req.Institution, 
@@ -195,7 +201,7 @@ func (s *SQLiteStore) ListExpertRequests(status string, limit, offset int) ([]*d
 			&req.EmploymentType, &req.GeneralArea, &req.SpecializedArea, 
 			&req.IsTrained, &req.CVPath, &req.Phone, &req.Email, 
 			&req.IsPublished, &req.Biography, &req.Status, &req.RejectionReason, 
-			&req.CreatedAt, &reviewedAt, &reviewedBy,
+			&req.CreatedAt, &reviewedAt, &reviewedBy, &createdBy,
 		)
 		
 		if err != nil {
@@ -213,6 +219,10 @@ func (s *SQLiteStore) ListExpertRequests(status string, limit, offset int) ([]*d
 		
 		if reviewedBy.Valid {
 			req.ReviewedBy = reviewedBy.Int64
+		}
+		
+		if createdBy.Valid {
+			req.CreatedBy = createdBy.Int64
 		}
 		
 		requests = append(requests, &req)
@@ -236,15 +246,7 @@ func (s *SQLiteStore) UpdateExpertRequestStatus(id int64, status, rejectionReaso
 	now := time.Now().UTC()
 	
 	// Execute the update
-	result, err := s.db.Exec(
-		query,
-		status,
-		rejectionReason,
-		now,
-		reviewedBy,
-		id,
-	)
-	
+	result, err := s.db.Exec(query, status, rejectionReason, now, reviewedBy, id)
 	if err != nil {
 		return fmt.Errorf("failed to update expert request status: %w", err)
 	}
@@ -259,6 +261,44 @@ func (s *SQLiteStore) UpdateExpertRequestStatus(id int64, status, rejectionReaso
 		return domain.ErrNotFound
 	}
 	
+	// If approved, automatically create expert
+	if status == "approved" {
+		// Retrieve the request
+		req, err := s.GetExpertRequest(id)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve request for expert creation: %w", err)
+		}
+		
+		// Create expert
+		expert := &domain.Expert{
+			ExpertID:          req.ExpertID,
+			Name:              req.Name,
+			Email:             req.Email,
+			Phone:             req.Phone,
+			Biography:         req.Biography,
+			CVPath:            req.CVPath,
+			Designation:       req.Designation,
+			Institution:       req.Institution,
+			IsBahraini:        req.IsBahraini,
+			IsAvailable:       req.IsAvailable,
+			Rating:            req.Rating,
+			Role:              req.Role,
+			EmploymentType:    req.EmploymentType,
+			GeneralArea:       req.GeneralArea,
+			SpecializedArea:   req.SpecializedArea,
+			IsPublished:       req.IsPublished,
+			IsTrained:         req.IsTrained,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+			OriginalRequestID: id, // Set the reference to the original request
+		}
+		
+		_, err = s.CreateExpert(expert)
+		if err != nil {
+			return fmt.Errorf("failed to create expert on approval: %w", err)
+		}
+	}
+	
 	return nil
 }
 
@@ -271,7 +311,7 @@ func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
 			general_area = ?, specialized_area = ?, is_trained = ?,
 			cv_path = ?, phone = ?, email = ?, is_published = ?,
 			biography = ?, status = ?, rejection_reason = ?,
-			expert_id = ?, reviewed_at = ?, reviewed_by = ?
+			expert_id = ?, reviewed_at = ?, reviewed_by = ?, created_by = ?
 		WHERE id = ?
 	`
 	
@@ -307,6 +347,11 @@ func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
 		reviewedBy = req.ReviewedBy
 	}
 	
+	var createdBy interface{} = nil
+	if req.CreatedBy != 0 {
+		createdBy = req.CreatedBy
+	}
+	
 	// Execute update
 	result, err := s.db.Exec(
 		query,
@@ -315,7 +360,7 @@ func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
 		req.GeneralArea, specializedArea, req.IsTrained,
 		cvPath, req.Phone, req.Email, req.IsPublished,
 		biography, req.Status, rejectionReason,
-		expertID, reviewedAt, reviewedBy,
+		expertID, reviewedAt, reviewedBy, createdBy,
 		req.ID,
 	)
 	

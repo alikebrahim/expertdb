@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS "expert_requests" (
     general_area INTEGER,    -- Reference to expert_areas table
     specialized_area TEXT,
     is_trained BOOLEAN,
-    cv_path TEXT,            -- Path to the CV file NOTE: This is better be replaced with expert_documents(id)
+    cv_path TEXT,            -- Path to the CV file
     phone TEXT,
     email TEXT,
     is_published BOOLEAN,
@@ -22,15 +22,18 @@ CREATE TABLE IF NOT EXISTS "expert_requests" (
     rejection_reason TEXT,   -- Reason for rejection if status is 'rejected'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     reviewed_at TIMESTAMP,
-    reviewed_by INTEGER      -- References users(id)
+    reviewed_by INTEGER,     -- References users(id)
+    created_by INTEGER       -- References users(id)
 );
 
 -- Create indexes for tracking
 CREATE INDEX idx_expert_requests_status ON expert_requests(status);
 CREATE INDEX idx_expert_requests_created_at ON expert_requests(created_at);
 CREATE INDEX idx_expert_requests_general_area ON expert_requests(general_area);
+CREATE INDEX idx_expert_requests_created_by ON expert_requests(created_by);
 
 -- +goose Down
+DROP INDEX IF EXISTS idx_expert_requests_created_by;
 DROP INDEX IF EXISTS idx_expert_requests_general_area;
 DROP INDEX IF EXISTS idx_expert_requests_created_at;
 DROP INDEX IF EXISTS idx_expert_requests_status;

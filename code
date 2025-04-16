@@ -1,0 +1,6055 @@
+Directory structure:
+└── backend/
+    ├── README.md
+    ├── go.mod
+    ├── go.sum
+    ├── py_import.py
+    ├── .envrc
+    ├── cmd/
+    │   └── server/
+    │       └── main.go
+    ├── db/
+    │   ├── migrations/
+    │   │   └── sqlite/
+    │   │       ├── 0001_create_expert_table_up.sql
+    │   │       ├── 0002_create_expert-request_table.sql
+    │   │       ├── 0003_create_users_table_up.sql
+    │   │       ├── 0004_create_expert_areas_table.sql
+    │   │       ├── 0005_create_foreign_keys.sql
+    │   │       ├── 0006_create_expert_documents_table.sql
+    │   │       ├── 0007_create_expert_engagements_table.sql
+    │   │       └── 0008_create_statistics_table.sql
+    │   └── sqlite/
+    └── internal/
+        ├── api/
+        │   ├── server.go
+        │   └── handlers/
+        │       ├── auth.go
+        │       ├── expert.go
+        │       ├── expert_request.go
+        │       ├── user.go
+        │       ├── documents/
+        │       │   └── document_handler.go
+        │       ├── engagements/
+        │       │   └── engagement_handler.go
+        │       └── statistics/
+        │           └── statistics_handler.go
+        ├── auth/
+        │   ├── auth.go
+        │   ├── jwt.go
+        │   ├── middleware.go
+        │   └── password.go
+        ├── config/
+        │   └── config.go
+        ├── documents/
+        │   └── service.go
+        ├── domain/
+        │   └── types.go
+        ├── logger/
+        │   ├── global.go
+        │   └── logger.go
+        └── storage/
+            ├── interface.go
+            └── sqlite/
+                ├── area.go
+                ├── document.go
+                ├── engagement.go
+                ├── expert.go
+                ├── expert_request.go
+                ├── statistics.go
+                ├── store.go
+                └── user.go
+
+
+Files Content:
+
+================================================
+FILE: backend/README.md
+================================================
+# ExpertDB Backend
+
+This is the backend service for ExpertDB, a system for managing expert profiles, requests, and engagements.
+
+## Project Structure
+
+The project follows a clean, modular structure using Go best practices:
+
+```
+backend/
+├── cmd/
+│   └── server/       # Application entry point
+├── internal/         # Private application code
+│   ├── api/          # HTTP API handlers
+│   ├── auth/         # Authentication and authorization
+│   ├── config/       # Configuration management
+│   ├── domain/       # Core business entities
+│   ├── documents/    # Document handling service
+│   ├── logger/       # Logging functionality
+│   └── storage/      # Database operations
+│       └── sqlite/   # SQLite implementation
+└── db/               # Database migrations and schema
+    └── migrations/   # Migration files
+```
+
+## Architecture
+
+The application follows a layered architecture:
+
+1. **Domain Layer** (`internal/domain`)
+   - Core entities and validation
+   - Error definitions
+
+2. **Storage Layer** (`internal/storage`)
+   - Database interface
+   - SQLite implementation
+
+3. **Service Layer** (`internal/documents`, etc.)
+   - Logic for documents, etc.
+
+4. **API Layer** (`internal/api`)
+   - HTTP handlers and routing
+   - Request/response handling
+
+5. **Cross-cutting Concerns**
+   - `internal/auth`: Authentication and authorization
+   - `internal/config`: Configuration management
+   - `internal/logger`: Logging
+
+## Running the Application
+
+```bash
+# Navigate to the backend directory
+cd backend
+
+# Set environment variables (or use defaults)
+export PORT=8080
+export DB_PATH=./db/sqlite/expertdb.sqlite
+export UPLOAD_PATH=./data/documents
+export CORS_ALLOWED_ORIGINS=*
+export LOG_LEVEL=info
+
+# Run the application
+go run cmd/server/main.go
+```
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | HTTP server port | `8080` |
+| `DB_PATH` | Path to SQLite database | `./db/sqlite/expertdb.sqlite` |
+| `UPLOAD_PATH` | Directory for document uploads | `./data/documents` |
+| `CORS_ALLOWED_ORIGINS` | CORS allowed origins | `*` |
+| `LOG_LEVEL` | Logging level (debug, info, warn, error) | `info` |
+| `LOG_DIR` | Directory for log files | `./logs` |
+| `ADMIN_EMAIL` | Default admin email | `admin@expertdb.com` |
+| `ADMIN_NAME` | Default admin name | `Admin User` |
+| `ADMIN_PASSWORD` | Default admin password | `adminpassword` |
+
+
+
+================================================
+FILE: backend/go.mod
+================================================
+module expertdb
+
+go 1.22
+
+require (
+	github.com/golang-jwt/jwt/v5 v5.2.0
+	github.com/mattn/go-sqlite3 v1.14.24
+	golang.org/x/crypto v0.21.0
+)
+
+
+
+================================================
+FILE: backend/go.sum
+================================================
+github.com/golang-jwt/jwt/v5 v5.2.0 h1:d/ix8ftRUorsN+5eMIlF4T6J8CAt9rch3My2winC1Jw=
+github.com/golang-jwt/jwt/v5 v5.2.0/go.mod h1:pqrtFR0X4osieyHYxtmOUWsAWrfe1Q5UVIyoH402zdk=
+github.com/mattn/go-sqlite3 v1.14.24 h1:tpSp2G2KyMnnQu99ngJ47EIkWVmliIizyZBfPrBWDRM=
+github.com/mattn/go-sqlite3 v1.14.24/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
+golang.org/x/crypto v0.21.0 h1:X31++rzVUdKhX5sWmSOFZxx8UW/ldWx55cbf08iNAMA=
+golang.org/x/crypto v0.21.0/go.mod h1:0BP7YvVV9gBbVKyeTG0Gyn+gZm94bibOW5BjDEYAOMs=
+
+
+
+================================================
+FILE: backend/py_import.py
+================================================
+import sqlite3
+import csv
+
+# ANSI escape codes for red text in terminal
+RED = "\033[31m"
+RESET = "\033[0m"
+
+# Connect to SQLite database
+db_path = "./db/sqlite/expertdb.sqlite"
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
+
+# Load expert_areas into a lookup dictionary
+cursor.execute("SELECT id, name FROM expert_areas")
+expert_areas = {row[1]: row[0] for row in cursor.fetchall()}
+print("Loaded expert_areas:", expert_areas)
+
+# Function to normalize text for matching
+def normalize_text(text):
+    if not text:
+        return ""
+    # Replace multiple spaces/hyphens with single space and standardize hyphen spacing
+    text = ' '.join(text.split())  # Collapse multiple spaces
+    text = text.replace('-', ' - ').replace('  ', ' ')  # Ensure single space around hyphen
+    return text.strip()
+
+# Function to transform CSV data to match table schema
+def transform_row(row, expert_areas):
+    def get_value(key):
+        for k in row.keys():
+            cleaned_key = k.replace('\ufeff', '').strip()
+            if cleaned_key.lower() == key.lower():
+                return row[k].strip() if row[k] else None
+        raise KeyError(f"Column '{key}' not found in CSV")
+
+    name = get_value("Name") or "Unknown Expert"
+    general_area_text = get_value("General Area")
+    
+    # Handle missing or empty general_area_text
+    if not general_area_text:
+        # Default to "Unknown" and log
+        cursor.execute("INSERT OR IGNORE INTO expert_areas (name) VALUES ('Unknown')")
+        cursor.execute("SELECT id FROM expert_areas WHERE name = 'Unknown'")
+        general_area_id = cursor.fetchone()[0]
+        expert_areas["Unknown"] = general_area_id
+        print(f"{RED}Warning: 'General Area' is missing or empty for expert {name}, using 'Unknown' (ID {general_area_id}){RESET}")
+    else:
+        # Normalize CSV text and expert_areas for matching
+        normalized_text = normalize_text(general_area_text)
+        general_area_id = expert_areas.get(normalized_text)
+
+        # Handle unmatched cases
+        if general_area_id is None:
+            # Try additional normalization for known cases
+            if "Science" in normalized_text and "Mathematics" in normalized_text:
+                normalized_text = "Science - Mathematics"
+                general_area_id = expert_areas.get(normalized_text)
+            
+            # If still no exact match, try partial match
+            if general_area_id is None:
+                for area_name, area_id in expert_areas.items():
+                    normalized_area = normalize_text(area_name)
+                    if normalized_text in normalized_area:
+                        general_area_id = area_id
+                        print(f"Matched '{general_area_text}' to '{area_name}' (ID {area_id}) for expert {name}")
+                        break
+            
+            # If no match found, use Unknown
+            if general_area_id is None:
+                cursor.execute("INSERT OR IGNORE INTO expert_areas (name) VALUES ('Unknown')")
+                cursor.execute("SELECT id FROM expert_areas WHERE name = 'Unknown'")
+                general_area_id = cursor.fetchone()[0]
+                expert_areas["Unknown"] = general_area_id
+                print(f"{RED}Warning: '{general_area_text}' not found in expert_areas for expert {name}, using 'Unknown' (ID {general_area_id}){RESET}")
+        else:
+            print(f"Matched '{general_area_text}' to '{normalized_text}' (ID {general_area_id}) for expert {name}")
+
+    return {
+        "expert_id": get_value("ID"),
+        "name": name,
+        "designation": get_value("Designation"),
+        "institution": get_value("Institution"),
+        "is_bahraini": 1 if get_value("BH") == "Yes" else (0 if get_value("BH") == "No" else None),
+        "nationality": "Bahraini" if get_value("BH") == "Yes" else ("Non-Bahraini" if get_value("BH") == "No" else "Unknown"),
+        "is_available": 1 if get_value("Available") == "Yes" else (0 if get_value("Available") == "No" else None),
+        "rating": get_value("Rating"),
+        "role": get_value("Validator/ Evaluator"),
+        "employment_type": get_value("Academic/Employer"),
+        "general_area": general_area_id,
+        "specialized_area": get_value("Specialised Area"),
+        "is_trained": 1 if get_value("Trained") == "Yes" else (0 if get_value("Trained") == "No" else None),
+        "cv_path": get_value("CV") if get_value("CV") else None,
+        "phone": get_value("Phone") if get_value("Phone") else None,
+        "email": get_value("Email") if get_value("Email") else None,
+        "is_published": 1 if get_value("Published") == "Yes" else (0 if get_value("Published") == "No" else None),
+        "biography": None,
+        "original_request_id": None,
+        "updated_at": None
+    }
+
+# Read CSV and insert data
+csv_file_path = "./experts.csv"
+with open(csv_file_path, newline='', encoding='utf-8-sig') as csvfile:
+    reader = csv.DictReader(csvfile)
+    cleaned_headers = [h.replace('\ufeff', '').strip() for h in reader.fieldnames]
+    print("CSV Headers found (cleaned):", cleaned_headers)
+    
+    # Transform and collect rows
+    rows = [transform_row(row, expert_areas) for row in reader]
+
+    # Batch insert into experts table
+    cursor.executemany('''
+        INSERT OR IGNORE INTO experts (
+            expert_id, name, designation, institution, is_bahraini, nationality, 
+            is_available, rating, role, employment_type, general_area, 
+            specialized_area, is_trained, cv_path, phone, email, is_published,
+            biography, original_request_id, updated_at
+        ) VALUES (
+            :expert_id, :name, :designation, :institution, :is_bahraini, :nationality,
+            :is_available, :rating, :role, :employment_type, :general_area,
+            :specialized_area, :is_trained, :cv_path, :phone, :email, :is_published,
+            :biography, :original_request_id, :updated_at
+        )
+    ''', rows)
+
+# Commit changes and verify
+conn.commit()
+cursor.execute("SELECT COUNT(*) FROM experts")
+print(f"Total rows in experts table after import: {cursor.fetchone()[0]}")
+
+# Verify a few records, including known fail cases
+cursor.execute("""
+    SELECT expert_id, name, general_area, 
+           (SELECT name FROM expert_areas WHERE id = experts.general_area) AS area_name 
+    FROM experts 
+    WHERE expert_id IN ('E020', 'E059', 'E105', 'E112', 'E137', 'E211', 'E240', 'E341')
+""")
+print("\nVerified fail case records:")
+for row in cursor.fetchall():
+    print(row)
+
+# Close connection
+conn.close()
+
+
+
+================================================
+FILE: backend/.envrc
+================================================
+export ADMIN_EMAIL="admin@expertdb.com"
+export ADMIN_PASSWORD="Admin User"
+export ADMIN_NAME="adminpassword"
+export LOG_LEVEL="DEBUG"
+
+
+
+================================================
+FILE: backend/cmd/server/main.go
+================================================
+// Package main provides the entry point for the ExpertDB server
+package main
+
+import (
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+	
+	"expertdb/internal/api"
+	"expertdb/internal/auth"
+	"expertdb/internal/config"
+	"expertdb/internal/domain"
+	"expertdb/internal/documents"
+	"expertdb/internal/logger"
+	"expertdb/internal/storage/sqlite"
+)
+
+func main() {
+	// Load configuration
+	cfg := config.LoadConfig()
+	
+	// Initialize logging system
+	logLevelStr := cfg.LogLevel
+	logLevel := logger.LevelInfo // Default level
+	switch strings.ToUpper(logLevelStr) {
+	case "DEBUG":
+		logLevel = logger.LevelDebug
+	case "INFO":
+		logLevel = logger.LevelInfo
+	case "WARN":
+		logLevel = logger.LevelWarn
+	case "ERROR":
+		logLevel = logger.LevelError
+	}
+	
+	if err := logger.Init(logLevel, cfg.LogDir, true); err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	
+	// Get logger
+	l := logger.Get()
+	l.Info("Starting ExpertDB initialization...")
+	
+	// Create the DB directory if it doesn't exist
+	dbDir := filepath.Dir(cfg.DBPath)
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		l.Fatal("Failed to create database directory: %v", err)
+	}
+	l.Info("Database directory created: %s", dbDir)
+	
+	// Create the upload directory if it doesn't exist
+	if err := os.MkdirAll(cfg.UploadPath, 0755); err != nil {
+		l.Fatal("Failed to create upload directory: %v", err)
+	}
+	l.Info("Upload directory created: %s", cfg.UploadPath)
+	
+	// Initialize database connection
+	l.Info("Connecting to database at %s", cfg.DBPath)
+	
+	// Create storage implementation
+	store, err := sqlite.New(cfg.DBPath)
+	if err != nil {
+		l.Fatal("Failed to connect to database: %v", err)
+	}
+	defer store.Close()
+	l.Info("Database connection established successfully")
+	
+	// Initialize database if needed
+	if err := store.InitDB(); err != nil {
+		l.Fatal("Failed to initialize database: %v", err)
+	}
+	
+	// Initialize JWT secret
+	l.Info("Initializing JWT secret...")
+	if err := auth.InitJWTSecret(); err != nil {
+		l.Fatal("Failed to initialize JWT secret: %v", err)
+	}
+	l.Info("JWT secret initialized successfully")
+	
+	// Create document service
+	docService, err := documents.New(store, cfg.UploadPath)
+	if err != nil {
+		l.Fatal("Failed to create document service: %v", err)
+	}
+	
+	// Create API server
+	l.Info("Creating API server on port %s", cfg.Port)
+	server, err := api.NewServer(":"+cfg.Port, store, docService, cfg)
+	if err != nil {
+		l.Fatal("Failed to create API server: %v", err)
+	}
+	
+	// Create admin user if it doesn't exist
+	l.Info("Checking for admin user with email: %s", cfg.AdminEmail)
+	_, err = store.GetUserByEmail(cfg.AdminEmail)
+	if err != nil {
+		l.Info("Admin user not found, creating...")
+		
+		// Create admin user
+		passwordHash, err := auth.GeneratePasswordHash(cfg.AdminPassword)
+		if err != nil {
+			l.Fatal("Failed to hash admin password: %v", err)
+		}
+		
+		admin := &domain.User{
+			Name:         cfg.AdminName,
+			Email:        cfg.AdminEmail,
+			PasswordHash: passwordHash,
+			Role:         auth.RoleAdmin,
+			IsActive:     true,
+			CreatedAt:    time.Now(),
+			LastLogin:    time.Now(),
+		}
+		
+		if _, err := store.CreateUser(admin); err != nil {
+			l.Fatal("Failed to create admin user: %v", err)
+		}
+		
+		l.Info("Created default admin user with email: %s", cfg.AdminEmail)
+	} else {
+		l.Info("Admin user already exists, skipping creation")
+	}
+	
+	l.Info("Starting ExpertDB with configuration:")
+	l.Info("- Port: %s", cfg.Port)
+	l.Info("- Database: %s", cfg.DBPath)
+	l.Info("- Upload Path: %s", cfg.UploadPath)
+	l.Info("- CORS: %s", cfg.CORSAllowOrigins)
+	l.Info("- Log Level: %s", logLevel.String())
+	l.Info("- Log Directory: %s", cfg.LogDir)
+	
+	// For mock data generation, run the populate_mock_data.sh script
+	// This keeps the server code clean and focused on its primary responsibility
+	
+	l.Info("Server starting, press Ctrl+C to stop")
+	if err := server.Run(); err != nil {
+		l.Fatal("Server error: %v", err)
+	}
+}
+
+
+================================================
+FILE: backend/db/migrations/sqlite/0001_create_expert_table_up.sql
+================================================
+-- +goose Up
+CREATE TABLE IF NOT EXISTS "experts" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    expert_id TEXT UNIQUE,  -- Original ID like "E001"
+    name TEXT NOT NULL,
+    designation TEXT,
+    institution TEXT,
+    is_bahraini BOOLEAN,    -- Convert "Yes/No" to boolean
+    nationality TEXT DEFAULT 'Bahraini' CHECK (nationality IN ('Bahraini', 'Non-Bahraini', 'Unknown')),
+    is_available BOOLEAN,   -- Convert "Yes/No" to boolean
+    rating TEXT,
+    role TEXT,              -- Evaluator, Validator or both
+    employment_type TEXT,   -- Academic, Employer or both
+    general_area INTEGER,   -- Reference to expert_areas table
+    specialized_area TEXT,
+    is_trained BOOLEAN,     -- Convert "Yes/No" to boolean
+    cv_path TEXT,           -- Path to the CV file NOTE: This is better be replaced with expert_documents(id)
+    phone TEXT,
+    email TEXT,
+    is_published BOOLEAN,   -- Convert "Yes/No" to boolean
+    biography TEXT,         -- Extended profile information
+    original_request_id INTEGER, -- Foreign key referencing expert_requests
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+-- Create indexes for common search fields
+CREATE INDEX idx_experts_name ON experts(name);
+CREATE INDEX idx_experts_general_area ON experts(general_area);
+CREATE INDEX idx_experts_is_available ON experts(is_available);
+CREATE INDEX idx_experts_nationality ON experts(nationality);
+
+-- +goose Down
+DROP INDEX IF EXISTS idx_experts_nationality;
+DROP INDEX IF EXISTS idx_experts_is_available;
+DROP INDEX IF EXISTS idx_experts_general_area;
+DROP INDEX IF EXISTS idx_experts_name;
+DROP TABLE IF EXISTS "experts";
+
+
+
+================================================
+FILE: backend/db/migrations/sqlite/0002_create_expert-request_table.sql
+================================================
+-- +goose Up
+CREATE TABLE IF NOT EXISTS "expert_requests" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    expert_id TEXT,          -- Original ID if provided
+    name TEXT NOT NULL,
+    designation TEXT,
+    institution TEXT,
+    is_bahraini BOOLEAN,
+    is_available BOOLEAN,
+    rating TEXT,
+    role TEXT,               -- Evaluator, Validator or both
+    employment_type TEXT,    -- Academic, Employer or both
+    general_area INTEGER,    -- Reference to expert_areas table
+    specialized_area TEXT,
+    is_trained BOOLEAN,
+    cv_path TEXT,            -- Path to the CV file NOTE: This is better be replaced with expert_documents(id)
+    phone TEXT,
+    email TEXT,
+    is_published BOOLEAN,
+    biography TEXT,          -- Extended profile information
+    status TEXT DEFAULT 'pending', -- pending, approved, rejected
+    rejection_reason TEXT,   -- Reason for rejection if status is 'rejected'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP,
+    reviewed_by INTEGER      -- References users(id)
+);
+
+-- Create indexes for tracking
+CREATE INDEX idx_expert_requests_status ON expert_requests(status);
+CREATE INDEX idx_expert_requests_created_at ON expert_requests(created_at);
+CREATE INDEX idx_expert_requests_general_area ON expert_requests(general_area);
+
+-- +goose Down
+DROP INDEX IF EXISTS idx_expert_requests_general_area;
+DROP INDEX IF EXISTS idx_expert_requests_created_at;
+DROP INDEX IF EXISTS idx_expert_requests_status;
+DROP TABLE IF EXISTS "expert_requests";
+
+
+
+================================================
+FILE: backend/db/migrations/sqlite/0003_create_users_table_up.sql
+================================================
+-- +goose Up
+CREATE TABLE IF NOT EXISTS "users" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL,      -- admin, standard
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP
+);
+
+-- Create index for email lookups
+CREATE INDEX idx_users_email ON users(email);
+
+-- +goose Down
+DROP INDEX IF EXISTS idx_users_email;
+DROP TABLE IF EXISTS "users";
+
+
+
+================================================
+FILE: backend/db/migrations/sqlite/0004_create_expert_areas_table.sql
+================================================
+-- +goose Up
+-- Create a table for expert areas (categories)
+CREATE TABLE IF NOT EXISTS "expert_areas" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    parent_id INTEGER,       -- For hierarchical categorization (null for top-level)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Populate the expert_areas table with predefined specializations
+INSERT INTO expert_areas (name) VALUES
+    ("Art and Design"),
+    ("Aviation"),
+    ("Business"),
+    ("Business - Accounting & Audit"),
+    ("Business - Banking & Finance"),
+    ("Business - Compliance"),
+    ("Business - Economics"),
+    ("Business - Insurance"),
+    ("Business - Islamic Banking & Finance"),
+    ("Business - Management & Marketing"),
+    ("Business - Project Management"),
+    ("Education"),
+    ("Engineering"),
+    ("Engineering - Architectural"),
+    ("Engineering - Chemical"),
+    ("Engineering - Civil"),
+    ("Engineering - Electrical and Electronic"),
+    ("Engineering - Mechanical"),
+    ("English"),
+    ("Health & Safety"),
+    ("Hospitality and Tourism"),
+    ("Information Technology"),
+    ("Law"),
+    ("Medical Science"),
+    ("Quality Assurance"),
+    ("Science"),
+    ("Science - Biology"),
+    ("Science - Chemistry"),
+    ("Science - Environment"),
+    ("Science - Mathematics"),
+    ("Science - Physics"),
+    ("Social Sciences"),
+    ("Training");
+
+-- +goose Down
+DROP TABLE IF EXISTS "expert_areas";
+
+
+
+================================================
+FILE: backend/db/migrations/sqlite/0005_create_foreign_keys.sql
+================================================
+-- +goose Up
+-- Add foreign key constraints between tables
+
+-- Add foreign key from experts to expert_requests
+CREATE TABLE IF NOT EXISTS "experts_temp" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    expert_id TEXT UNIQUE,
+    name TEXT NOT NULL,
+    designation TEXT,
+    institution TEXT,
+    is_bahraini BOOLEAN,
+    nationality TEXT DEFAULT 'Bahraini' CHECK (nationality IN ('Bahraini', 'Non-Bahraini', 'Unknown')),
+    is_available BOOLEAN,
+    rating TEXT,
+    role TEXT,
+    employment_type TEXT,
+    general_area INTEGER NOT NULL,
+    specialized_area TEXT,
+    is_trained BOOLEAN,
+    cv_path TEXT,
+    phone TEXT,
+    email TEXT,
+    is_published BOOLEAN,
+    biography TEXT,
+    original_request_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP,
+    FOREIGN KEY (original_request_id) REFERENCES expert_requests(id) ON DELETE SET NULL,
+    FOREIGN KEY (general_area) REFERENCES expert_areas(id)
+);
+
+-- Copy data from experts to experts_temp with transformed general_area
+-- This assumes default to the first expert area (id=1) when converting from text
+INSERT INTO experts_temp(id, expert_id, name, designation, institution, is_bahraini, 
+                        nationality, is_available, rating, role, employment_type, 
+                        general_area, specialized_area, is_trained, cv_path, phone, 
+                        email, is_published, biography, original_request_id, 
+                        created_at, updated_at)
+SELECT id, expert_id, name, designation, institution, is_bahraini, 
+       nationality, is_available, rating, role, employment_type, 
+       (SELECT id FROM expert_areas WHERE expert_areas.name LIKE '%' || experts.general_area || '%' LIMIT 1) AS general_area,
+       specialized_area, is_trained, cv_path, phone, 
+       email, is_published, biography, original_request_id, 
+       created_at, updated_at
+FROM experts;
+
+-- Drop old table and rename new one
+DROP TABLE experts;
+ALTER TABLE experts_temp RENAME TO experts;
+
+-- Recreate indexes
+CREATE INDEX idx_experts_name ON experts(name);
+CREATE INDEX idx_experts_general_area ON experts(general_area);
+CREATE INDEX idx_experts_is_available ON experts(is_available);
+CREATE INDEX idx_experts_nationality ON experts(nationality);
+
+-- Add foreign key from expert_requests to users
+CREATE TABLE IF NOT EXISTS "expert_requests_temp" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    expert_id TEXT,
+    name TEXT NOT NULL,
+    designation TEXT,
+    institution TEXT,
+    is_bahraini BOOLEAN,
+    is_available BOOLEAN,
+    rating TEXT,
+    role TEXT,
+    employment_type TEXT,
+    general_area INTEGER NOT NULL,
+    specialized_area TEXT,
+    is_trained BOOLEAN,
+    cv_path TEXT,
+    phone TEXT,
+    email TEXT,
+    is_published BOOLEAN,
+    biography TEXT,
+    status TEXT DEFAULT 'pending',
+    rejection_reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP,
+    reviewed_by INTEGER,
+    FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (general_area) REFERENCES expert_areas(id)
+);
+
+-- Copy data from expert_requests to expert_requests_temp with transformed general_area
+-- This assumes default to the first expert area (id=1) when converting from text
+INSERT INTO expert_requests_temp(id, expert_id, name, designation, institution, 
+                               is_bahraini, is_available, rating, role, employment_type, 
+                               general_area, specialized_area, is_trained, cv_path, 
+                               phone, email, is_published, biography, status, 
+                               rejection_reason, created_at, reviewed_at, reviewed_by)
+SELECT id, expert_id, name, designation, institution, 
+       is_bahraini, is_available, rating, role, employment_type, 
+       (SELECT id FROM expert_areas WHERE expert_areas.name LIKE '%' || expert_requests.general_area || '%' LIMIT 1) AS general_area,
+       specialized_area, is_trained, cv_path, 
+       phone, email, is_published, biography, status, 
+       rejection_reason, created_at, reviewed_at, reviewed_by
+FROM expert_requests;
+
+-- Drop old table and rename new one
+DROP TABLE expert_requests;
+ALTER TABLE expert_requests_temp RENAME TO expert_requests;
+
+-- Recreate indexes
+CREATE INDEX idx_expert_requests_status ON expert_requests(status);
+CREATE INDEX idx_expert_requests_created_at ON expert_requests(created_at);
+CREATE INDEX idx_expert_requests_general_area ON expert_requests(general_area);
+
+-- +goose Down
+-- No specific down migration needed, as the tables will be dropped 
+-- by their original migration files
+
+
+
+================================================
+FILE: backend/db/migrations/sqlite/0006_create_expert_documents_table.sql
+================================================
+-- +goose Up
+-- Create the expert_documents table for CV and certificate storage
+CREATE TABLE expert_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    expert_id INTEGER NOT NULL,
+    document_type TEXT NOT NULL, -- 'cv', 'certificate', 'publication', etc.
+    filename TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (expert_id) REFERENCES experts(id) ON DELETE CASCADE
+);
+
+-- Create indexes for efficient queries
+CREATE INDEX idx_documents_expert_id ON expert_documents(expert_id);
+CREATE INDEX idx_documents_type ON expert_documents(document_type);
+
+-- +goose Down
+-- Drop indexes first
+DROP INDEX IF EXISTS idx_documents_expert_id;
+DROP INDEX IF EXISTS idx_documents_type;
+
+-- Drop table
+DROP TABLE IF EXISTS expert_documents;
+
+
+================================================
+FILE: backend/db/migrations/sqlite/0007_create_expert_engagements_table.sql
+================================================
+-- +goose Up
+-- Create the expert_engagements table to track expert utilization
+CREATE TABLE expert_engagements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    expert_id INTEGER NOT NULL,
+    engagement_type TEXT NOT NULL, -- 'evaluation', 'consultation', 'project', etc.
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP,
+    project_name TEXT,
+    status TEXT NOT NULL, -- 'pending', 'active', 'completed', 'cancelled'
+    feedback_score INTEGER, -- 1-5 rating
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (expert_id) REFERENCES experts(id) ON DELETE CASCADE
+);
+
+-- Create indexes for efficient queries
+CREATE INDEX idx_engagements_expert_id ON expert_engagements(expert_id);
+CREATE INDEX idx_engagements_status ON expert_engagements(status);
+CREATE INDEX idx_engagements_date ON expert_engagements(start_date);
+
+-- +goose Down
+-- Drop indexes first
+DROP INDEX IF EXISTS idx_engagements_expert_id;
+DROP INDEX IF EXISTS idx_engagements_status;
+DROP INDEX IF EXISTS idx_engagements_date;
+
+-- Drop table
+DROP TABLE IF EXISTS expert_engagements;
+
+
+================================================
+FILE: backend/db/migrations/sqlite/0008_create_statistics_table.sql
+================================================
+-- +goose Up
+-- Create system_statistics table for caching frequently accessed statistics
+CREATE TABLE system_statistics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stat_key TEXT NOT NULL,
+    stat_value TEXT NOT NULL, -- JSON formatted statistics data
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(stat_key)
+);
+
+-- Nationality column already exists in experts table from migration 0001
+-- No need to add it again
+
+-- Ensure index for nationality filtering exists
+CREATE INDEX IF NOT EXISTS idx_experts_nationality ON experts(nationality);
+
+-- +goose Down
+-- Drop index first
+DROP INDEX IF EXISTS idx_experts_nationality;
+
+-- Drop table
+DROP TABLE IF EXISTS system_statistics;
+
+
+
+================================================
+FILE: backend/internal/api/server.go
+================================================
+// Package api provides the HTTP API server for the ExpertDB application
+package api
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	
+	"expertdb/internal/api/handlers"
+	"expertdb/internal/api/handlers/documents"
+	"expertdb/internal/api/handlers/engagements"
+	"expertdb/internal/api/handlers/statistics"
+	"expertdb/internal/config"
+	"expertdb/internal/documents"
+	"expertdb/internal/domain"
+	"expertdb/internal/logger"
+	"expertdb/internal/storage"
+)
+
+// Server represents the HTTP API server for the ExpertDB application
+type Server struct {
+	listenAddr      string
+	store           storage.Storage
+	documentService *documents.Service
+	config          *config.Configuration
+	mux             *http.ServeMux
+}
+
+// writeJSON is a helper function to write JSON responses
+func writeJSON(w http.ResponseWriter, status int, v interface{}) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	return json.NewEncoder(w).Encode(v)
+}
+
+// errorResponse represents a standard error response
+type errorResponse struct {
+	Error string `json:"error"`
+}
+
+// handleError is a helper function to handle API errors
+func handleError(w http.ResponseWriter, err error) {
+	log := logger.Get()
+	
+	// Determine appropriate status code based on error type
+	var statusCode int
+	
+	switch {
+	case err == domain.ErrNotFound:
+		statusCode = http.StatusNotFound
+	case err == domain.ErrUnauthorized:
+		statusCode = http.StatusUnauthorized
+	case err == domain.ErrForbidden:
+		statusCode = http.StatusForbidden
+	case err == domain.ErrInvalidCredentials:
+		statusCode = http.StatusUnauthorized
+	case err == domain.ErrValidation:
+		statusCode = http.StatusBadRequest
+	default:
+		statusCode = http.StatusInternalServerError
+	}
+	
+	// Log the error
+	if statusCode >= 500 {
+		log.Error("Server error: %v", err)
+	} else {
+		log.Debug("Client error: %v", err)
+	}
+	
+	// Write error response
+	resp := errorResponse{Error: err.Error()}
+	writeJSON(w, statusCode, resp)
+}
+
+// NewServer creates a new API server
+func NewServer(listenAddr string, store storage.Storage, docService *documents.Service, cfg *config.Configuration) (*Server, error) {
+	server := &Server{
+		listenAddr:      listenAddr,
+		store:           store,
+		documentService: docService,
+		config:          cfg,
+		mux:             http.NewServeMux(),
+	}
+	
+	// Register routes
+	server.registerRoutes()
+	
+	return server, nil
+}
+
+// registerRoutes sets up the API routes
+func (s *Server) registerRoutes() {
+	log := logger.Get()
+	
+	// Define the middleware for handling CORS and logging
+	corsAndLogMiddleware := func(next http.Handler) http.Handler {
+		return log.RequestLoggerMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Add CORS headers
+			w.Header().Set("Access-Control-Allow-Origin", s.config.CORSAllowOrigins)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			
+			// Handle preflight requests
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			
+			// Call the next handler
+			next.ServeHTTP(w, r)
+		}))
+	}
+	
+	// Register routes with middleware
+	// Health check endpoint
+	s.mux.Handle("GET /api/health", corsAndLogMiddleware(http.HandlerFunc(s.handleHealth)))
+	
+	// Create handlers
+	userHandler := handlers.NewUserHandler(s.store)
+	expertHandler := handlers.NewExpertHandler(s.store)
+	expertRequestHandler := handlers.NewExpertRequestHandler(s.store)
+	documentHandler := documents.NewHandler(s.store, s.documentService)
+	engagementHandler := engagements.NewHandler(s.store)
+	statisticsHandler := statistics.NewHandler(s.store)
+	
+	// Expert endpoints
+	s.mux.Handle("GET /api/experts", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := expertHandler.HandleGetExperts(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("POST /api/experts", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := expertHandler.HandleCreateExpert(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("GET /api/experts/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := expertHandler.HandleGetExpert(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("PUT /api/experts/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := expertHandler.HandleUpdateExpert(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("DELETE /api/experts/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := expertHandler.HandleDeleteExpert(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	
+	// Expert request endpoints
+	s.mux.Handle("POST /api/expert-requests", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := expertRequestHandler.HandleCreateExpertRequest(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("GET /api/expert-requests", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := expertRequestHandler.HandleGetExpertRequests(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("GET /api/expert-requests/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := expertRequestHandler.HandleGetExpertRequest(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("PUT /api/expert-requests/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := expertRequestHandler.HandleUpdateExpertRequest(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("GET /api/expert/areas", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := expertHandler.HandleGetExpertAreas(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+
+	// Document endpoints
+	s.mux.Handle("POST /api/documents", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := documentHandler.HandleUploadDocument(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("GET /api/documents/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := documentHandler.HandleGetDocument(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("DELETE /api/documents/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := documentHandler.HandleDeleteDocument(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("GET /api/experts/{id}/documents", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := documentHandler.HandleGetExpertDocuments(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+
+	// Engagement endpoints
+	s.mux.Handle("POST /api/engagements", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := engagementHandler.HandleCreateEngagement(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("GET /api/engagements/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := engagementHandler.HandleGetEngagement(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("PUT /api/engagements/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := engagementHandler.HandleUpdateEngagement(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("DELETE /api/engagements/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := engagementHandler.HandleDeleteEngagement(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("GET /api/experts/{id}/engagements", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := engagementHandler.HandleGetExpertEngagements(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+
+	// Statistics endpoints
+	s.mux.Handle("GET /api/statistics", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := statisticsHandler.HandleGetStatistics(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("GET /api/statistics/nationality", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := statisticsHandler.HandleGetNationalityStats(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("GET /api/statistics/engagements", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := statisticsHandler.HandleGetEngagementStats(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+	s.mux.Handle("GET /api/statistics/growth", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := statisticsHandler.HandleGetGrowthStats(w, r); err != nil {
+			handleError(w, err)
+		}
+	})))
+}
+
+// Run starts the HTTP server
+func (s *Server) Run() error {
+	log := logger.Get()
+	log.Info("API server listening on %s", s.listenAddr)
+	return http.ListenAndServe(s.listenAddr, s.mux)
+}
+
+// Handler for health check endpoint
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	resp := map[string]string{
+		"status": "ok",
+		"message": "ExpertDB API is running",
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+
+================================================
+FILE: backend/internal/api/handlers/auth.go
+================================================
+package handlers
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+	
+	"expertdb/internal/auth"
+	"expertdb/internal/domain"
+	"expertdb/internal/logger"
+	"expertdb/internal/storage"
+)
+
+// AuthHandler handles authentication-related API endpoints
+type AuthHandler struct {
+	store storage.Storage
+}
+
+// NewAuthHandler creates a new auth handler
+func NewAuthHandler(store storage.Storage) *AuthHandler {
+	return &AuthHandler{
+		store: store,
+	}
+}
+
+// HandleLogin processes user login requests and issues JWT tokens
+func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Parse login request from JSON body
+	var req domain.LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Debug("Failed to parse login request: %v", err)
+		return fmt.Errorf("invalid request format: %w", err)
+	}
+	
+	// Validate required fields
+	if req.Email == "" || req.Password == "" {
+		log.Debug("Login attempt with missing credentials")
+		return fmt.Errorf("email and password required")
+	}
+	
+	// Retrieve user by email
+	user, err := h.store.GetUserByEmail(req.Email)
+	if err != nil {
+		// Use generic error message to prevent user enumeration
+		log.Info("Login failed - email not found: %s", req.Email)
+		return domain.ErrInvalidCredentials
+	}
+	
+	// Verify password
+	if !auth.VerifyPassword(req.Password, user.PasswordHash) {
+		log.Info("Login failed - invalid password for user: %s", req.Email)
+		return domain.ErrInvalidCredentials
+	}
+	
+	// Check if user is active
+	if !user.IsActive {
+		log.Info("Login denied - inactive account: %s", req.Email)
+		return fmt.Errorf("account is inactive, please contact administrator")
+	}
+	
+	// Generate JWT token
+	token, err := auth.GenerateJWT(user)
+	if err != nil {
+		log.Error("Failed to generate token for user %s: %v", req.Email, err)
+		return fmt.Errorf("failed to generate auth token: %w", err)
+	}
+	
+	// Update last login time
+	if err := h.store.UpdateUserLastLogin(user.ID); err != nil {
+		// Non-fatal error - log but continue
+		log.Warn("Failed to update last login time for user %s: %v", req.Email, err)
+	}
+	
+	// Prepare response (mask password hash for security)
+	user.PasswordHash = ""
+	resp := domain.LoginResponse{
+		User:  *user,
+		Token: token,
+	}
+	
+	// Log successful login
+	log.Info("User logged in successfully: %s (ID: %d, Role: %s)", 
+		user.Email, user.ID, user.Role)
+	
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(resp)
+}
+
+
+================================================
+FILE: backend/internal/api/handlers/expert.go
+================================================
+package handlers
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+	
+	"expertdb/internal/domain"
+	"expertdb/internal/logger"
+	"expertdb/internal/storage"
+)
+
+// ExpertHandler handles expert-related API endpoints
+type ExpertHandler struct {
+	store storage.Storage
+}
+
+// NewExpertHandler creates a new expert handler
+func NewExpertHandler(store storage.Storage) *ExpertHandler {
+	return &ExpertHandler{
+		store: store,
+	}
+}
+
+// HandleGetExperts handles GET /api/experts requests
+func (h *ExpertHandler) HandleGetExperts(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing GET /api/experts request")
+
+	// Parse query parameters for filtering
+	queryParams := r.URL.Query()
+	filters := make(map[string]interface{})
+
+	// Process name filter
+	if name := queryParams.Get("name"); name != "" {
+		filters["name"] = name
+	}
+
+	// Process boolean availability filter
+	if available := queryParams.Get("is_available"); available != "" {
+		if available == "true" {
+			filters["isAvailable"] = true
+		} else if available == "false" {
+			filters["isAvailable"] = false
+		}
+	}
+
+	// Process role filter
+	if role := queryParams.Get("role"); role != "" {
+		filters["role"] = role
+	}
+
+	// Process general area filter
+	if generalArea := queryParams.Get("generalArea"); generalArea != "" {
+		if area, err := strconv.ParseInt(generalArea, 10, 64); err == nil {
+			filters["generalArea"] = area
+		}
+	}
+
+	// Process sorting parameters
+	sortBy := "name" // Default sort field
+	sortOrder := "asc" // Default sort order
+	
+	if sortParam := queryParams.Get("sort_by"); sortParam != "" {
+		// Validate sort field against allowed fields
+		allowedSortFields := map[string]bool{
+			"name": true, "institution": true, "role": true, 
+			"created_at": true, "rating": true, "general_area": true,
+		}
+		if allowedSortFields[sortParam] {
+			sortBy = sortParam
+		}
+	}
+	
+	if orderParam := queryParams.Get("sort_order"); orderParam != "" {
+		if orderParam == "desc" {
+			sortOrder = "desc"
+		}
+	}
+	
+	// Add sorting to filters
+	filters["sort_by"] = sortBy
+	filters["sort_order"] = sortOrder
+
+	// Parse pagination parameters
+	limit, err := strconv.Atoi(queryParams.Get("limit"))
+	if err != nil || limit <= 0 {
+		limit = 10 // Default limit
+	}
+	
+	offset, err := strconv.Atoi(queryParams.Get("offset"))
+	if err != nil || offset < 0 {
+		offset = 0 // Default offset
+	}
+
+	// Get total count (without pagination) for headers
+	countFilters := make(map[string]interface{})
+	for k, v := range filters {
+		if k != "sort_by" && k != "sort_order" {
+			countFilters[k] = v
+		}
+	}
+	
+	totalCount, err := h.store.CountExperts(countFilters)
+	if err != nil {
+		log.Error("Failed to count experts: %v", err)
+		return fmt.Errorf("failed to count experts: %w", err)
+	}
+
+	// Retrieve filtered experts with pagination
+	log.Debug("Retrieving experts with filters: %v, limit: %d, offset: %d", filters, limit, offset)
+	experts, err := h.store.ListExperts(filters, limit, offset)
+	if err != nil {
+		log.Error("Failed to list experts: %v", err)
+		return fmt.Errorf("failed to retrieve experts: %w", err)
+	}
+
+	// Set total count header for pagination
+	w.Header().Set("X-Total-Count", fmt.Sprintf("%d", totalCount))
+	
+	// Return results
+	log.Debug("Returning %d experts", len(experts))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(experts)
+}
+
+// HandleGetExpert handles GET /api/experts/{id} requests
+func (h *ExpertHandler) HandleGetExpert(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate expert ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid expert ID provided: %s", idStr)
+		return fmt.Errorf("invalid expert ID: %w", err)
+	}
+
+	// Retrieve expert from database
+	log.Debug("Retrieving expert with ID: %d", id)
+	expert, err := h.store.GetExpert(id)
+	if err != nil {
+		// Return an empty object for not found
+		if err == domain.ErrNotFound {
+			log.Warn("Expert not found for ID: %d", id)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			return json.NewEncoder(w).Encode(&domain.Expert{})
+		}
+		
+		log.Error("Failed to get expert: %v", err)
+		return fmt.Errorf("failed to retrieve expert: %w", err)
+	}
+
+	// Return expert data
+	log.Debug("Successfully retrieved expert: %s (ID: %d)", expert.Name, expert.ID)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(expert)
+}
+
+// HandleCreateExpert handles POST /api/experts requests
+func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing POST /api/experts request")
+	
+	// Parse request body
+	var expert domain.Expert
+	if err := json.NewDecoder(r.Body).Decode(&expert); err != nil {
+		log.Warn("Failed to parse expert creation request: %v", err)
+		return fmt.Errorf("invalid request body: %w", err)
+	}
+
+	// Set creation time if not provided
+	if expert.CreatedAt.IsZero() {
+		expert.CreatedAt = time.Now()
+	}
+
+	// Create expert in database
+	log.Debug("Creating expert: %s, Institution: %s", expert.Name, expert.Institution)
+	id, err := h.store.CreateExpert(&expert)
+	if err != nil {
+		log.Error("Failed to create expert in database: %v", err)
+		
+		// Check specifically for UNIQUE constraint violations on expert_id
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") && 
+		   strings.Contains(err.Error(), "expert_id") {
+			return fmt.Errorf("an expert with this ID already exists: %w", err)
+		}
+		
+		return fmt.Errorf("failed to create expert: %w", err)
+	}
+
+	// Return success response
+	log.Info("Expert created successfully with ID: %d", id)
+	resp := map[string]interface{}{
+		"id":      id,
+		"success": true,
+		"message": "Expert created successfully",
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	return json.NewEncoder(w).Encode(resp)
+}
+
+// HandleUpdateExpert handles PUT /api/experts/{id} requests
+func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate expert ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid expert ID provided for update: %s", idStr)
+		return fmt.Errorf("invalid expert ID: %w", err)
+	}
+
+	// Retrieve existing expert (if exists)
+	log.Debug("Checking if expert exists with ID: %d", id)
+	var existingExpert *domain.Expert
+	existingExpert, err = h.store.GetExpert(id)
+	if err != nil && err != domain.ErrNotFound {
+		log.Error("Error checking for existing expert: %v", err)
+		return fmt.Errorf("failed to check existing expert: %w", err)
+	}
+
+	// Parse update data
+	var updateExpert domain.Expert
+	if err := json.NewDecoder(r.Body).Decode(&updateExpert); err != nil {
+		log.Warn("Failed to parse expert update request: %v", err)
+		return fmt.Errorf("invalid request body: %w", err)
+	}
+
+	// Ensure ID matches path parameter
+	updateExpert.ID = id
+
+	// If existing expert was found, merge with update data
+	if existingExpert != nil {
+		// Only replace fields that are set in the update
+		if updateExpert.ExpertID == "" {
+			updateExpert.ExpertID = existingExpert.ExpertID
+		}
+		if updateExpert.Name == "" {
+			updateExpert.Name = existingExpert.Name
+		}
+		if updateExpert.Institution == "" {
+			updateExpert.Institution = existingExpert.Institution
+		}
+		if updateExpert.Designation == "" {
+			updateExpert.Designation = existingExpert.Designation
+		}
+		if updateExpert.Nationality == "" {
+			updateExpert.Nationality = existingExpert.Nationality
+		}
+		if updateExpert.Role == "" {
+			updateExpert.Role = existingExpert.Role
+		}
+		if updateExpert.EmploymentType == "" {
+			updateExpert.EmploymentType = existingExpert.EmploymentType
+		}
+		if updateExpert.GeneralArea == 0 {
+			updateExpert.GeneralArea = existingExpert.GeneralArea
+		}
+		if updateExpert.SpecializedArea == "" {
+			updateExpert.SpecializedArea = existingExpert.SpecializedArea
+		}
+		if updateExpert.Phone == "" {
+			updateExpert.Phone = existingExpert.Phone
+		}
+		if updateExpert.Email == "" {
+			updateExpert.Email = existingExpert.Email
+		}
+		if updateExpert.Biography == "" {
+			updateExpert.Biography = existingExpert.Biography
+		}
+		// Preserve created date
+		if updateExpert.CreatedAt.IsZero() {
+			updateExpert.CreatedAt = existingExpert.CreatedAt
+		}
+	}
+
+	// Set updated time
+	updateExpert.UpdatedAt = time.Now()
+
+	// Update expert in database
+	log.Debug("Updating expert ID: %d, Name: %s", id, updateExpert.Name)
+	if err := h.store.UpdateExpert(&updateExpert); err != nil {
+		log.Error("Failed to update expert in database: %v", err)
+		return fmt.Errorf("failed to update expert: %w", err)
+	}
+
+	// Return success response
+	log.Info("Expert updated successfully: ID: %d", id)
+	resp := map[string]interface{}{
+		"success": true,
+		"message": "Expert updated successfully",
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(resp)
+}
+
+// HandleDeleteExpert handles DELETE /api/experts/{id} requests
+func (h *ExpertHandler) HandleDeleteExpert(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate expert ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid expert ID provided for deletion: %s", idStr)
+		return fmt.Errorf("invalid expert ID: %w", err)
+	}
+
+	// Delete expert from database
+	log.Debug("Deleting expert with ID: %d", id)
+	if err := h.store.DeleteExpert(id); err != nil {
+		if err == domain.ErrNotFound {
+			log.Warn("Expert not found for deletion ID: %d", id)
+			return domain.ErrNotFound
+		}
+		
+		log.Error("Failed to delete expert: %v", err)
+		return fmt.Errorf("failed to delete expert: %w", err)
+	}
+
+	// Return success response
+	log.Info("Expert deleted successfully: ID: %d", id)
+	resp := map[string]interface{}{
+		"success": true,
+		"message": "Expert deleted successfully",
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(resp)
+}
+
+// HandleGetExpertAreas handles GET /api/expert/areas requests
+func (h *ExpertHandler) HandleGetExpertAreas(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing GET /api/expert/areas request")
+	
+	// Retrieve all expert areas from database
+	areas, err := h.store.ListAreas()
+	if err != nil {
+		log.Error("Failed to fetch expert areas: %v", err)
+		return fmt.Errorf("failed to fetch expert areas: %w", err)
+	}
+	
+	// Return areas as JSON
+	log.Debug("Returning %d expert areas", len(areas))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(areas)
+}
+
+
+================================================
+FILE: backend/internal/api/handlers/expert_request.go
+================================================
+package handlers
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+	
+	"expertdb/internal/domain"
+	"expertdb/internal/logger"
+	"expertdb/internal/storage"
+)
+
+// ExpertRequestHandler handles expert request-related API endpoints
+type ExpertRequestHandler struct {
+	store storage.Storage
+}
+
+// NewExpertRequestHandler creates a new expert request handler
+func NewExpertRequestHandler(store storage.Storage) *ExpertRequestHandler {
+	return &ExpertRequestHandler{
+		store: store,
+	}
+}
+
+// HandleCreateExpertRequest handles POST /api/expert-requests requests
+func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing POST /api/expert-requests request")
+	
+	// Parse request body
+	var request domain.ExpertRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		log.Warn("Failed to parse expert request: %v", err)
+		return fmt.Errorf("invalid request body: %w", err)
+	}
+
+	// Validate required fields
+	log.Debug("Validating expert request fields")
+	
+	// Validate name
+	if strings.TrimSpace(request.Name) == "" {
+		log.Warn("Missing name in expert request")
+		return fmt.Errorf("name is required")
+	}
+	
+	// Validate institution
+	if strings.TrimSpace(request.Institution) == "" {
+		log.Warn("Missing institution in expert request")
+		return fmt.Errorf("institution is required")
+	}
+	
+	// Validate designation
+	if strings.TrimSpace(request.Designation) == "" {
+		log.Warn("Missing designation in expert request")
+		return fmt.Errorf("designation is required")
+	}
+	
+	// Validate contact information (email or phone)
+	if strings.TrimSpace(request.Email) == "" && strings.TrimSpace(request.Phone) == "" {
+		log.Warn("Missing contact information in expert request")
+		return fmt.Errorf("at least one contact method (email or phone) is required")
+	}
+
+	// Set default values
+	log.Debug("Setting default values for expert request")
+	request.Status = "pending" // Default status for new requests
+	request.CreatedAt = time.Now()
+
+	// Create the request in database
+	log.Debug("Creating expert request in database: %s, Institution: %s", 
+		request.Name, request.Institution)
+	id, err := h.store.CreateExpertRequest(&request)
+	if err != nil {
+		log.Error("Failed to create expert request in database: %v", err)
+		return fmt.Errorf("failed to create expert request: %w", err)
+	}
+
+	// Set the ID in the response
+	request.ID = id
+	log.Info("Expert request created successfully: ID: %d, Name: %s", id, request.Name)
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	return json.NewEncoder(w).Encode(request)
+}
+
+// HandleGetExpertRequests handles GET /api/expert-requests requests
+func (h *ExpertRequestHandler) HandleGetExpertRequests(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing GET /api/expert-requests request")
+	
+	// Parse query parameters for filtering
+	status := r.URL.Query().Get("status")
+	if status != "" {
+		log.Debug("Filtering expert requests by status: %s", status)
+	}
+	
+	// Parse pagination parameters
+	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+	if err != nil || limit <= 0 {
+		limit = 100 // Default limit for requests
+	}
+	
+	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+	if err != nil || offset < 0 {
+		offset = 0 // Default offset
+	}
+	
+	// Build filters map
+	filters := make(map[string]interface{})
+	if status != "" {
+		filters["status"] = status
+	}
+	
+	// Retrieve requests from database
+	log.Debug("Retrieving expert requests with filters: %v", filters)
+	requests, err := h.store.ListExpertRequests(status, limit, offset)
+	if err != nil {
+		log.Error("Failed to retrieve expert requests: %v", err)
+		return fmt.Errorf("failed to retrieve expert requests: %w", err)
+	}
+	
+	// Return requests as JSON
+	log.Debug("Returning %d expert requests", len(requests))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(requests)
+}
+
+// HandleGetExpertRequest handles GET /api/expert-requests/{id} requests
+func (h *ExpertRequestHandler) HandleGetExpertRequest(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate expert request ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid expert request ID provided: %s", idStr)
+		return fmt.Errorf("invalid request ID: %w", err)
+	}
+	
+	// Retrieve expert request from database
+	log.Debug("Retrieving expert request with ID: %d", id)
+	request, err := h.store.GetExpertRequest(id)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			log.Warn("Expert request not found with ID: %d", id)
+			return domain.ErrNotFound
+		}
+		
+		log.Error("Failed to get expert request: %v", err)
+		return fmt.Errorf("failed to retrieve expert request: %w", err)
+	}
+	
+	// Return expert request data
+	log.Debug("Successfully retrieved expert request: ID: %d, Name: %s", request.ID, request.Name)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(request)
+}
+
+// HandleUpdateExpertRequest handles PUT /api/expert-requests/{id} requests
+func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate expert request ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid expert request ID provided for update: %s", idStr)
+		return fmt.Errorf("invalid request ID: %w", err)
+	}
+	
+	// Retrieve existing expert request from database
+	log.Debug("Checking if expert request exists with ID: %d", id)
+	existingRequest, err := h.store.GetExpertRequest(id)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			log.Warn("Expert request not found for update ID: %d", id)
+			return domain.ErrNotFound
+		}
+		
+		log.Error("Failed to get expert request: %v", err)
+		return fmt.Errorf("failed to retrieve expert request: %w", err)
+	}
+	
+	// Parse update data
+	var updateRequest domain.ExpertRequest
+	if err := json.NewDecoder(r.Body).Decode(&updateRequest); err != nil {
+		log.Warn("Failed to parse expert request update: %v", err)
+		return fmt.Errorf("invalid request body: %w", err)
+	}
+	
+	// Ensure ID matches path parameter
+	updateRequest.ID = id
+	
+	// Handle status changes - if status is changing to "approved", create an expert record
+	log.Debug("Processing request update, current status: %s, new status: %s", 
+		existingRequest.Status, updateRequest.Status)
+	
+	if existingRequest.Status != "approved" && updateRequest.Status == "approved" {
+		log.Info("Expert request being approved, creating expert record from request data")
+		
+		// Create a new expert from the request data
+		// Generate a unique expert ID if not provided
+		expertIDStr := updateRequest.ExpertID
+		if expertIDStr == "" || len(expertIDStr) < 3 {
+			var genErr error
+			expertIDStr, genErr = h.store.GenerateUniqueExpertID()
+			if genErr != nil {
+				log.Error("Failed to generate unique expert ID: %v", genErr)
+				return fmt.Errorf("failed to generate unique expert ID: %w", genErr)
+			}
+			log.Debug("Generated unique expert ID: %s", expertIDStr)
+		}
+		
+		// Create expert record with data from the request
+		expert := &domain.Expert{
+			ExpertID:        expertIDStr,
+			Name:            updateRequest.Name,
+			Designation:     updateRequest.Designation,
+			Institution:     updateRequest.Institution,
+			IsBahraini:      updateRequest.IsBahraini,
+			IsAvailable:     updateRequest.IsAvailable,
+			Rating:          updateRequest.Rating,
+			Role:            updateRequest.Role,
+			EmploymentType:  updateRequest.EmploymentType,
+			GeneralArea:     updateRequest.GeneralArea,
+			SpecializedArea: updateRequest.SpecializedArea,
+			IsTrained:       updateRequest.IsTrained,
+			CVPath:          updateRequest.CVPath,
+			Phone:           updateRequest.Phone,
+			Email:           updateRequest.Email,
+			IsPublished:     updateRequest.IsPublished,
+			Biography:       updateRequest.Biography,
+			CreatedAt:       time.Now(),
+		}
+		
+		// Create the expert record in database
+		log.Debug("Creating expert record: %s, Institution: %s", expert.Name, expert.Institution)
+		createdID, err := h.store.CreateExpert(expert)
+		if err != nil {
+			log.Error("Failed to create expert from request: %v", err)
+			
+			// Check if this is a uniqueness constraint error
+			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				return fmt.Errorf("an expert with this ID already exists: %w", err)
+			}
+			
+			return fmt.Errorf("failed to create expert from request: %w", err)
+		}
+		
+		// Set the reviewed timestamp
+		updateRequest.ReviewedAt = time.Now()
+		
+		// Update the expert request with the expert ID
+		updateRequest.ExpertID = fmt.Sprintf("EXP-%d", createdID)
+		log.Info("Expert created successfully from request: Expert ID: %d", createdID)
+	}
+	
+	// Perform update to the expert request
+	// Use a specific method for status updates
+	if updateRequest.Status != "" && updateRequest.Status != existingRequest.Status {
+		log.Debug("Updating expert request ID: %d, Status: %s", id, updateRequest.Status)
+		if err := h.store.UpdateExpertRequestStatus(id, updateRequest.Status, updateRequest.RejectionReason, 0); err != nil {
+			log.Error("Failed to update expert request status: %v", err)
+			return fmt.Errorf("failed to update expert request: %w", err)
+		}
+	}
+	
+	// Return success response
+	log.Info("Expert request updated successfully: ID: %d, Status: %s", id, updateRequest.Status)
+	resp := map[string]interface{}{
+		"success": true,
+		"message": "Expert request updated successfully",
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(resp)
+}
+
+
+================================================
+FILE: backend/internal/api/handlers/user.go
+================================================
+package handlers
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+	
+	"expertdb/internal/auth"
+	"expertdb/internal/domain"
+	"expertdb/internal/logger"
+	"expertdb/internal/storage"
+)
+
+// UserHandler handles user-related API endpoints
+type UserHandler struct {
+	store storage.Storage
+}
+
+// NewUserHandler creates a new user handler
+func NewUserHandler(store storage.Storage) *UserHandler {
+	return &UserHandler{
+		store: store,
+	}
+}
+
+// HandleCreateUser creates a new user account (admin only)
+func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Parse request body into CreateUserRequest
+	var req domain.CreateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Debug("Failed to parse user creation request: %v", err)
+		return fmt.Errorf("invalid request body: %w", err)
+	}
+	
+	// Validate required fields
+	if req.Email == "" || req.Name == "" || req.Password == "" {
+		log.Debug("User creation failed - missing required fields")
+		return domain.ErrValidation
+	}
+	
+	// Validate and normalize role
+	if req.Role != auth.RoleUser && req.Role != auth.RoleAdmin {
+		// Default to regular user role for security
+		log.Debug("Invalid role specified (%s), defaulting to user role", req.Role)
+		req.Role = auth.RoleUser
+	}
+	
+	// Validate email format
+	if !strings.Contains(req.Email, "@") || len(req.Email) < 5 {
+		log.Debug("User creation failed - invalid email format: %s", req.Email)
+		return fmt.Errorf("invalid email format")
+	}
+	
+	// Generate secure password hash
+	passwordHash, err := auth.GeneratePasswordHash(req.Password)
+	if err != nil {
+		log.Error("Failed to hash password for new user: %v", err)
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+	
+	// Create user object
+	user := &domain.User{
+		Name:         req.Name,
+		Email:        req.Email,
+		PasswordHash: passwordHash,
+		Role:         req.Role,
+		IsActive:     req.IsActive,
+		CreatedAt:    time.Now(),
+	}
+	
+	// Attempt to create user in database
+	id, err := h.store.CreateUser(user)
+	if err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			log.Info("User creation failed - duplicate email: %s", req.Email)
+			return fmt.Errorf("email already exists")
+		}
+		log.Error("Failed to create user: %v", err)
+		return fmt.Errorf("failed to create user: %w", err)
+	}
+	
+	// Prepare success response
+	resp := domain.CreateUserResponse{
+		ID:      id,
+		Success: true,
+		Message: "User created successfully",
+	}
+	
+	// Log successful user creation
+	log.Info("New user created: %s (ID: %d, Role: %s)", req.Email, id, req.Role)
+	
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	return json.NewEncoder(w).Encode(resp)
+}
+
+// HandleGetUsers retrieves a paginated list of users (admin only)
+func (h *UserHandler) HandleGetUsers(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Parse pagination parameters
+	const DefaultLimit = 10
+	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
+	if err != nil || limit <= 0 {
+		limit = DefaultLimit // default page size
+	}
+	
+	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
+	if err != nil || offset < 0 {
+		offset = 0 // default starting position
+	}
+	
+	// Retrieve users from database
+	users, err := h.store.ListUsers(limit, offset)
+	if err != nil {
+		log.Error("Failed to list users: %v", err)
+		return fmt.Errorf("failed to retrieve users: %w", err)
+	}
+	
+	// Remove sensitive data (password hashes) for security
+	for _, user := range users {
+		user.PasswordHash = ""
+	}
+	
+	// Log user list request
+	log.Debug("User list retrieved: %d users returned (limit: %d, offset: %d)", 
+		len(users), limit, offset)
+	
+	// Return user list as JSON response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(users)
+}
+
+// HandleGetUser retrieves details for a specific user
+func (h *UserHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate the user ID from the URL path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Debug("Invalid user ID format: %s", idStr)
+		return fmt.Errorf("invalid user ID: must be a number")
+	}
+	
+	// Retrieve the user from the database
+	user, err := h.store.GetUser(id)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			log.Info("User not found with ID %d", id)
+			return domain.ErrNotFound
+		}
+		log.Error("Failed to get user with ID %d: %v", id, err)
+		return fmt.Errorf("failed to retrieve user: %w", err)
+	}
+	
+	// Remove sensitive data before returning the response
+	user.PasswordHash = ""
+	
+	// Log user retrieval
+	log.Debug("User retrieved: ID %d", id)
+	
+	// Return user details as JSON response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(user)
+}
+
+// HandleUpdateUser updates an existing user's information
+func (h *UserHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate the user ID from the URL path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Debug("Invalid user ID format in update request: %s", idStr)
+		return fmt.Errorf("invalid user ID: must be a number")
+	}
+	
+	// Parse the update request from JSON body
+	var req domain.CreateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Debug("Failed to parse user update request: %v", err)
+		return fmt.Errorf("invalid request format: %w", err)
+	}
+	
+	// Retrieve the existing user from database
+	user, err := h.store.GetUser(id)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			log.Info("User not found with ID %d for update", id)
+			return domain.ErrNotFound
+		}
+		log.Error("Failed to get user with ID %d for update: %v", id, err)
+		return fmt.Errorf("failed to retrieve user: %w", err)
+	}
+	
+	// Update fields selectively (only if provided in request)
+	
+	// Update name if provided
+	if req.Name != "" {
+		log.Debug("Updating name for user ID %d: %s -> %s", id, user.Name, req.Name)
+		user.Name = req.Name
+	}
+	
+	// Update email if provided and different from current
+	if req.Email != "" && req.Email != user.Email {
+		// Validate email uniqueness
+		existingUser, err := h.store.GetUserByEmail(req.Email)
+		if err == nil && existingUser != nil && existingUser.ID != user.ID {
+			log.Info("Email already in use during user update: %s", req.Email)
+			return fmt.Errorf("email already in use by another user")
+		}
+		
+		// Email is unique, update it
+		log.Debug("Updating email for user ID %d: %s -> %s", id, user.Email, req.Email)
+		user.Email = req.Email
+	}
+	
+	// Update password if provided
+	if req.Password != "" {
+		log.Debug("Updating password for user ID %d", id)
+		passwordHash, err := auth.GeneratePasswordHash(req.Password)
+		if err != nil {
+			log.Error("Failed to hash password during user update: %v", err)
+			return fmt.Errorf("failed to update password: %w", err)
+		}
+		user.PasswordHash = passwordHash
+	}
+	
+	// Update role if provided and valid
+	if req.Role == auth.RoleUser || req.Role == auth.RoleAdmin {
+		log.Debug("Updating role for user ID %d: %s -> %s", id, user.Role, req.Role)
+		user.Role = req.Role
+	}
+	
+	// Update active status
+	if user.IsActive != req.IsActive {
+		log.Debug("Updating active status for user ID %d: %v -> %v", id, user.IsActive, req.IsActive)
+		user.IsActive = req.IsActive
+	}
+	
+	// Save the updated user to the database
+	if err := h.store.UpdateUser(user); err != nil {
+		log.Error("Failed to update user ID %d: %v", id, err)
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+	
+	// Prepare and return success response
+	resp := domain.CreateUserResponse{
+		ID:      user.ID,
+		Success: true,
+		Message: "User updated successfully",
+	}
+	
+	// Log successful update
+	log.Info("User updated successfully: ID %d, Email: %s, Role: %s", user.ID, user.Email, user.Role)
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(resp)
+}
+
+// HandleDeleteUser permanently deletes a user account
+func (h *UserHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate the user ID from the URL path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Debug("Invalid user ID format in delete request: %s", idStr)
+		return fmt.Errorf("invalid user ID: must be a number")
+	}
+	
+	// Get user details for logging before deletion
+	user, err := h.store.GetUser(id)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			log.Info("User not found with ID %d for deletion", id)
+			return domain.ErrNotFound
+		}
+		log.Error("Failed to get user with ID %d for deletion: %v", id, err)
+		return fmt.Errorf("failed to retrieve user: %w", err)
+	}
+	
+	// Safety check: don't delete the last admin account
+	if user.Role == auth.RoleAdmin {
+		// Count total admins
+		adminCount := 0
+		users, err := h.store.ListUsers(100, 0) // Get up to 100 users
+		if err == nil {
+			for _, u := range users {
+				if u.Role == auth.RoleAdmin && u.IsActive {
+					adminCount++
+				}
+			}
+		}
+		
+		if adminCount <= 1 {
+			log.Warn("Attempt to delete the last admin account (ID: %d)", id)
+			return fmt.Errorf("cannot delete the last admin account")
+		}
+	}
+	
+	// Delete the user from the database
+	if err := h.store.DeleteUser(id); err != nil {
+		log.Error("Failed to delete user ID %d: %v", id, err)
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	
+	// Log successful deletion
+	log.Info("User deleted: ID %d, Email: %s, Role: %s", id, user.Email, user.Role)
+	
+	// Prepare and return success response
+	resp := struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}{
+		Success: true,
+		Message: "User deleted successfully",
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(resp)
+}
+
+
+================================================
+FILE: backend/internal/api/handlers/documents/document_handler.go
+================================================
+// Package documents provides handlers for document-related API endpoints
+package documents
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	
+	"expertdb/internal/documents"
+	"expertdb/internal/logger"
+	"expertdb/internal/storage"
+)
+
+// Handler manages document-related HTTP endpoints
+type Handler struct {
+	store           storage.Storage
+	documentService *documents.Service
+}
+
+// NewHandler creates a new document handler
+func NewHandler(store storage.Storage, documentService *documents.Service) *Handler {
+	return &Handler{
+		store:           store,
+		documentService: documentService,
+	}
+}
+
+// HandleUploadDocument handles POST /api/documents requests
+func (h *Handler) HandleUploadDocument(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing POST /api/documents request")
+	
+	// Parse multipart form data (10MB max)
+	maxSize := int64(10 << 20)
+	if err := r.ParseMultipartForm(maxSize); err != nil {
+		log.Warn("Failed to parse multipart form: %v", err)
+		return fmt.Errorf("failed to parse form - file may be too large: %w", err)
+	}
+	
+	// Extract and validate expert ID
+	expertIDStr := r.FormValue("expertId")
+	if expertIDStr == "" {
+		log.Warn("Missing expert ID in document upload request")
+		return fmt.Errorf("expert ID is required")
+	}
+	
+	expertID, err := strconv.ParseInt(expertIDStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid expert ID in document upload request: %s", expertIDStr)
+		return fmt.Errorf("invalid expert ID: %w", err)
+	}
+	
+	// Get document type or use default
+	docType := r.FormValue("documentType")
+	if docType == "" {
+		log.Debug("No document type specified, using default type: cv")
+		docType = "cv" // Default type
+	}
+	
+	// Get the file from the request
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		log.Warn("No file provided in document upload request: %v", err)
+		return fmt.Errorf("no file provided: %w", err)
+	}
+	defer file.Close()
+	
+	// Upload and store the document
+	log.Debug("Uploading document for expert ID: %d, type: %s, filename: %s",
+		expertID, docType, header.Filename)
+	doc, err := h.documentService.CreateDocument(expertID, file, header, docType)
+	if err != nil {
+		log.Error("Failed to upload document: %v", err)
+		return fmt.Errorf("failed to upload document: %w", err)
+	}
+	
+	// Return document information
+	log.Info("Document uploaded successfully: ID: %d, Type: %s, Expert: %d", doc.ID, doc.Type, doc.ExpertID)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	return json.NewEncoder(w).Encode(doc)
+}
+
+// HandleGetDocument handles GET /api/documents/{id} requests
+func (h *Handler) HandleGetDocument(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate document ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid document ID provided: %s", idStr)
+		return fmt.Errorf("invalid document ID: %w", err)
+	}
+	
+	// Retrieve document from document service
+	log.Debug("Retrieving document with ID: %d", id)
+	doc, err := h.documentService.GetDocument(id)
+	if err != nil {
+		log.Warn("Document not found with ID: %d - %v", id, err)
+		return fmt.Errorf("document not found: %w", err)
+	}
+	
+	// Return document information
+	log.Debug("Returning document: ID: %d, Type: %s, Expert: %d", doc.ID, doc.Type, doc.ExpertID)
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(doc)
+}
+
+// HandleDeleteDocument handles DELETE /api/documents/{id} requests
+func (h *Handler) HandleDeleteDocument(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate document ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid document ID provided for deletion: %s", idStr)
+		return fmt.Errorf("invalid document ID: %w", err)
+	}
+	
+	// Delete the document
+	log.Debug("Deleting document with ID: %d", id)
+	if err := h.documentService.DeleteDocument(id); err != nil {
+		log.Error("Failed to delete document: %v", err)
+		return fmt.Errorf("failed to delete document: %w", err)
+	}
+	
+	// Return success response
+	log.Info("Document deleted successfully: ID: %d", id)
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Document deleted successfully",
+	})
+}
+
+// HandleGetExpertDocuments handles GET /api/experts/{id}/documents requests
+func (h *Handler) HandleGetExpertDocuments(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate expert ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid expert ID provided for document retrieval: %s", idStr)
+		return fmt.Errorf("invalid expert ID: %w", err)
+	}
+	
+	// Retrieve the expert's documents
+	log.Debug("Retrieving documents for expert with ID: %d", id)
+	docs, err := h.documentService.ListDocuments(id)
+	if err != nil {
+		log.Error("Failed to retrieve documents for expert %d: %v", id, err)
+		return fmt.Errorf("failed to retrieve documents: %w", err)
+	}
+	
+	// Return documents
+	log.Debug("Returning %d documents for expert ID: %d", len(docs), id)
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(docs)
+}
+
+
+================================================
+FILE: backend/internal/api/handlers/engagements/engagement_handler.go
+================================================
+// Package engagements provides handlers for engagement-related API endpoints
+package engagements
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
+	"expertdb/internal/domain"
+	"expertdb/internal/logger"
+	"expertdb/internal/storage"
+)
+
+// Handler manages engagement-related HTTP endpoints
+type Handler struct {
+	store storage.Storage
+}
+
+// NewHandler creates a new engagement handler
+func NewHandler(store storage.Storage) *Handler {
+	return &Handler{
+		store: store,
+	}
+}
+
+// HandleCreateEngagement handles POST /api/engagements requests
+func (h *Handler) HandleCreateEngagement(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing POST /api/engagements request")
+
+	// Parse request body
+	var engagement domain.Engagement
+	if err := json.NewDecoder(r.Body).Decode(&engagement); err != nil {
+		log.Warn("Failed to parse engagement creation request: %v", err)
+		return fmt.Errorf("invalid request payload: %w", err)
+	}
+
+	// Set default values and validate
+	// Set creation time
+	engagement.CreatedAt = time.Now()
+
+	// Validate required fields
+	if engagement.ExpertID == 0 {
+		log.Warn("Missing expert ID in engagement creation request")
+		return fmt.Errorf("expert ID is required")
+	}
+	if engagement.EngagementType == "" {
+		log.Warn("Missing engagement type in creation request")
+		return fmt.Errorf("engagement type is required")
+	}
+	if engagement.StartDate.IsZero() {
+		log.Warn("Missing start date in engagement creation request")
+		return fmt.Errorf("start date is required")
+	}
+
+	// Set default status if not provided
+	if engagement.Status == "" {
+		log.Debug("No status specified, using default status: pending")
+		engagement.Status = "pending" // Default status
+	}
+
+	// Create the engagement in database
+	log.Debug("Creating engagement for expert ID: %d, type: %s",
+		engagement.ExpertID, engagement.EngagementType)
+	id, err := h.store.CreateEngagement(&engagement)
+	if err != nil {
+		log.Error("Failed to create engagement in database: %v", err)
+		return fmt.Errorf("failed to create engagement: %w", err)
+	}
+
+	// Set the ID in the response and return
+	engagement.ID = id
+	log.Info("Engagement created successfully: ID: %d, Type: %s, Expert: %d",
+		id, engagement.EngagementType, engagement.ExpertID)
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	return json.NewEncoder(w).Encode(engagement)
+}
+
+// HandleGetEngagement handles GET /api/engagements/{id} requests
+func (h *Handler) HandleGetEngagement(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+
+	// Extract and validate engagement ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid engagement ID provided: %s", idStr)
+		return fmt.Errorf("invalid engagement ID: %w", err)
+	}
+
+	// Retrieve engagement from database
+	log.Debug("Retrieving engagement with ID: %d", id)
+	engagement, err := h.store.GetEngagement(id)
+	if err != nil {
+		log.Warn("Engagement not found with ID: %d - %v", id, err)
+		return fmt.Errorf("engagement not found: %w", err)
+	}
+
+	// Return engagement data
+	log.Debug("Successfully retrieved engagement: ID: %d, Type: %s", engagement.ID, engagement.EngagementType)
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(engagement)
+}
+
+// HandleUpdateEngagement handles PUT /api/engagements/{id} requests
+func (h *Handler) HandleUpdateEngagement(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+
+	// Extract and validate engagement ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid engagement ID provided for update: %s", idStr)
+		return fmt.Errorf("invalid engagement ID: %w", err)
+	}
+
+	// Retrieve existing engagement from database
+	log.Debug("Checking if engagement exists with ID: %d", id)
+	existing, err := h.store.GetEngagement(id)
+	if err != nil {
+		log.Warn("Engagement not found for update ID: %d - %v", id, err)
+		return fmt.Errorf("engagement not found: %w", err)
+	}
+
+	// Parse update request
+	var updateEngagement domain.Engagement
+	if err := json.NewDecoder(r.Body).Decode(&updateEngagement); err != nil {
+		log.Warn("Failed to parse engagement update request: %v", err)
+		return fmt.Errorf("invalid request payload: %w", err)
+	}
+
+	// Ensure ID matches path parameter
+	updateEngagement.ID = id
+
+	// Merge with existing engagement data - use existing data for empty fields
+	// This approach maintains data integrity by preserving fields not included in the update
+	if updateEngagement.ExpertID == 0 {
+		updateEngagement.ExpertID = existing.ExpertID
+	}
+	if updateEngagement.EngagementType == "" {
+		updateEngagement.EngagementType = existing.EngagementType
+	}
+	if updateEngagement.StartDate.IsZero() {
+		updateEngagement.StartDate = existing.StartDate
+	}
+	if updateEngagement.Status == "" {
+		updateEngagement.Status = existing.Status
+	}
+	// Preserve creation time
+	if updateEngagement.CreatedAt.IsZero() {
+		updateEngagement.CreatedAt = existing.CreatedAt
+	}
+	// Preserve additional fields if they exist
+	if updateEngagement.EndDate.IsZero() && !existing.EndDate.IsZero() {
+		updateEngagement.EndDate = existing.EndDate
+	}
+	if updateEngagement.Notes == "" && existing.Notes != "" {
+		updateEngagement.Notes = existing.Notes
+	}
+
+	// Update the engagement in database
+	log.Debug("Updating engagement ID: %d, Type: %s", id, updateEngagement.EngagementType)
+	if err := h.store.UpdateEngagement(&updateEngagement); err != nil {
+		log.Error("Failed to update engagement in database: %v", err)
+		return fmt.Errorf("failed to update engagement: %w", err)
+	}
+
+	// Return success response
+	log.Info("Engagement updated successfully: ID: %d", id)
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Engagement updated successfully",
+	})
+}
+
+// HandleDeleteEngagement handles DELETE /api/engagements/{id} requests
+func (h *Handler) HandleDeleteEngagement(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+
+	// Extract and validate engagement ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid engagement ID provided for deletion: %s", idStr)
+		return fmt.Errorf("invalid engagement ID: %w", err)
+	}
+
+	// Delete the engagement from database
+	log.Debug("Deleting engagement with ID: %d", id)
+	if err := h.store.DeleteEngagement(id); err != nil {
+		log.Error("Failed to delete engagement: %v", err)
+		return fmt.Errorf("failed to delete engagement: %w", err)
+	}
+
+	// Return success response
+	log.Info("Engagement deleted successfully: ID: %d", id)
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Engagement deleted successfully",
+	})
+}
+
+// HandleGetExpertEngagements handles GET /api/experts/{id}/engagements requests
+func (h *Handler) HandleGetExpertEngagements(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+
+	// Extract and validate expert ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid expert ID provided for engagement retrieval: %s", idStr)
+		return fmt.Errorf("invalid expert ID: %w", err)
+	}
+
+	// Retrieve the expert's engagements from database
+	log.Debug("Retrieving engagements for expert with ID: %d", id)
+	engagements, err := h.store.ListEngagements(id)
+	if err != nil {
+		log.Error("Failed to retrieve engagements for expert %d: %v", id, err)
+		return fmt.Errorf("failed to retrieve engagements: %w", err)
+	}
+
+	// Return engagements
+	log.Debug("Returning %d engagements for expert ID: %d", len(engagements), id)
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(engagements)
+}
+
+
+================================================
+FILE: backend/internal/api/handlers/statistics/statistics_handler.go
+================================================
+// Package statistics provides handlers for statistics-related API endpoints
+package statistics
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+
+	"expertdb/internal/domain"
+	"expertdb/internal/logger"
+	"expertdb/internal/storage"
+)
+
+// Handler manages statistics-related HTTP endpoints
+type Handler struct {
+	store storage.Storage
+}
+
+// NewHandler creates a new statistics handler
+func NewHandler(store storage.Storage) *Handler {
+	return &Handler{
+		store: store,
+	}
+}
+
+// HandleGetStatistics handles GET /api/statistics requests
+func (h *Handler) HandleGetStatistics(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing GET /api/statistics request")
+
+	// Retrieve all statistics from database
+	log.Debug("Retrieving overall system statistics")
+	stats, err := h.store.GetStatistics()
+	if err != nil {
+		log.Error("Failed to retrieve statistics: %v", err)
+		return fmt.Errorf("failed to retrieve statistics: %w", err)
+	}
+
+	// Return statistics as JSON response
+	log.Debug("Successfully retrieved system statistics")
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(stats)
+}
+
+// HandleGetNationalityStats handles GET /api/statistics/nationality requests
+func (h *Handler) HandleGetNationalityStats(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing GET /api/statistics/nationality request")
+
+	// Query for experts with Bahraini status
+	filters := make(map[string]interface{})
+	filters["isBahraini"] = true
+	bahrainiCount, err := h.store.CountExperts(filters)
+	if err != nil {
+		log.Error("Failed to count Bahraini experts: %v", err)
+		return fmt.Errorf("failed to count Bahraini experts: %w", err)
+	}
+
+	// Get total count
+	totalCount, err := h.store.CountExperts(map[string]interface{}{})
+	if err != nil {
+		log.Error("Failed to count total experts: %v", err)
+		return fmt.Errorf("failed to count total experts: %w", err)
+	}
+
+	// Calculate non-Bahraini count
+	nonBahrainiCount := totalCount - bahrainiCount
+
+	// Calculate percentages, avoiding division by zero
+	var bahrainiPercentage, nonBahrainiPercentage float64
+	if totalCount > 0 {
+		bahrainiPercentage = float64(bahrainiCount) / float64(totalCount) * 100
+		nonBahrainiPercentage = float64(nonBahrainiCount) / float64(totalCount) * 100
+	}
+
+	// Create stats array in the format expected by the frontend
+	stats := []domain.AreaStat{
+		{Name: "Bahraini", Count: bahrainiCount, Percentage: bahrainiPercentage},
+		{Name: "Non-Bahraini", Count: nonBahrainiCount, Percentage: nonBahrainiPercentage},
+	}
+
+	// Prepare response with total and detailed stats
+	result := map[string]interface{}{
+		"total": totalCount,
+		"stats": stats,
+	}
+
+	// Return statistics as JSON response
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(result)
+}
+
+// HandleGetEngagementStats handles GET /api/statistics/engagements requests
+func (h *Handler) HandleGetEngagementStats(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing GET /api/statistics/engagements request")
+
+	// Get all engagements (we'll process them in memory since SQLite doesn't support complex aggregations)
+	allEngagements, err := h.store.ListEngagements(0) // 0 means all engagements
+	if err != nil {
+		log.Error("Failed to retrieve engagements: %v", err)
+		return fmt.Errorf("failed to retrieve engagement statistics: %w", err)
+	}
+
+	// Count by engagement type
+	typeCount := make(map[string]int)
+	statusCount := make(map[string]int)
+	total := len(allEngagements)
+
+	for _, engagement := range allEngagements {
+		// Count by type
+		typeCount[engagement.EngagementType]++
+		
+		// Count by status
+		statusCount[engagement.Status]++
+	}
+
+	// Convert to the AreaStat format
+	var typeStats []domain.AreaStat
+	for typeName, count := range typeCount {
+		percentage := 0.0
+		if total > 0 {
+			percentage = float64(count) / float64(total) * 100
+		}
+		typeStats = append(typeStats, domain.AreaStat{
+			Name:       typeName,
+			Count:      count,
+			Percentage: percentage,
+		})
+	}
+
+	var statusStats []domain.AreaStat
+	for statusName, count := range statusCount {
+		percentage := 0.0
+		if total > 0 {
+			percentage = float64(count) / float64(total) * 100
+		}
+		statusStats = append(statusStats, domain.AreaStat{
+			Name:       statusName,
+			Count:      count,
+			Percentage: percentage,
+		})
+	}
+
+	// Prepare the response
+	result := map[string]interface{}{
+		"total":    total,
+		"byType":   typeStats,
+		"byStatus": statusStats,
+	}
+
+	// Return statistics as JSON response
+	log.Debug("Successfully retrieved engagement statistics")
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(result)
+}
+
+// HandleGetGrowthStats handles GET /api/statistics/growth requests
+func (h *Handler) HandleGetGrowthStats(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing GET /api/statistics/growth request")
+
+	// Parse and validate months parameter
+	months := 12 // Default to 12 months if not specified
+
+	monthsParam := r.URL.Query().Get("months")
+	if monthsParam != "" {
+		parsedMonths, err := strconv.Atoi(monthsParam)
+		if err == nil && parsedMonths > 0 {
+			months = parsedMonths
+			log.Debug("Using custom months parameter: %d", months)
+		} else {
+			log.Warn("Invalid months parameter provided: %s, using default (12)", monthsParam)
+		}
+	}
+
+	// Get all experts with their creation dates
+	experts, err := h.store.ListExperts(map[string]interface{}{}, 1000, 0)
+	if err != nil {
+		log.Error("Failed to retrieve experts: %v", err)
+		return fmt.Errorf("failed to retrieve growth statistics: %w", err)
+	}
+
+	// This is a simplistic implementation - in a real scenario, you'd use SQL's date functions
+	// to aggregate by month directly in the database query
+	
+	// Map to store counts by month
+	monthCounts := make(map[string]int)
+	
+	// Process each expert
+	for _, expert := range experts {
+		// Format the month as YYYY-MM
+		month := expert.CreatedAt.Format("2006-01")
+		monthCounts[month]++
+	}
+	
+	// Convert to GrowthStat format and calculate growth rates
+	var stats []domain.GrowthStat
+	var prevCount int
+	
+	// Sort by month and limit to the specified number of months
+	// In a real implementation, you would sort the months here
+	
+	for month, count := range monthCounts {
+		growthRate := 0.0
+		if prevCount > 0 {
+			growthRate = (float64(count) - float64(prevCount)) / float64(prevCount) * 100
+		}
+		
+		stats = append(stats, domain.GrowthStat{
+			Period:     month,
+			Count:      count,
+			GrowthRate: growthRate,
+		})
+		
+		prevCount = count
+	}
+	
+	// Return statistics as JSON response
+	log.Debug("Successfully retrieved growth statistics for %d months", months)
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(stats)
+}
+
+
+================================================
+FILE: backend/internal/auth/auth.go
+================================================
+// Package auth provides authentication and authorization functionality for the ExpertDB application
+package auth
+
+import (
+	"crypto/rand"
+	"errors"
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
+	
+	"expertdb/internal/domain"
+)
+
+// Authentication related constants
+const (
+	// bcryptCost defines the computational cost for bcrypt password hashing
+	// Higher values increase security but require more CPU resources
+	bcryptCost = 12
+	
+	// jwtExpiration defines how long JWT tokens remain valid after issuance
+	// Current setting: 24 hours
+	jwtExpiration = time.Hour * 24
+	
+	// User role definitions for access control
+	RoleAdmin = "admin" // Admin role has full system access
+	RoleUser  = "user"  // User role has limited, read-mostly access
+)
+
+// JWTSecretKey is the key used to sign and verify JWT tokens
+// This key is generated randomly at application startup
+var JWTSecretKey []byte
+
+// InitJWTSecret initializes the JWT secret key used for token signing and verification
+func InitJWTSecret() error {
+	// Generate a cryptographically secure random 32-byte key
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	if err != nil {
+		return fmt.Errorf("failed to generate random JWT secret: %w", err)
+	}
+	
+	// Store the key in the global variable
+	JWTSecretKey = key
+	
+	return nil
+}
+
+// GeneratePasswordHash creates a secure bcrypt hash from a plaintext password
+func GeneratePasswordHash(password string) (string, error) {
+	// Hash the password using bcrypt with the configured cost factor
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash password: %w", err)
+	}
+	
+	// Return the hash as a string, suitable for database storage
+	return string(hash), nil
+}
+
+// VerifyPassword checks if a plaintext password matches a previously hashed password
+func VerifyPassword(password, hash string) bool {
+	// Compare the provided password against the hash
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
+// GenerateJWT generates a JWT token for a user with standard claims
+func GenerateJWT(user *domain.User) (string, error) {
+	// Calculate token expiration time
+	expiration := time.Now().Add(jwtExpiration)
+	
+	// Create claims map with user information
+	claims := jwt.MapClaims{
+		"sub":   strconv.FormatInt(user.ID, 10), // Subject (user ID)
+		"name":  user.Name,                      // User's full name
+		"email": user.Email,                     // User's email address
+		"role":  user.Role,                      // User's role (admin/user)
+		"exp":   expiration.Unix(),              // Expiration timestamp
+	}
+	
+	// Create a new token with claims
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	
+	// Sign the token with the secret key
+	tokenString, err := token.SignedString(JWTSecretKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to sign JWT token: %w", err)
+	}
+	
+	return tokenString, nil
+}
+
+// VerifyJWT verifies and parses a JWT token
+func VerifyJWT(tokenString string) (*jwt.Token, jwt.MapClaims, error) {
+	// Initialize an empty claims map
+	claims := jwt.MapClaims{}
+	
+	// Parse and verify the token
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		// Validate the signing algorithm is as expected (HMAC)
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		
+		// Return the secret key for signature verification
+		return JWTSecretKey, nil
+	})
+	
+	// Handle parsing errors (includes expiration checks)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse JWT token: %w", err)
+	}
+	
+	// Verify token is valid
+	if !token.Valid {
+		return nil, nil, errors.New("invalid token")
+	}
+	
+	return token, claims, nil
+}
+
+
+================================================
+FILE: backend/internal/auth/jwt.go
+================================================
+// Package auth provides authentication and authorization functionality
+package auth
+
+// This file is intentionally empty as the JWT functionality 
+// has been consolidated into auth.go
+
+
+================================================
+FILE: backend/internal/auth/middleware.go
+================================================
+package auth
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+	
+	"expertdb/internal/domain"
+	"expertdb/internal/logger"
+)
+
+// User context key type to avoid key collisions in context
+type contextKey string
+
+const (
+	// UserClaimsContextKey is the key used to store user claims in context
+	UserClaimsContextKey contextKey = "userClaims"
+)
+
+// UserClaims provides strong typing for JWT claims
+type UserClaims struct {
+	UserID    int64
+	Name      string
+	Email     string
+	Role      string
+	ExpiresAt int64
+}
+
+// GetUserClaimsFromContext extracts user claims from the request context
+func GetUserClaimsFromContext(ctx context.Context) (map[string]interface{}, bool) {
+	claims, ok := ctx.Value(UserClaimsContextKey).(map[string]interface{})
+	return claims, ok
+}
+
+// GetUserIDFromContext extracts the user ID from the request context
+func GetUserIDFromContext(ctx context.Context) (int64, bool) {
+	claims, ok := GetUserClaimsFromContext(ctx)
+	if !ok {
+		return 0, false
+	}
+	
+	// Extract UserID
+	if sub, ok := claims["sub"].(string); ok {
+		id, err := strconv.ParseInt(sub, 10, 64)
+		if err == nil {
+			return id, true
+		}
+	}
+	
+	return 0, false
+}
+
+// GetUserRoleFromContext extracts the user role from the request context
+func GetUserRoleFromContext(ctx context.Context) (string, bool) {
+	claims, ok := GetUserClaimsFromContext(ctx)
+	if !ok {
+		return "", false
+	}
+	
+	role, ok := claims["role"].(string)
+	return role, ok
+}
+
+// IsAdmin checks if the user in the context is an admin
+func IsAdmin(ctx context.Context) bool {
+	role, ok := GetUserRoleFromContext(ctx)
+	return ok && role == RoleAdmin
+}
+
+// SetUserClaimsInContext adds user claims to the request context
+func SetUserClaimsInContext(ctx context.Context, claims map[string]interface{}) context.Context {
+	return context.WithValue(ctx, UserClaimsContextKey, claims)
+}
+
+// ExtractTokenFromHeader extracts the JWT token from the Authorization header
+func ExtractTokenFromHeader(r *http.Request) (string, error) {
+	// Get the Authorization header
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return "", errors.New("authorization header missing")
+	}
+	
+	// Split the header into parts and validate format
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return "", errors.New("invalid authorization header format")
+	}
+	
+	// Return the token part
+	return parts[1], nil
+}
+
+// HandlerFunc is the type for HTTP handlers that can return errors
+type HandlerFunc func(http.ResponseWriter, *http.Request) error
+
+// RequireAuth is middleware that verifies a user is authenticated before allowing access
+func RequireAuth(next HandlerFunc) HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		log := logger.Get()
+		
+		// Extract the token from the Authorization header
+		token, err := ExtractTokenFromHeader(r)
+		if err != nil {
+			log.Debug("Authentication failed: %v", err)
+			return domain.ErrUnauthorized
+		}
+		
+		// Verify the token and extract claims
+		_, claims, err := VerifyJWT(token)
+		if err != nil {
+			log.Debug("JWT verification failed: %v", err)
+			return domain.ErrUnauthorized
+		}
+		
+		// Add user claims to request context for downstream handlers
+		ctx := SetUserClaimsInContext(r.Context(), claims)
+		
+		// Pass control to the next handler with the updated context
+		return next(w, r.WithContext(ctx))
+	}
+}
+
+// RequireAdmin is middleware that ensures only admin users can access protected endpoints
+func RequireAdmin(next HandlerFunc) HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		log := logger.Get()
+		
+		// Extract the token from the Authorization header
+		token, err := ExtractTokenFromHeader(r)
+		if err != nil {
+			log.Debug("Admin check failed - missing token: %v", err)
+			return domain.ErrUnauthorized
+		}
+		
+		// Verify the token and extract claims
+		_, claims, err := VerifyJWT(token)
+		if err != nil {
+			log.Debug("Admin check failed - invalid token: %v", err)
+			return domain.ErrUnauthorized
+		}
+		
+		// Check if the user has admin role
+		role, ok := claims["role"].(string)
+		if !ok || role != RoleAdmin {
+			// User is authenticated but not an admin
+			log.Info("Forbidden access attempt by non-admin user (ID: %v) to %s", 
+				claims["sub"], r.URL.Path)
+			return domain.ErrForbidden
+		}
+		
+		// Add user claims to request context for downstream handlers
+		ctx := SetUserClaimsInContext(r.Context(), claims)
+		
+		// Pass control to the next handler with the updated context
+		return next(w, r.WithContext(ctx))
+	}
+}
+
+
+================================================
+FILE: backend/internal/auth/password.go
+================================================
+package auth
+
+import (
+	"fmt"
+	
+	"golang.org/x/crypto/bcrypt"
+)
+
+// GeneratePasswordHash creates a secure bcrypt hash from a plaintext password
+func GeneratePasswordHash(password string) (string, error) {
+	// Hash the password using bcrypt with the configured cost factor
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash password: %w", err)
+	}
+	
+	// Return the hash as a string, suitable for database storage
+	return string(hash), nil
+}
+
+// VerifyPassword checks if a plaintext password matches a previously hashed password
+func VerifyPassword(password, hash string) bool {
+	// Compare the provided password against the hash
+	// bcrypt.CompareHashAndPassword handles all the work of extracting the salt and cost
+	// parameters from the hash and performing the comparison securely
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
+
+================================================
+FILE: backend/internal/config/config.go
+================================================
+// Package config provides configuration management for the ExpertDB application
+package config
+
+import "os"
+
+// Configuration represents application configuration
+type Configuration struct {
+	Port             string `json:"port"`             // HTTP server port
+	DBPath           string `json:"dbPath"`           // Path to SQLite database file
+	UploadPath       string `json:"uploadPath"`       // Directory for uploaded documents
+	CORSAllowOrigins string `json:"corsAllowOrigins"` // CORS allowed origins (comma-separated)
+	AdminEmail       string `json:"-"`                // Default admin email
+	AdminName        string `json:"-"`                // Default admin name
+	AdminPassword    string `json:"-"`                // Default admin password
+	LogDir           string `json:"-"`                // Directory for log files
+	LogLevel         string `json:"-"`                // Log level (debug, info, warn, error)
+}
+
+// LoadConfig loads configuration from environment variables
+func LoadConfig() *Configuration {
+	config := &Configuration{
+		Port:             os.Getenv("PORT"),
+		DBPath:           os.Getenv("DB_PATH"),
+		UploadPath:       os.Getenv("UPLOAD_PATH"),
+		CORSAllowOrigins: os.Getenv("CORS_ALLOWED_ORIGINS"),
+		AdminEmail:       os.Getenv("ADMIN_EMAIL"),
+		AdminName:        os.Getenv("ADMIN_NAME"),
+		AdminPassword:    os.Getenv("ADMIN_PASSWORD"),
+		LogDir:           os.Getenv("LOG_DIR"),
+		LogLevel:         os.Getenv("LOG_LEVEL"),
+	}
+
+	// Set defaults for empty values
+	if config.Port == "" {
+		config.Port = "8080"
+	}
+	if config.DBPath == "" {
+		config.DBPath = "./db/sqlite/expertdb.sqlite"
+	}
+	if config.UploadPath == "" {
+		config.UploadPath = "./data/documents"
+	}
+	if config.CORSAllowOrigins == "" {
+		config.CORSAllowOrigins = "*"
+	}
+	if config.AdminEmail == "" {
+		config.AdminEmail = "admin@expertdb.com"
+	}
+	if config.AdminName == "" {
+		config.AdminName = "Admin User"
+	}
+	if config.AdminPassword == "" {
+		config.AdminPassword = "adminpassword"
+	}
+	if config.LogDir == "" {
+		config.LogDir = "./logs"
+	}
+	if config.LogLevel == "" {
+		config.LogLevel = "info"
+	}
+
+	return config
+}
+
+
+================================================
+FILE: backend/internal/documents/service.go
+================================================
+// Package documents provides document management functionality
+package documents
+
+import (
+	"fmt"
+	"io"
+	"mime/multipart"
+	"os"
+	"path/filepath"
+	"time"
+	
+	"expertdb/internal/domain"
+	"expertdb/internal/storage"
+)
+
+// Service manages document uploads and storage
+type Service struct {
+	store       storage.Storage
+	uploadDir   string
+	maxSize     int64
+	allowedTypes map[string]bool
+}
+
+// New creates a new Service instance
+func New(store storage.Storage, uploadDir string) (*Service, error) {
+	// Create the upload directory if it doesn't exist
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create upload directory: %w", err)
+	}
+
+	return &Service{
+		store:     store,
+		uploadDir: uploadDir,
+		maxSize:   10 * 1024 * 1024, // 10 MB default limit
+		allowedTypes: map[string]bool{
+			"application/pdf":                                       true,
+			"application/msword":                                    true,
+			"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
+			"image/jpeg":                                            true,
+			"image/png":                                             true,
+		},
+	}, nil
+}
+
+// CreateDocument handles file upload and database registration
+func (s *Service) CreateDocument(expertID int64, file multipart.File, header *multipart.FileHeader, docType string) (*domain.Document, error) {
+	// Validate file size
+	if header.Size > s.maxSize {
+		return nil, fmt.Errorf("file size exceeds maximum allowed size of %d bytes", s.maxSize)
+	}
+
+	// Validate content type
+	contentType := header.Header.Get("Content-Type")
+	if !s.allowedTypes[contentType] {
+		return nil, fmt.Errorf("file type %s is not allowed", contentType)
+	}
+
+	// Create expert-specific directory
+	expertDir := filepath.Join(s.uploadDir, fmt.Sprintf("expert_%d", expertID))
+	if err := os.MkdirAll(expertDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create expert directory: %w", err)
+	}
+
+	// Generate a unique filename
+	timestamp := time.Now().Format("20060102_150405")
+	extension := filepath.Ext(header.Filename)
+	filename := fmt.Sprintf("%d_%s%s", expertID, timestamp, extension)
+	filePath := filepath.Join(expertDir, filename)
+
+	// Create the file
+	dst, err := os.Create(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file: %w", err)
+	}
+	defer dst.Close()
+
+	// Copy the file data
+	if _, err = io.Copy(dst, file); err != nil {
+		os.Remove(filePath) // Clean up on error
+		return nil, fmt.Errorf("failed to save file: %w", err)
+	}
+
+	// Create document record
+	doc := &domain.Document{
+		ExpertID:     expertID,
+		DocumentType: docType,
+		Type:         docType, // Add Type field as alias of DocumentType
+		Filename:     header.Filename,
+		FilePath:     filePath,
+		ContentType:  contentType,
+		FileSize:     header.Size,
+		UploadDate:   time.Now(),
+	}
+
+	// Store in database
+	docID, err := s.store.CreateDocument(doc)
+	if err != nil {
+		os.Remove(filePath) // Clean up on error
+		return nil, fmt.Errorf("failed to store document in database: %w", err)
+	}
+
+	doc.ID = docID
+	return doc, nil
+}
+
+// GetDocument retrieves a document by ID
+func (s *Service) GetDocument(id int64) (*domain.Document, error) {
+	return s.store.GetDocument(id)
+}
+
+// ListDocuments retrieves all documents for an expert
+func (s *Service) ListDocuments(expertID int64) ([]*domain.Document, error) {
+	return s.store.ListDocuments(expertID)
+}
+
+// DeleteDocument removes a document and its file
+func (s *Service) DeleteDocument(id int64) error {
+	// Get the document first to find the file path
+	doc, err := s.store.GetDocument(id)
+	if err != nil {
+		return err
+	}
+
+	// Delete from database first
+	if err := s.store.DeleteDocument(id); err != nil {
+		return err
+	}
+
+	// Delete the file
+	if err := os.Remove(doc.FilePath); err != nil {
+		// Log but don't fail if file is missing
+		// The database record is already deleted
+		fmt.Printf("Warning: Could not delete file %s: %v\n", doc.FilePath, err)
+	}
+
+	return nil
+}
+
+
+================================================
+FILE: backend/internal/domain/types.go
+================================================
+// Package domain contains the core business entities for the ExpertDB application
+package domain
+
+import (
+	"errors"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// Domain errors
+var (
+	ErrNotFound           = errors.New("resource not found")
+	ErrUnauthorized       = errors.New("unauthorized access")
+	ErrForbidden          = errors.New("access forbidden")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrValidation         = errors.New("validation error")
+)
+
+type CreateExpertRequest struct {
+	Name           string   `json:"name"`           // Full name of the expert
+	Affiliation    string   `json:"affiliation"`    // Organization or institution the expert is affiliated with
+	PrimaryContact string   `json:"primaryContact"` // Main contact information (email or phone)
+	ContactType    string   `json:"contactType"`    // Type of contact information: "email" or "phone"
+	Skills         []string `json:"skills"`         // List of expert's skills and competencies
+	Role           string   `json:"role"`           // Expert's role (evaluator, validator, consultant, etc.)
+	EmploymentType string   `json:"employmentType"` // Type of employment (academic, employer, freelance, etc.)
+	GeneralArea    int64    `json:"generalArea"`    // ID referencing expert_areas table
+	CVPath         string   `json:"cvPath"`         // Path to the expert's CV file
+	Biography      string   `json:"biography"`      // Short biography or professional summary
+	IsBahraini     bool     `json:"isBahraini"`     // Flag indicating if expert is Bahraini citizen
+	Availability   string   `json:"availability"`   // Availability status: "yes"/"full-time" means active
+}
+
+type CreateExpertResponse struct {
+	ID      int64  `json:"id"`      // ID of the newly created expert
+	Success bool   `json:"success"` // Indicates if the creation was successful
+	Message string `json:"message,omitempty"` // Optional message providing additional details
+}
+
+// ISCED classification types have been removed as part of schema simplification
+
+// Expert represents a domain expert in the system
+type Expert struct {
+	ID              int64     `json:"id"`              // Primary key identifier
+	ExpertID        string    `json:"expertId,omitempty"` // Business identifier
+	Name            string    `json:"name"`            // Full name of the expert
+	Designation     string    `json:"designation"`     // Professional title or position
+	Institution     string    `json:"institution"`     // Organization or institution affiliation
+	IsBahraini      bool      `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
+	Nationality     string    `json:"nationality"`     // Expert's nationality 
+	IsAvailable     bool      `json:"isAvailable"`     // Current availability status for assignments
+	Rating          string    `json:"rating"`          // Performance rating (if provided)
+	Role            string    `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
+	EmploymentType  string    `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
+	GeneralArea     int64     `json:"generalArea"`     // ID referencing expert_areas table 
+	GeneralAreaName string    `json:"generalAreaName"` // Name of the general area (from expert_areas table)
+	SpecializedArea string    `json:"specializedArea"` // Specific field of specialization
+	IsTrained       bool      `json:"isTrained"`       // Indicates if expert has completed required training
+	CVPath          string    `json:"cvPath"`          // Path to the expert's CV file
+	Phone           string    `json:"phone"`           // Contact phone number
+	Email           string    `json:"email"`           // Contact email address
+	IsPublished     bool      `json:"isPublished"`     // Indicates if expert profile should be publicly visible
+	Biography       string    `json:"biography"`       // Professional summary or background
+	Documents       []Document `json:"documents,omitempty"` // Associated documents
+	Engagements     []Engagement `json:"engagements,omitempty"` // Associated engagements
+	CreatedAt       time.Time `json:"createdAt"`       // Timestamp when expert was created
+	UpdatedAt       time.Time `json:"updatedAt"`       // Timestamp when expert was last updated
+}
+
+// Area represents an expert specialization area
+type Area struct {
+	ID   int64  `json:"id"`   // Unique identifier for the area
+	Name string `json:"name"` // Name of the specialization area
+}
+
+// ExpertRequest represents a request to add a new expert
+type ExpertRequest struct {
+	ID              int64     `json:"id"`              // Primary key identifier
+	ExpertID        string    `json:"expertId,omitempty"` // Business identifier (assigned after approval)
+	Name            string    `json:"name"`            // Full name of the expert
+	Designation     string    `json:"designation"`     // Professional title or position
+	Institution     string    `json:"institution"`     // Organization or institution affiliation
+	IsBahraini      bool      `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
+	IsAvailable     bool      `json:"isAvailable"`     // Current availability status for assignments
+	Rating          string    `json:"rating"`          // Performance rating (if provided)
+	Role            string    `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
+	EmploymentType  string    `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
+	GeneralArea     int64     `json:"generalArea"`     // ID referencing expert_areas table
+	SpecializedArea string    `json:"specializedArea"` // Specific field of specialization
+	IsTrained       bool      `json:"isTrained"`       // Indicates if expert has completed required training
+	CVPath          string    `json:"cvPath"`          // Path to the expert's CV file
+	Phone           string    `json:"phone"`           // Contact phone number
+	Email           string    `json:"email"`           // Contact email address
+	IsPublished     bool      `json:"isPublished"`     // Indicates if expert profile should be publicly visible
+	Status          string    `json:"status"`          // Request status: "pending", "approved", "rejected"
+	RejectionReason string    `json:"rejectionReason,omitempty"` // Reason for rejection if status is "rejected"
+	Biography       string    `json:"biography"`       // Professional summary or background
+	CreatedAt       time.Time `json:"createdAt"`       // Timestamp when request was submitted
+	ReviewedAt      time.Time `json:"reviewedAt,omitempty"` // Timestamp when request was reviewed
+	ReviewedBy      int64     `json:"reviewedBy,omitempty"` // ID of admin who reviewed the request
+}
+
+// User represents a system user
+type User struct {
+	ID           int64     `json:"id"`           // Primary key identifier
+	Name         string    `json:"name"`         // Full name of the user
+	Email        string    `json:"email"`        // Email address (used for login)
+	PasswordHash string    `json:"-"`            // Hashed password (never exposed in JSON)
+	Role         string    `json:"role"`         // User role: "admin" or "user"
+	IsActive     bool      `json:"isActive"`     // Account status (active/inactive)
+	CreatedAt    time.Time `json:"createdAt"`    // Timestamp when user was created
+	LastLogin    time.Time `json:"lastLogin,omitempty"` // Timestamp of last successful login
+}
+
+// Document represents an uploaded document for an expert
+type Document struct {
+	ID           int64     `json:"id"`           // Primary key identifier
+	ExpertID     int64     `json:"expertId"`     // Foreign key reference to expert
+	DocumentType string    `json:"documentType"` // Type of document: "cv", "certificate", "publication", etc.
+	Type         string    `json:"type"`         // Alias for DocumentType for API compatibility
+	Filename     string    `json:"filename"`     // Original filename as uploaded
+	FilePath     string    `json:"filePath"`     // Path where file is stored on server
+	ContentType  string    `json:"contentType"`  // MIME type of the document
+	FileSize     int64     `json:"fileSize"`     // Size of document in bytes
+	UploadDate   time.Time `json:"uploadDate"`   // Timestamp when document was uploaded
+}
+
+// Engagement represents expert assignment to projects/activities
+type Engagement struct {
+	ID             int64     `json:"id"`             // Primary key identifier
+	ExpertID       int64     `json:"expertId"`       // Foreign key reference to expert
+	EngagementType string    `json:"engagementType"` // Type of work: "evaluation", "consultation", "project", etc.
+	StartDate      time.Time `json:"startDate"`      // Date when engagement begins
+	EndDate        time.Time `json:"endDate,omitempty"` // Date when engagement ends
+	ProjectName    string    `json:"projectName,omitempty"` // Name of the project or activity
+	Status         string    `json:"status"`         // Current status: "pending", "active", "completed", "cancelled"
+	FeedbackScore  int       `json:"feedbackScore,omitempty"` // Performance rating (1-5 scale)
+	Notes          string    `json:"notes,omitempty"` // Additional comments or observations
+	CreatedAt      time.Time `json:"createdAt"`      // Timestamp when record was created
+}
+
+
+// Statistics represents system-wide statistics
+type Statistics struct {
+	TotalExperts         int          `json:"totalExperts"`         // Total number of experts in the system
+	ActiveCount          int          `json:"activeCount"`          // Number of experts marked as available
+	BahrainiPercentage   float64      `json:"bahrainiPercentage"`   // Percentage of experts who are Bahraini nationals
+	TopAreas             []AreaStat   `json:"topAreas"`             // Most common expertise areas
+	EngagementsByType    []AreaStat   `json:"engagementsByType"`    // Distribution of engagements by type
+	MonthlyGrowth        []GrowthStat `json:"monthlyGrowth"`        // Monthly growth in expert count
+	MostRequestedExperts []ExpertStat `json:"mostRequestedExperts"` // Most frequently requested experts
+	LastUpdated          time.Time    `json:"lastUpdated"`          // Timestamp when statistics were last calculated
+}
+
+// AreaStat represents statistics for a specific area/category
+type AreaStat struct {
+	Name       string  `json:"name"`       // Name of the area or category
+	Count      int     `json:"count"`      // Number of items in this area
+	Percentage float64 `json:"percentage"` // Percentage of total this area represents
+}
+
+// GrowthStat represents growth statistics over time
+type GrowthStat struct {
+	Period     string  `json:"period"`     // Time period identifier: "2023-01", "2023-Q1", etc.
+	Count      int     `json:"count"`      // Number of items in this period
+	GrowthRate float64 `json:"growthRate"` // Percentage growth from previous period
+}
+
+// ExpertStat represents statistics for a specific expert
+type ExpertStat struct {
+	ExpertID string `json:"expertId"` // Business identifier for the expert
+	Name     string `json:"name"`     // Expert's name
+	Count    int    `json:"count"`    // Number of requests/engagements for this expert
+}
+
+// DocumentUploadRequest represents a request to upload a document
+type DocumentUploadRequest struct {
+	ExpertID     int64  `json:"expertId"`     // ID of the expert to associate the document with
+	DocumentType string `json:"documentType"` // Type of document: "cv", "certificate", "publication", etc.
+}
+
+
+// Authentication types
+
+// LoginRequest represents a user login request
+type LoginRequest struct {
+	Email    string `json:"email"`    // User's email address for authentication
+	Password string `json:"password"` // User's password (plaintext in request only)
+}
+
+// LoginResponse represents a user login response
+type LoginResponse struct {
+	User  User   `json:"user"`  // User information (excluding password)
+	Token string `json:"token"` // JWT token for authentication
+}
+
+// CreateUserRequest represents a request to create a new user
+type CreateUserRequest struct {
+	Name     string `json:"name"`     // Full name of the user
+	Email    string `json:"email"`    // Email address (used for login)
+	Password string `json:"password"` // Initial password (plaintext in request only)
+	Role     string `json:"role"`     // User role: "admin" or "user"
+	IsActive bool   `json:"isActive"` // Initial account status
+}
+
+// CreateUserResponse represents a response to creating a new user
+type CreateUserResponse struct {
+	ID      int64  `json:"id"`      // ID of the newly created user
+	Success bool   `json:"success"` // Indicates if the creation was successful
+	Message string `json:"message,omitempty"` // Optional message providing additional details
+}
+
+// NewExpert creates a new Expert from a CreateExpertRequest
+func NewExpert(req CreateExpertRequest) *Expert {
+	var email, phone string
+	if req.ContactType == "email" {
+		email = req.PrimaryContact
+	} else {
+		email = ""
+	}
+
+	if req.ContactType == "phone" {
+		phone = req.PrimaryContact
+	} else {
+		phone = ""
+	}
+
+	return &Expert{
+		Name:           req.Name,
+		Institution:    req.Affiliation,
+		IsAvailable:    req.Availability == "yes" || req.Availability == "full-time",
+		Email:          email,
+		Phone:          phone,
+		Role:           req.Role,
+		EmploymentType: req.EmploymentType,
+		GeneralArea:    req.GeneralArea,    // Now expecting an int64 ID referencing expert_areas
+		CVPath:         req.CVPath,
+		Biography:      req.Biography,
+		IsBahraini:     req.IsBahraini,
+		CreatedAt:      time.Now().UTC(),
+	}
+}
+
+// ValidateCreateExpertRequest validates the expert request fields
+func ValidateCreateExpertRequest(req *CreateExpertRequest) error {
+	// Required fields
+	if strings.TrimSpace(req.Name) == "" {
+		return errors.New("name is required")
+	}
+
+	if strings.TrimSpace(req.PrimaryContact) == "" {
+		return errors.New("primary contact is required")
+	}
+
+	// Validate contact based on type
+	if req.ContactType == "email" {
+		emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+		if !emailRegex.MatchString(req.PrimaryContact) {
+			return errors.New("invalid email format")
+		}
+	} else if req.ContactType == "phone" {
+		phoneRegex := regexp.MustCompile(`^\+?[0-9]{10,15}$`)
+		if !phoneRegex.MatchString(req.PrimaryContact) {
+			return errors.New("invalid phone number format")
+		}
+	}
+
+	// Set default contact type if not provided
+	if req.ContactType == "" {
+		req.ContactType = "email"
+	}
+
+	// Validate new required fields
+	if strings.TrimSpace(req.Role) == "" {
+		return errors.New("role is required")
+	}
+
+	if strings.TrimSpace(req.EmploymentType) == "" {
+		return errors.New("employment type is required")
+	}
+
+	if req.GeneralArea == 0 {
+		return errors.New("general area is required")
+	}
+
+	// Validate role values
+	validRoles := []string{"evaluator", "validator", "consultant", "trainer", "expert"}
+	if !containsString(validRoles, strings.ToLower(req.Role)) {
+		return errors.New("role must be one of: evaluator, validator, consultant, trainer, expert")
+	}
+
+	// Validate employment type values
+	validEmploymentTypes := []string{"academic", "employer", "freelance", "government", "other"}
+	if !containsString(validEmploymentTypes, strings.ToLower(req.EmploymentType)) {
+		return errors.New("employment type must be one of: academic, employer, freelance, government, other")
+	}
+
+	// Limit biography length
+	if len(req.Biography) > 1000 {
+		return errors.New("biography exceeds maximum length of 1000 characters")
+	}
+
+	return nil
+}
+
+// Helper function to check if a string is in a slice
+func containsString(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
+}
+
+
+================================================
+FILE: backend/internal/logger/global.go
+================================================
+package logger
+
+import "log"
+
+// Global logger instance
+var globalLogger *Logger
+
+// Init initializes the global logger
+func Init(level LogLevel, logDir string, useColors bool) error {
+	logger, err := New(level, logDir, useColors)
+	if err != nil {
+		return err
+	}
+	globalLogger = logger
+	return nil
+}
+
+// Get returns the global logger instance
+func Get() *Logger {
+	if globalLogger == nil {
+		// Create a default logger if not initialized
+		logger, err := New(LevelInfo, "./logs", true)
+		if err != nil {
+			log.Fatalf("Failed to create default logger: %v", err)
+		}
+		globalLogger = logger
+	}
+	return globalLogger
+}
+
+
+================================================
+FILE: backend/internal/logger/logger.go
+================================================
+// Package logger provides logging functionality for the ExpertDB application
+package logger
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"time"
+)
+
+// LogLevel represents the severity of a log message
+type LogLevel int
+
+const (
+	// Debug level for verbose development logs
+	LevelDebug LogLevel = iota
+	// Info level for general information
+	LevelInfo
+	// Warn level for non-critical issues
+	LevelWarn
+	// Error level for errors that affect functionality
+	LevelError
+	// Fatal level for critical errors that require shutdown
+	LevelFatal
+)
+
+// String returns the string representation of a log level
+func (l LogLevel) String() string {
+	switch l {
+	case LevelDebug:
+		return "DEBUG"
+	case LevelInfo:
+		return "INFO"
+	case LevelWarn:
+		return "WARN"
+	case LevelError:
+		return "ERROR"
+	case LevelFatal:
+		return "FATAL"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+// Color returns ANSI color code for a log level
+func (l LogLevel) Color() string {
+	switch l {
+	case LevelDebug:
+		return "\033[37m" // White
+	case LevelInfo:
+		return "\033[32m" // Green
+	case LevelWarn:
+		return "\033[33m" // Yellow
+	case LevelError:
+		return "\033[31m" // Red
+	case LevelFatal:
+		return "\033[35m" // Magenta
+	default:
+		return "\033[0m" // Reset
+	}
+}
+
+// Logger handles logging with different levels and formats
+type Logger struct {
+	level     LogLevel
+	writer    io.Writer
+	fileLog   *log.Logger
+	consoleLog *log.Logger
+	useColors bool
+}
+
+// New creates a new logger with the specified configuration
+func New(level LogLevel, logDir string, useColors bool) (*Logger, error) {
+	// Create log directory if it doesn't exist
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	// Create log file with timestamp in name
+	timestamp := time.Now().Format("2006-01-02")
+	logPath := filepath.Join(logDir, fmt.Sprintf("expertdb_%s.log", timestamp))
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open log file: %w", err)
+	}
+
+	// Create multi-writer to log to both file and console
+	multiWriter := io.MultiWriter(logFile, os.Stdout)
+
+	return &Logger{
+		level:     level,
+		writer:    multiWriter,
+		fileLog:   log.New(logFile, "", 0),
+		consoleLog: log.New(os.Stdout, "", 0),
+		useColors: useColors,
+	}, nil
+}
+
+// formatMessage formats a log message with timestamp, level, and caller info
+func (l *Logger) formatMessage(level LogLevel, message string) string {
+	// Get caller information
+	_, file, line, ok := runtime.Caller(3) // Skip through the logger methods
+	if !ok {
+		file = "unknown"
+		line = 0
+	}
+	// Get the short file name
+	shortFile := filepath.Base(file)
+
+	// Format the log message
+	timestamp := time.Now().Format("2006/01/02 15:04:05")
+	return fmt.Sprintf("%s [%s] %s:%d: %s", 
+		timestamp, 
+		level.String(),
+		shortFile,
+		line,
+		message)
+}
+
+// log logs a message at the specified level
+func (l *Logger) log(level LogLevel, format string, args ...interface{}) {
+	if level < l.level {
+		return
+	}
+
+	message := fmt.Sprintf(format, args...)
+	formattedMsg := l.formatMessage(level, message)
+
+	// Log to file without colors
+	l.fileLog.Println(formattedMsg)
+
+	// Log to console with colors if enabled
+	if l.useColors {
+		colorCode := level.Color()
+		resetCode := "\033[0m"
+		l.consoleLog.Printf("%s%s%s", colorCode, formattedMsg, resetCode)
+	} else {
+		l.consoleLog.Println(formattedMsg)
+	}
+
+	// If fatal, exit the program
+	if level == LevelFatal {
+		os.Exit(1)
+	}
+}
+
+// Debug logs a debug message
+func (l *Logger) Debug(format string, args ...interface{}) {
+	l.log(LevelDebug, format, args...)
+}
+
+// Info logs an informational message
+func (l *Logger) Info(format string, args ...interface{}) {
+	l.log(LevelInfo, format, args...)
+}
+
+// Warn logs a warning message
+func (l *Logger) Warn(format string, args ...interface{}) {
+	l.log(LevelWarn, format, args...)
+}
+
+// Error logs an error message
+func (l *Logger) Error(format string, args ...interface{}) {
+	l.log(LevelError, format, args...)
+}
+
+// Fatal logs a fatal message and exits the program
+func (l *Logger) Fatal(format string, args ...interface{}) {
+	l.log(LevelFatal, format, args...)
+	// The program will exit in the log method
+}
+
+// HTTP request logging
+
+// LogRequest logs HTTP request information
+func (l *Logger) LogRequest(method, path, ip, userAgent string, statusCode int, duration time.Duration) {
+	level := LevelInfo
+	if statusCode >= 400 && statusCode < 500 {
+		level = LevelWarn
+	} else if statusCode >= 500 {
+		level = LevelError
+	}
+
+	l.log(level, "HTTP %s %s from %s - %d (%s) - %v",
+		method, path, ip, statusCode, http.StatusText(statusCode), duration)
+}
+
+// RequestLoggerMiddleware returns a middleware that logs HTTP requests
+func (l *Logger) RequestLoggerMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		startTime := time.Now()
+		
+		// Create a response wrapper to capture the status code
+		rw := &responseWriter{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK, // Default status code
+		}
+		
+		// Process the request
+		next.ServeHTTP(rw, r)
+		
+		// Calculate duration
+		duration := time.Since(startTime)
+		
+		// Log the request
+		l.LogRequest(
+			r.Method,
+			r.URL.Path,
+			r.RemoteAddr,
+			r.UserAgent(),
+			rw.statusCode,
+			duration,
+		)
+	})
+}
+
+// responseWriter is a wrapper around http.ResponseWriter that captures the status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+// WriteHeader captures the status code before writing it
+func (rw *responseWriter) WriteHeader(statusCode int) {
+	rw.statusCode = statusCode
+	rw.ResponseWriter.WriteHeader(statusCode)
+}
+
+// GetLogLevelFromString converts a string log level to LogLevel
+func GetLogLevelFromString(level string) LogLevel {
+	switch level {
+	case "debug":
+		return LevelDebug
+	case "info":
+		return LevelInfo
+	case "warn":
+		return LevelWarn
+	case "error":
+		return LevelError
+	case "fatal":
+		return LevelFatal
+	default:
+		return LevelInfo
+	}
+}
+
+
+================================================
+FILE: backend/internal/storage/interface.go
+================================================
+// Package storage provides database access layer for the ExpertDB application
+package storage
+
+import (
+	"expertdb/internal/domain"
+)
+
+// Storage defines the interface for database operations
+type Storage interface {
+	// Expert methods
+	ListExperts(filters map[string]interface{}, limit, offset int) ([]*domain.Expert, error)
+	CountExperts(filters map[string]interface{}) (int, error)
+	GetExpert(id int64) (*domain.Expert, error)
+	GetExpertByEmail(email string) (*domain.Expert, error)
+	CreateExpert(expert *domain.Expert) (int64, error)
+	UpdateExpert(expert *domain.Expert) error
+	DeleteExpert(id int64) error
+	GenerateUniqueExpertID() (string, error)
+	ExpertIDExists(expertID string) (bool, error)
+	
+	// Expert request methods
+	ListExpertRequests(status string, limit, offset int) ([]*domain.ExpertRequest, error)
+	GetExpertRequest(id int64) (*domain.ExpertRequest, error)
+	CreateExpertRequest(req *domain.ExpertRequest) (int64, error)
+	UpdateExpertRequestStatus(id int64, status, rejectionReason string, reviewedBy int64) error
+	UpdateExpertRequest(req *domain.ExpertRequest) error
+	
+	// User methods
+	GetUser(id int64) (*domain.User, error)
+	GetUserByEmail(email string) (*domain.User, error)
+	CreateUser(user *domain.User) (int64, error)
+	UpdateUser(user *domain.User) error
+	ListUsers(limit, offset int) ([]*domain.User, error)
+	UpdateUserLastLogin(id int64) error
+	EnsureAdminExists(adminEmail, adminName, adminPasswordHash string) error
+	
+	// Area methods
+	ListAreas() ([]*domain.Area, error)
+	GetArea(id int64) (*domain.Area, error)
+	
+	// Document methods
+	ListDocuments(expertID int64) ([]*domain.Document, error)
+	GetDocument(id int64) (*domain.Document, error)
+	CreateDocument(doc *domain.Document) (int64, error)
+	DeleteDocument(id int64) error
+	
+	// Engagement methods
+	ListEngagements(expertID int64) ([]*domain.Engagement, error)
+	GetEngagement(id int64) (*domain.Engagement, error)
+	CreateEngagement(engagement *domain.Engagement) (int64, error)
+	UpdateEngagement(engagement *domain.Engagement) error
+	DeleteEngagement(id int64) error
+	
+	// Statistics methods
+	GetStatistics() (*domain.Statistics, error)
+	UpdateStatistics(stats *domain.Statistics) error
+	GetExpertsByNationality() (int, int, error)
+	GetEngagementStatistics() ([]domain.AreaStat, error)
+	GetExpertGrowthByMonth(months int) ([]domain.GrowthStat, error)
+	
+	// General database methods
+	InitDB() error
+	Close() error
+}
+
+
+================================================
+FILE: backend/internal/storage/sqlite/area.go
+================================================
+package sqlite
+
+import (
+	"database/sql"
+	"fmt"
+	
+	"expertdb/internal/domain"
+)
+
+// ListAreas retrieves all expert areas
+func (s *SQLiteStore) ListAreas() ([]*domain.Area, error) {
+	query := "SELECT id, name FROM expert_areas ORDER BY name"
+	
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch expert areas: %w", err)
+	}
+	defer rows.Close()
+	
+	var areas []*domain.Area
+	for rows.Next() {
+		var area domain.Area
+		if err := rows.Scan(&area.ID, &area.Name); err != nil {
+			return nil, fmt.Errorf("failed to scan area row: %w", err)
+		}
+		areas = append(areas, &area)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating area rows: %w", err)
+	}
+	
+	return areas, nil
+}
+
+// GetArea retrieves a specific area by its ID
+func (s *SQLiteStore) GetArea(id int64) (*domain.Area, error) {
+	var area domain.Area
+	err := s.db.QueryRow("SELECT id, name FROM expert_areas WHERE id = ?", id).Scan(&area.ID, &area.Name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get expert area: %w", err)
+	}
+	return &area, nil
+}
+
+
+================================================
+FILE: backend/internal/storage/sqlite/document.go
+================================================
+package sqlite
+
+import (
+	"database/sql"
+	"fmt"
+	"time"
+	
+	"expertdb/internal/domain"
+)
+
+// ListDocuments retrieves all documents for an expert
+func (s *SQLiteStore) ListDocuments(expertID int64) ([]*domain.Document, error) {
+	query := `
+		SELECT id, expert_id, document_type, filename, file_path,
+				content_type, file_size, upload_date
+		FROM expert_documents
+		WHERE expert_id = ?
+	`
+	
+	rows, err := s.db.Query(query, expertID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expert documents: %w", err)
+	}
+	defer rows.Close()
+	
+	var docs []*domain.Document
+	for rows.Next() {
+		var doc domain.Document
+		err := rows.Scan(
+			&doc.ID, &doc.ExpertID, &doc.DocumentType, &doc.Filename,
+			&doc.FilePath, &doc.ContentType, &doc.FileSize, &doc.UploadDate,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan document row: %w", err)
+		}
+		
+		// Set Type field as alias of DocumentType for API compatibility
+		doc.Type = doc.DocumentType
+		
+		docs = append(docs, &doc)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating document rows: %w", err)
+	}
+	
+	return docs, nil
+}
+
+// GetDocument retrieves a document by ID
+func (s *SQLiteStore) GetDocument(id int64) (*domain.Document, error) {
+	query := `
+		SELECT id, expert_id, document_type, filename, file_path,
+				content_type, file_size, upload_date
+		FROM expert_documents
+		WHERE id = ?
+	`
+	
+	var doc domain.Document
+	err := s.db.QueryRow(query, id).Scan(
+		&doc.ID, &doc.ExpertID, &doc.DocumentType, &doc.Filename,
+		&doc.FilePath, &doc.ContentType, &doc.FileSize, &doc.UploadDate,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get document: %w", err)
+	}
+	
+	// Set Type field as alias of DocumentType for API compatibility
+	doc.Type = doc.DocumentType
+	
+	return &doc, nil
+}
+
+// CreateDocument creates a new document in the database
+func (s *SQLiteStore) CreateDocument(doc *domain.Document) (int64, error) {
+	query := `
+		INSERT INTO expert_documents (
+			expert_id, document_type, filename, file_path,
+			content_type, file_size, upload_date
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
+	`
+	
+	// Handle potentially nullable fields
+	var contentType interface{} = nil
+	if doc.ContentType != "" {
+		contentType = doc.ContentType
+	}
+	
+	// Set default upload date if not provided
+	if doc.UploadDate.IsZero() {
+		doc.UploadDate = time.Now()
+	}
+	
+	result, err := s.db.Exec(
+		query,
+		doc.ExpertID, doc.DocumentType, doc.Filename, doc.FilePath,
+		contentType, doc.FileSize, doc.UploadDate,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create document: %w", err)
+	}
+	
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get document ID: %w", err)
+	}
+	
+	doc.ID = id
+	return id, nil
+}
+
+// DeleteDocument deletes a document by ID
+func (s *SQLiteStore) DeleteDocument(id int64) error {
+	result, err := s.db.Exec("DELETE FROM expert_documents WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete document: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	
+	return nil
+}
+
+
+================================================
+FILE: backend/internal/storage/sqlite/engagement.go
+================================================
+package sqlite
+
+import (
+	"database/sql"
+	"fmt"
+	
+	"expertdb/internal/domain"
+)
+
+// ListEngagements retrieves all engagements for an expert
+func (s *SQLiteStore) ListEngagements(expertID int64) ([]*domain.Engagement, error) {
+	query := `
+		SELECT id, expert_id, engagement_type, start_date, end_date,
+				project_name, status, feedback_score, notes, created_at
+		FROM expert_engagements
+		WHERE expert_id = ?
+	`
+	
+	rows, err := s.db.Query(query, expertID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expert engagements: %w", err)
+	}
+	defer rows.Close()
+	
+	var engagements []*domain.Engagement
+	for rows.Next() {
+		var engagement domain.Engagement
+		var endDate, projectName sql.NullTime
+		var feedbackScore sql.NullInt32
+		var notes sql.NullString
+		
+		err := rows.Scan(
+			&engagement.ID, &engagement.ExpertID, &engagement.EngagementType,
+			&engagement.StartDate, &endDate, &projectName,
+			&engagement.Status, &feedbackScore, &notes,
+			&engagement.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan engagement row: %w", err)
+		}
+		
+		// Set nullable fields
+		if endDate.Valid {
+			engagement.EndDate = endDate.Time
+		}
+		
+		if projectName.Valid {
+			engagement.ProjectName = projectName.String
+		}
+		
+		if feedbackScore.Valid {
+			engagement.FeedbackScore = int(feedbackScore.Int32)
+		}
+		
+		if notes.Valid {
+			engagement.Notes = notes.String
+		}
+		
+		engagements = append(engagements, &engagement)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating engagement rows: %w", err)
+	}
+	
+	return engagements, nil
+}
+
+// GetEngagement retrieves an engagement by ID
+func (s *SQLiteStore) GetEngagement(id int64) (*domain.Engagement, error) {
+	query := `
+		SELECT id, expert_id, engagement_type, start_date, end_date,
+				project_name, status, feedback_score, notes, created_at
+		FROM expert_engagements
+		WHERE id = ?
+	`
+	
+	var engagement domain.Engagement
+	var endDate, projectName sql.NullTime
+	var feedbackScore sql.NullInt32
+	var notes sql.NullString
+	
+	err := s.db.QueryRow(query, id).Scan(
+		&engagement.ID, &engagement.ExpertID, &engagement.EngagementType,
+		&engagement.StartDate, &endDate, &projectName,
+		&engagement.Status, &feedbackScore, &notes,
+		&engagement.CreatedAt,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get engagement: %w", err)
+	}
+	
+	// Set nullable fields
+	if endDate.Valid {
+		engagement.EndDate = endDate.Time
+	}
+	
+	if projectName.Valid {
+		engagement.ProjectName = projectName.String
+	}
+	
+	if feedbackScore.Valid {
+		engagement.FeedbackScore = int(feedbackScore.Int32)
+	}
+	
+	if notes.Valid {
+		engagement.Notes = notes.String
+	}
+	
+	return &engagement, nil
+}
+
+// CreateEngagement creates a new engagement record
+func (s *SQLiteStore) CreateEngagement(engagement *domain.Engagement) (int64, error) {
+	query := `
+		INSERT INTO expert_engagements (
+			expert_id, engagement_type, start_date, end_date,
+			project_name, status, feedback_score, notes, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	
+	// Handle nullable fields
+	var endDate, projectName interface{} = nil, nil
+	var feedbackScore, notes interface{} = nil, nil
+	
+	// Set end date if provided
+	if !engagement.EndDate.IsZero() {
+		endDate = engagement.EndDate
+	}
+	
+	// Set project name if provided
+	if engagement.ProjectName != "" {
+		projectName = engagement.ProjectName
+	}
+	
+	// Set feedback score if provided
+	if engagement.FeedbackScore > 0 {
+		feedbackScore = engagement.FeedbackScore
+	}
+	
+	// Set notes if provided
+	if engagement.Notes != "" {
+		notes = engagement.Notes
+	}
+	
+	result, err := s.db.Exec(
+		query,
+		engagement.ExpertID, engagement.EngagementType, engagement.StartDate,
+		endDate, projectName, engagement.Status,
+		feedbackScore, notes, engagement.CreatedAt,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create engagement: %w", err)
+	}
+	
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get engagement ID: %w", err)
+	}
+	
+	engagement.ID = id
+	return id, nil
+}
+
+// UpdateEngagement updates an existing engagement
+func (s *SQLiteStore) UpdateEngagement(engagement *domain.Engagement) error {
+	// First, get current engagement to preserve values that aren't explicitly updated
+	current, err := s.GetEngagement(engagement.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get current engagement state: %w", err)
+	}
+	
+	query := `
+		UPDATE expert_engagements
+		SET expert_id = ?, engagement_type = ?, start_date = ?, end_date = ?,
+			project_name = ?, status = ?, feedback_score = ?, notes = ?
+		WHERE id = ?
+	`
+	
+	// Handle nullable fields - initialize as nil
+	var endDate, projectName interface{} = nil, nil
+	var feedbackScore, notes interface{} = nil, nil
+	
+	// Preserve existing values if not explicitly set in the update request
+	
+	// For end date: use current value if new value is zero, otherwise use new value
+	if engagement.EndDate.IsZero() && !current.EndDate.IsZero() {
+		endDate = current.EndDate
+	} else if !engagement.EndDate.IsZero() {
+		endDate = engagement.EndDate
+	}
+	
+	// For project name: use current value if new value is empty, otherwise use new value
+	if engagement.ProjectName == "" && current.ProjectName != "" {
+		projectName = current.ProjectName
+	} else if engagement.ProjectName != "" {
+		projectName = engagement.ProjectName
+	}
+	
+	// For feedback score: use current value if new value is zero, otherwise use new value
+	if engagement.FeedbackScore == 0 && current.FeedbackScore != 0 {
+		feedbackScore = current.FeedbackScore
+	} else if engagement.FeedbackScore > 0 {
+		feedbackScore = engagement.FeedbackScore
+	}
+	
+	// For notes: use current value if new value is empty, otherwise use new value
+	if engagement.Notes == "" && current.Notes != "" {
+		notes = current.Notes
+	} else if engagement.Notes != "" {
+		notes = engagement.Notes
+	}
+	
+	result, err := s.db.Exec(
+		query,
+		engagement.ExpertID, engagement.EngagementType, engagement.StartDate,
+		endDate, projectName, engagement.Status,
+		feedbackScore, notes, engagement.ID,
+	)
+	
+	if err != nil {
+		return fmt.Errorf("failed to update engagement: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	
+	return nil
+}
+
+// DeleteEngagement deletes an engagement by ID
+func (s *SQLiteStore) DeleteEngagement(id int64) error {
+	result, err := s.db.Exec("DELETE FROM expert_engagements WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete engagement: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	
+	return nil
+}
+
+
+================================================
+FILE: backend/internal/storage/sqlite/expert.go
+================================================
+package sqlite
+
+import (
+	"database/sql"
+	"fmt"
+	"time"
+	
+	"expertdb/internal/domain"
+)
+
+// GenerateUniqueExpertID generates a unique ID for an expert
+func (s *SQLiteStore) GenerateUniqueExpertID() (string, error) {
+	// Get the count of experts in the database to determine the next ID
+	var count int64
+	err := s.db.QueryRow("SELECT COUNT(*) FROM experts").Scan(&count)
+	if err != nil {
+		return "", fmt.Errorf("failed to count experts: %w", err)
+	}
+	
+	// Start with a base ID using count + some offset to avoid conflicts
+	// Adding 1000 provides a generous buffer for potential deletions
+	baseID := count + 1000
+	
+	// Try sequential IDs starting from the base
+	for i := 0; i < 100; i++ { // Try up to 100 different IDs
+		candidateID := fmt.Sprintf("EXP-%d", baseID+int64(i))
+		
+		// Check if this ID already exists
+		exists, err := s.ExpertIDExists(candidateID)
+		if err != nil {
+			return "", fmt.Errorf("failed to check if expert ID exists: %w", err)
+		}
+		
+		// If it doesn't exist, we've found a unique ID
+		if !exists {
+			return candidateID, nil
+		}
+	}
+	
+	// If we still couldn't find a unique ID, generate a timestamp-based one
+	timeNow := time.Now().UTC()
+	timestamp := timeNow.Format("20060102150405")
+	random := fmt.Sprintf("%06d", timeNow.Nanosecond()%1000000)
+	
+	expertID := fmt.Sprintf("EXP-%s-%s", timestamp, random)
+	
+	// Final check for uniqueness
+	exists, err := s.ExpertIDExists(expertID)
+	if err != nil {
+		return "", fmt.Errorf("failed to check if timestamp expert ID exists: %w", err)
+	}
+	
+	if exists {
+		// This is extremely unlikely
+		return "", fmt.Errorf("could not generate a unique expert ID after multiple attempts")
+	}
+	
+	return expertID, nil
+}
+
+// ExpertIDExists checks if an expert ID already exists in the database
+func (s *SQLiteStore) ExpertIDExists(expertID string) (bool, error) {
+	var count int
+	query := "SELECT COUNT(*) FROM experts WHERE expert_id = ?"
+	
+	err := s.db.QueryRow(query, expertID).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if expert ID exists: %w", err)
+	}
+	
+	return count > 0, nil
+}
+
+// CreateExpert creates a new expert in the database
+func (s *SQLiteStore) CreateExpert(expert *domain.Expert) (int64, error) {
+	// Generate a unique expert_id if not provided or empty
+	if expert.ExpertID == "" {
+		var err error
+		expert.ExpertID, err = s.GenerateUniqueExpertID()
+		if err != nil {
+			return 0, fmt.Errorf("failed to generate unique expert ID: %w", err)
+		}
+	} else {
+		// Check if the provided expert_id already exists
+		exists, err := s.ExpertIDExists(expert.ExpertID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to check if expert ID exists: %w", err)
+		}
+		if exists {
+			return 0, fmt.Errorf("expert ID already exists: %s", expert.ExpertID)
+		}
+	}
+	
+	query := `
+		INSERT INTO experts (
+			expert_id, name, designation, institution, is_bahraini, is_available, rating,
+			role, employment_type, general_area, specialized_area, is_trained,
+			cv_path, phone, email, is_published, biography, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	
+	if expert.CreatedAt.IsZero() {
+		expert.CreatedAt = time.Now().UTC()
+		expert.UpdatedAt = expert.CreatedAt
+	}
+	
+	result, err := s.db.Exec(
+		query,
+		expert.ExpertID, expert.Name, expert.Designation, expert.Institution,
+		expert.IsBahraini, expert.IsAvailable, expert.Rating,
+		expert.Role, expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
+		expert.IsTrained, expert.CVPath, expert.Phone, expert.Email, expert.IsPublished,
+		expert.Biography, expert.CreatedAt, expert.UpdatedAt,
+	)
+	
+	if err != nil {
+		return 0, fmt.Errorf("failed to create expert: %w", err)
+	}
+	
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get expert ID: %w", err)
+	}
+	
+	return id, nil
+}
+
+// GetExpert retrieves an expert by their ID
+func (s *SQLiteStore) GetExpert(id int64) (*domain.Expert, error) {
+	query := `
+		SELECT e.id, e.expert_id, e.name, e.designation, e.institution, 
+		       e.is_bahraini, e.nationality, e.is_available, e.rating, e.role, 
+		       e.employment_type, e.general_area, ea.name as general_area_name, 
+		       e.specialized_area, e.is_trained, e.cv_path, e.phone, e.email, 
+		       e.is_published, e.biography, e.created_at, e.updated_at
+		FROM experts e
+		LEFT JOIN expert_areas ea ON e.general_area = ea.id
+		WHERE e.id = ?
+	`
+	
+	var expert domain.Expert
+	var generalAreaName sql.NullString
+	var nationality sql.NullString
+	
+	err := s.db.QueryRow(query, id).Scan(
+		&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation, &expert.Institution,
+		&expert.IsBahraini, &nationality, &expert.IsAvailable, &expert.Rating, &expert.Role,
+		&expert.EmploymentType, &expert.GeneralArea, &generalAreaName, 
+		&expert.SpecializedArea, &expert.IsTrained, &expert.CVPath, &expert.Phone, &expert.Email,
+		&expert.IsPublished, &expert.Biography, &expert.CreatedAt, &expert.UpdatedAt,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get expert: %w", err)
+	}
+	
+	if generalAreaName.Valid {
+		expert.GeneralAreaName = generalAreaName.String
+	}
+	
+	if nationality.Valid {
+		expert.Nationality = nationality.String
+	}
+	
+	// Fetch documents and engagements
+	documents, err := s.ListDocuments(expert.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expert documents: %w", err)
+	}
+	expert.Documents = documents
+	
+	engagements, err := s.ListEngagements(expert.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expert engagements: %w", err)
+	}
+	expert.Engagements = engagements
+	
+	return &expert, nil
+}
+
+// GetExpertByEmail retrieves an expert by their email address
+func (s *SQLiteStore) GetExpertByEmail(email string) (*domain.Expert, error) {
+	query := `
+		SELECT e.id, e.expert_id, e.name, e.designation, e.institution, 
+		       e.is_bahraini, e.nationality, e.is_available, e.rating, e.role, 
+		       e.employment_type, e.general_area, ea.name as general_area_name, 
+		       e.specialized_area, e.is_trained, e.cv_path, e.phone, e.email, 
+		       e.is_published, e.biography, e.created_at, e.updated_at
+		FROM experts e
+		LEFT JOIN expert_areas ea ON e.general_area = ea.id
+		WHERE e.email = ?
+	`
+	
+	var expert domain.Expert
+	var generalAreaName sql.NullString
+	var nationality sql.NullString
+	
+	err := s.db.QueryRow(query, email).Scan(
+		&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation, &expert.Institution,
+		&expert.IsBahraini, &nationality, &expert.IsAvailable, &expert.Rating, &expert.Role,
+		&expert.EmploymentType, &expert.GeneralArea, &generalAreaName, 
+		&expert.SpecializedArea, &expert.IsTrained, &expert.CVPath, &expert.Phone, &expert.Email,
+		&expert.IsPublished, &expert.Biography, &expert.CreatedAt, &expert.UpdatedAt,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get expert by email: %w", err)
+	}
+	
+	if generalAreaName.Valid {
+		expert.GeneralAreaName = generalAreaName.String
+	}
+	
+	if nationality.Valid {
+		expert.Nationality = nationality.String
+	}
+	
+	return &expert, nil
+}
+
+// UpdateExpert updates an existing expert in the database
+func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
+	// Get the current expert to avoid overwriting fields with empty values
+	currentExpert, err := s.GetExpert(expert.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get current expert data: %w", err)
+	}
+	
+	// Only update fields that are explicitly set
+	if expert.Name == "" {
+		expert.Name = currentExpert.Name
+	}
+	if expert.Designation == "" {
+		expert.Designation = currentExpert.Designation
+	}
+	if expert.Institution == "" {
+		expert.Institution = currentExpert.Institution
+	}
+	if expert.Nationality == "" {
+		expert.Nationality = currentExpert.Nationality
+	}
+	if expert.Rating == "" {
+		expert.Rating = currentExpert.Rating
+	}
+	if expert.Role == "" {
+		expert.Role = currentExpert.Role
+	}
+	if expert.EmploymentType == "" {
+		expert.EmploymentType = currentExpert.EmploymentType
+	}
+	if expert.GeneralArea == 0 {
+		expert.GeneralArea = currentExpert.GeneralArea
+	}
+	if expert.SpecializedArea == "" {
+		expert.SpecializedArea = currentExpert.SpecializedArea
+	}
+	if expert.CVPath == "" {
+		expert.CVPath = currentExpert.CVPath
+	}
+	if expert.Phone == "" {
+		expert.Phone = currentExpert.Phone
+	}
+	if expert.Email == "" {
+		expert.Email = currentExpert.Email
+	}
+	if expert.Biography == "" {
+		expert.Biography = currentExpert.Biography
+	}
+	
+	expert.UpdatedAt = time.Now().UTC()
+	
+	query := `
+		UPDATE experts SET
+			name = ?, designation = ?, institution = ?, is_bahraini = ?,
+			nationality = ?, is_available = ?, rating = ?, role = ?,
+			employment_type = ?, general_area = ?, specialized_area = ?,
+			is_trained = ?, cv_path = ?, phone = ?, email = ?,
+			is_published = ?, biography = ?, updated_at = ?
+		WHERE id = ?
+	`
+	
+	_, err = s.db.Exec(
+		query,
+		expert.Name, expert.Designation, expert.Institution, expert.IsBahraini,
+		expert.Nationality, expert.IsAvailable, expert.Rating, expert.Role,
+		expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
+		expert.IsTrained, expert.CVPath, expert.Phone, expert.Email,
+		expert.IsPublished, expert.Biography, expert.UpdatedAt,
+		expert.ID,
+	)
+	
+	if err != nil {
+		return fmt.Errorf("failed to update expert: %w", err)
+	}
+	
+	return nil
+}
+
+// DeleteExpert deletes an expert by ID
+func (s *SQLiteStore) DeleteExpert(id int64) error {
+	_, err := s.db.Exec("DELETE FROM experts WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete expert: %w", err)
+	}
+	
+	return nil
+}
+
+// ListExperts retrieves a paginated list of experts with filters
+func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset int) ([]*domain.Expert, error) {
+	// Build the query with filters
+	queryBase := `
+		SELECT e.id, e.expert_id, e.name, e.designation, e.institution, 
+		       e.is_bahraini, e.nationality, e.is_available, e.rating, e.role, 
+		       e.employment_type, e.general_area, ea.name as general_area_name, 
+		       e.specialized_area, e.is_trained, e.cv_path, e.phone, e.email, 
+		       e.is_published, e.biography, e.created_at, e.updated_at
+		FROM experts e
+		LEFT JOIN expert_areas ea ON e.general_area = ea.id
+	`
+	
+	// Add WHERE clause and parameters if filters are provided
+	whereClause, params := buildWhereClauseForExpertFilters(filters)
+	if whereClause != "" {
+		queryBase += " WHERE " + whereClause
+	}
+	
+	// Add ORDER BY and LIMIT
+	queryBase += " ORDER BY e.updated_at DESC LIMIT ? OFFSET ?"
+	params = append(params, limit, offset)
+	
+	// Execute query
+	rows, err := s.db.Query(queryBase, params...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query experts: %w", err)
+	}
+	defer rows.Close()
+	
+	var experts []*domain.Expert
+	for rows.Next() {
+		var expert domain.Expert
+		var generalAreaName sql.NullString
+		var nationality sql.NullString
+		var expertID sql.NullString
+		var name sql.NullString
+		var designation sql.NullString
+		var institution sql.NullString
+		var rating sql.NullString
+		var role sql.NullString
+		var employmentType sql.NullString
+		var specializedArea sql.NullString
+		var cvPath sql.NullString
+		var phone sql.NullString
+		var email sql.NullString
+		var biography sql.NullString
+		
+		err := rows.Scan(
+			&expert.ID, &expertID, &name, &designation, &institution,
+			&expert.IsBahraini, &nationality, &expert.IsAvailable, &rating, &role,
+			&employmentType, &expert.GeneralArea, &generalAreaName, 
+			&specializedArea, &expert.IsTrained, &cvPath, &phone, &email,
+			&expert.IsPublished, &biography, &expert.CreatedAt, &expert.UpdatedAt,
+		)
+		
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan expert row: %w", err)
+		}
+		
+		// Assign NULL-safe values to expert struct
+		if expertID.Valid {
+			expert.ExpertID = expertID.String
+		}
+		if name.Valid {
+			expert.Name = name.String
+		}
+		if designation.Valid {
+			expert.Designation = designation.String
+		}
+		if institution.Valid {
+			expert.Institution = institution.String
+		}
+		if rating.Valid {
+			expert.Rating = rating.String
+		}
+		if role.Valid {
+			expert.Role = role.String
+		}
+		if employmentType.Valid {
+			expert.EmploymentType = employmentType.String
+		}
+		if specializedArea.Valid {
+			expert.SpecializedArea = specializedArea.String
+		}
+		if cvPath.Valid {
+			expert.CVPath = cvPath.String
+		}
+		if phone.Valid {
+			expert.Phone = phone.String
+		}
+		if email.Valid {
+			expert.Email = email.String
+		}
+		if biography.Valid {
+			expert.Biography = biography.String
+		}
+		if generalAreaName.Valid {
+			expert.GeneralAreaName = generalAreaName.String
+		}
+		if nationality.Valid {
+			expert.Nationality = nationality.String
+		}
+		
+		experts = append(experts, &expert)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over expert rows: %w", err)
+	}
+	
+	return experts, nil
+}
+
+// CountExperts counts the total number of experts matching the given filters
+func (s *SQLiteStore) CountExperts(filters map[string]interface{}) (int, error) {
+	queryBase := "SELECT COUNT(*) FROM experts e"
+	
+	// Add WHERE clause if filters are provided
+	whereClause, params := buildWhereClauseForExpertFilters(filters)
+	if whereClause != "" {
+		queryBase += " WHERE " + whereClause
+	}
+	
+	var count int
+	err := s.db.QueryRow(queryBase, params...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count experts: %w", err)
+	}
+	
+	return count, nil
+}
+
+// Helper function to build WHERE clause for expert filters
+func buildWhereClauseForExpertFilters(filters map[string]interface{}) (string, []interface{}) {
+	var conditions []string
+	var params []interface{}
+	
+	// Add conditions based on filters
+	if val, ok := filters["name"]; ok && val != "" {
+		conditions = append(conditions, "e.name LIKE ?")
+		params = append(params, "%"+val.(string)+"%")
+	}
+	
+	if val, ok := filters["institution"]; ok && val != "" {
+		conditions = append(conditions, "e.institution LIKE ?")
+		params = append(params, "%"+val.(string)+"%")
+	}
+	
+	if val, ok := filters["role"]; ok && val != "" {
+		conditions = append(conditions, "e.role = ?")
+		params = append(params, val)
+	}
+	
+	if val, ok := filters["generalArea"]; ok && val != 0 {
+		conditions = append(conditions, "e.general_area = ?")
+		params = append(params, val)
+	}
+	
+	if val, ok := filters["isBahraini"]; ok {
+		conditions = append(conditions, "e.is_bahraini = ?")
+		params = append(params, val)
+	}
+	
+	if val, ok := filters["isAvailable"]; ok {
+		conditions = append(conditions, "e.is_available = ?")
+		params = append(params, val)
+	}
+	
+	if val, ok := filters["isPublished"]; ok {
+		conditions = append(conditions, "e.is_published = ?")
+		params = append(params, val)
+	}
+	
+	// Combine conditions with AND
+	whereClause := ""
+	if len(conditions) > 0 {
+		for i, condition := range conditions {
+			if i == 0 {
+				whereClause = condition
+			} else {
+				whereClause += " AND " + condition
+			}
+		}
+	}
+	
+	return whereClause, params
+}
+
+// ListAreas retrieves all expert areas
+func (s *SQLiteStore) ListAreas() ([]*domain.Area, error) {
+	query := "SELECT id, name FROM expert_areas ORDER BY name"
+	
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch expert areas: %w", err)
+	}
+	defer rows.Close()
+	
+	var areas []*domain.Area
+	for rows.Next() {
+		var area domain.Area
+		if err := rows.Scan(&area.ID, &area.Name); err != nil {
+			return nil, fmt.Errorf("failed to scan area row: %w", err)
+		}
+		areas = append(areas, &area)
+	}
+	
+	return areas, nil
+}
+
+// GetArea retrieves a specific area by its ID
+func (s *SQLiteStore) GetArea(id int64) (*domain.Area, error) {
+	var area domain.Area
+	err := s.db.QueryRow("SELECT id, name FROM expert_areas WHERE id = ?", id).Scan(&area.ID, &area.Name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get expert area: %w", err)
+	}
+	return &area, nil
+}
+
+
+================================================
+FILE: backend/internal/storage/sqlite/expert_request.go
+================================================
+package sqlite
+
+import (
+	"fmt"
+	"time"
+	"strings"
+	"database/sql"
+	
+	"expertdb/internal/domain"
+)
+
+// CreateExpertRequest creates a new expert request in the database
+func (s *SQLiteStore) CreateExpertRequest(req *domain.ExpertRequest) (int64, error) {
+	query := `
+		INSERT INTO expert_requests (
+			name, designation, institution, is_bahraini, is_available,
+			rating, role, employment_type, general_area, specialized_area,
+			is_trained, cv_path, phone, email, is_published, biography,
+			status, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	
+	// Set default values if not provided
+	if req.CreatedAt.IsZero() {
+		req.CreatedAt = time.Now()
+	}
+	if req.Status == "" {
+		req.Status = "pending"
+	}
+	
+	// Handle nullable fields or use empty string defaults for non-nullable text fields
+	designation := req.Designation
+	if designation == "" {
+		designation = "" // Not NULL but empty string
+	}
+	
+	institution := req.Institution
+	if institution == "" {
+		institution = "" // Not NULL but empty string
+	}
+	
+	// Rating can be NULL
+	var rating interface{} = nil
+	if req.Rating != "" {
+		rating = req.Rating
+	}
+	
+	// For specialized area: can be NULL
+	var specializedArea interface{} = nil
+	if req.SpecializedArea != "" {
+		specializedArea = req.SpecializedArea
+	}
+	
+	// CV path can be NULL
+	var cvPath interface{} = nil
+	if req.CVPath != "" {
+		cvPath = req.CVPath
+	}
+	
+	// Biography can be NULL
+	var biography interface{} = nil
+	if req.Biography != "" {
+		biography = req.Biography
+	}
+	
+	result, err := s.db.Exec(
+		query,
+		req.Name, designation, institution,
+		req.IsBahraini, req.IsAvailable, rating,
+		req.Role, req.EmploymentType, req.GeneralArea,
+		specializedArea, req.IsTrained, cvPath,
+		req.Phone, req.Email, req.IsPublished, biography,
+		req.Status, req.CreatedAt,
+	)
+	
+	if err != nil {
+		return 0, fmt.Errorf("failed to create expert request: %w", err)
+	}
+	
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get expert request ID: %w", err)
+	}
+	
+	// Set the request ID
+	req.ID = id
+	
+	return id, nil
+}
+
+// GetExpertRequest retrieves an expert request by ID
+func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) {
+	query := `
+		SELECT 
+			id, expert_id, name, designation, institution, is_bahraini, 
+			is_available, rating, role, employment_type, general_area, 
+			specialized_area, is_trained, cv_path, phone, email, 
+			is_published, biography, status, rejection_reason, 
+			created_at, reviewed_at, reviewed_by
+		FROM expert_requests
+		WHERE id = ?
+	`
+	
+	var req domain.ExpertRequest
+	var expertID sql.NullString
+	var reviewedAt sql.NullTime
+	var reviewedBy sql.NullInt64
+	
+	err := s.db.QueryRow(query, id).Scan(
+		&req.ID, &expertID, &req.Name, &req.Designation, &req.Institution, 
+		&req.IsBahraini, &req.IsAvailable, &req.Rating, &req.Role, 
+		&req.EmploymentType, &req.GeneralArea, &req.SpecializedArea, 
+		&req.IsTrained, &req.CVPath, &req.Phone, &req.Email, 
+		&req.IsPublished, &req.Biography, &req.Status, &req.RejectionReason, 
+		&req.CreatedAt, &reviewedAt, &reviewedBy,
+	)
+	
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get expert request: %w", err)
+	}
+	
+	// Set nullable fields
+	if expertID.Valid {
+		req.ExpertID = expertID.String
+	}
+	
+	if reviewedAt.Valid {
+		req.ReviewedAt = reviewedAt.Time
+	}
+	
+	if reviewedBy.Valid {
+		req.ReviewedBy = reviewedBy.Int64
+	}
+	
+	return &req, nil
+}
+
+// ListExpertRequests retrieves a list of expert requests with the given status
+func (s *SQLiteStore) ListExpertRequests(status string, limit, offset int) ([]*domain.ExpertRequest, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	
+	var query string
+	var args []interface{}
+	
+	if status != "" {
+		query = `
+			SELECT 
+				id, expert_id, name, designation, institution, is_bahraini, 
+				is_available, rating, role, employment_type, general_area, 
+				specialized_area, is_trained, cv_path, phone, email, 
+				is_published, biography, status, rejection_reason, 
+				created_at, reviewed_at, reviewed_by
+			FROM expert_requests
+			WHERE status = ?
+			ORDER BY created_at DESC
+			LIMIT ? OFFSET ?
+		`
+		args = []interface{}{status, limit, offset}
+	} else {
+		query = `
+			SELECT 
+				id, expert_id, name, designation, institution, is_bahraini, 
+				is_available, rating, role, employment_type, general_area, 
+				specialized_area, is_trained, cv_path, phone, email, 
+				is_published, biography, status, rejection_reason, 
+				created_at, reviewed_at, reviewed_by
+			FROM expert_requests
+			ORDER BY created_at DESC
+			LIMIT ? OFFSET ?
+		`
+		args = []interface{}{limit, offset}
+	}
+	
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query expert requests: %w", err)
+	}
+	defer rows.Close()
+	
+	var requests []*domain.ExpertRequest
+	for rows.Next() {
+		var req domain.ExpertRequest
+		var expertID sql.NullString
+		var reviewedAt sql.NullTime
+		var reviewedBy sql.NullInt64
+		
+		err := rows.Scan(
+			&req.ID, &expertID, &req.Name, &req.Designation, &req.Institution, 
+			&req.IsBahraini, &req.IsAvailable, &req.Rating, &req.Role, 
+			&req.EmploymentType, &req.GeneralArea, &req.SpecializedArea, 
+			&req.IsTrained, &req.CVPath, &req.Phone, &req.Email, 
+			&req.IsPublished, &req.Biography, &req.Status, &req.RejectionReason, 
+			&req.CreatedAt, &reviewedAt, &reviewedBy,
+		)
+		
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan expert request row: %w", err)
+		}
+		
+		// Set nullable fields
+		if expertID.Valid {
+			req.ExpertID = expertID.String
+		}
+		
+		if reviewedAt.Valid {
+			req.ReviewedAt = reviewedAt.Time
+		}
+		
+		if reviewedBy.Valid {
+			req.ReviewedBy = reviewedBy.Int64
+		}
+		
+		requests = append(requests, &req)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating expert request rows: %w", err)
+	}
+	
+	return requests, nil
+}
+
+// UpdateExpertRequestStatus updates the status of an expert request
+func (s *SQLiteStore) UpdateExpertRequestStatus(id int64, status, rejectionReason string, reviewedBy int64) error {
+	query := `
+		UPDATE expert_requests
+		SET status = ?, rejection_reason = ?, reviewed_at = ?, reviewed_by = ?
+		WHERE id = ?
+	`
+	
+	now := time.Now().UTC()
+	
+	// Execute the update
+	result, err := s.db.Exec(
+		query,
+		status,
+		rejectionReason,
+		now,
+		reviewedBy,
+		id,
+	)
+	
+	if err != nil {
+		return fmt.Errorf("failed to update expert request status: %w", err)
+	}
+	
+	// Check if a row was affected
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	
+	return nil
+}
+
+// UpdateExpertRequest updates an expert request with new data
+func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
+	query := `
+		UPDATE expert_requests
+		SET name = ?, designation = ?, institution = ?, is_bahraini = ?,
+			is_available = ?, rating = ?, role = ?, employment_type = ?,
+			general_area = ?, specialized_area = ?, is_trained = ?,
+			cv_path = ?, phone = ?, email = ?, is_published = ?,
+			biography = ?, status = ?, rejection_reason = ?,
+			expert_id = ?, reviewed_at = ?, reviewed_by = ?
+		WHERE id = ?
+	`
+	
+	// Handle nullable fields
+	var rating, specializedArea, cvPath, biography, rejectionReason, expertID interface{} = nil, nil, nil, nil, nil, nil
+	
+	if req.Rating != "" {
+		rating = req.Rating
+	}
+	if req.SpecializedArea != "" {
+		specializedArea = req.SpecializedArea
+	}
+	if req.CVPath != "" {
+		cvPath = req.CVPath
+	}
+	if req.Biography != "" {
+		biography = req.Biography
+	}
+	if req.RejectionReason != "" {
+		rejectionReason = req.RejectionReason
+	}
+	if req.ExpertID != "" {
+		expertID = req.ExpertID
+	}
+	
+	var reviewedAt interface{} = nil
+	if !req.ReviewedAt.IsZero() {
+		reviewedAt = req.ReviewedAt
+	}
+	
+	var reviewedBy interface{} = nil
+	if req.ReviewedBy != 0 {
+		reviewedBy = req.ReviewedBy
+	}
+	
+	// Execute update
+	result, err := s.db.Exec(
+		query,
+		req.Name, req.Designation, req.Institution, req.IsBahraini,
+		req.IsAvailable, rating, req.Role, req.EmploymentType,
+		req.GeneralArea, specializedArea, req.IsTrained,
+		cvPath, req.Phone, req.Email, req.IsPublished,
+		biography, req.Status, rejectionReason,
+		expertID, reviewedAt, reviewedBy,
+		req.ID,
+	)
+	
+	if err != nil {
+		return fmt.Errorf("failed to update expert request: %w", err)
+	}
+	
+	// Check if the update affected a row
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	
+	return nil
+}
+
+
+================================================
+FILE: backend/internal/storage/sqlite/statistics.go
+================================================
+package sqlite
+
+import (
+	"fmt"
+	"time"
+	
+	"expertdb/internal/domain"
+)
+
+// GetStatistics retrieves system-wide statistics
+func (s *SQLiteStore) GetStatistics() (*domain.Statistics, error) {
+	stats := &domain.Statistics{
+		LastUpdated: time.Now(),
+	}
+	
+	// Get total experts count
+	var totalExperts int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM experts").Scan(&totalExperts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count experts: %w", err)
+	}
+	stats.TotalExperts = totalExperts
+	
+	// Get active experts count
+	var activeExperts int
+	err = s.db.QueryRow("SELECT COUNT(*) FROM experts WHERE is_available = 1").Scan(&activeExperts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count active experts: %w", err)
+	}
+	stats.ActiveCount = activeExperts
+	
+	// Get Bahraini experts percentage
+	bahrainiCount, nonBahrainiCount, err := s.GetExpertsByNationality()
+	if err != nil {
+		return nil, fmt.Errorf("failed to count experts by nationality: %w", err)
+	}
+	
+	if totalExperts > 0 {
+		stats.BahrainiPercentage = float64(bahrainiCount) / float64(totalExperts) * 100
+	}
+	
+	// Get top areas
+	rows, err := s.db.Query(`
+		SELECT ea.name as area_name, COUNT(*) as count
+		FROM experts e
+		JOIN expert_areas ea ON e.general_area = ea.id
+		GROUP BY e.general_area
+		ORDER BY count DESC
+		LIMIT 10
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query top areas: %w", err)
+	}
+	defer rows.Close()
+	
+	// Initialize topAreas as empty slice to prevent null in JSON
+	topAreas := []domain.AreaStat{}
+	for rows.Next() {
+		var area domain.AreaStat
+		var count int
+		if err := rows.Scan(&area.Name, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan area row: %w", err)
+		}
+		area.Count = count
+		if totalExperts > 0 {
+			area.Percentage = float64(count) / float64(totalExperts) * 100
+		}
+		topAreas = append(topAreas, area)
+	}
+	stats.TopAreas = topAreas
+	
+	// Get engagement statistics
+	engagementStats, err := s.GetEngagementStatistics()
+	if err != nil {
+		// Initialize as empty array on error
+		stats.EngagementsByType = []domain.AreaStat{}
+	} else {
+		stats.EngagementsByType = engagementStats
+	}
+	
+	// Ensure empty array instead of null
+	if stats.EngagementsByType == nil {
+		stats.EngagementsByType = []domain.AreaStat{}
+	}
+	
+	// Get monthly growth
+	growthStats, err := s.GetExpertGrowthByMonth(12) // Last 12 months
+	if err != nil {
+		return nil, err
+	}
+	stats.MonthlyGrowth = growthStats
+	
+	// Get most requested experts
+	mostRequested := []domain.ExpertStat{} // Initialize as empty slice
+	
+	rows, err = s.db.Query(`
+		SELECT e.expert_id, e.name, COUNT(eng.id) as request_count
+		FROM experts e
+		JOIN expert_engagements eng ON e.id = eng.expert_id
+		GROUP BY e.id
+		ORDER BY request_count DESC
+		LIMIT 10
+	`)
+	if err != nil {
+		// On error, just use empty array
+		stats.MostRequestedExperts = mostRequested
+	} else {
+		defer rows.Close()
+		
+		for rows.Next() {
+			var stat domain.ExpertStat
+			if err := rows.Scan(&stat.ExpertID, &stat.Name, &stat.Count); err != nil {
+				// On error, just use empty array
+				stats.MostRequestedExperts = mostRequested
+				break
+			}
+			mostRequested = append(mostRequested, stat)
+		}
+		stats.MostRequestedExperts = mostRequested
+	}
+	
+	// Guarantee it's not null
+	if stats.MostRequestedExperts == nil {
+		stats.MostRequestedExperts = []domain.ExpertStat{}
+	}
+	
+	return stats, nil
+}
+
+// UpdateStatistics updates the statistics in the database
+func (s *SQLiteStore) UpdateStatistics(stats *domain.Statistics) error {
+	// This is a placeholder method - in this implementation we calculate
+	// statistics on-the-fly rather than storing them
+	return nil
+}
+
+// GetExpertsByNationality retrieves counts of experts by nationality (Bahraini vs non-Bahraini)
+func (s *SQLiteStore) GetExpertsByNationality() (int, int, error) {
+	var bahrainiCount, nonBahrainiCount int
+	
+	// Count Bahraini experts
+	err := s.db.QueryRow("SELECT COUNT(*) FROM experts WHERE is_bahraini = 1").Scan(&bahrainiCount)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to count Bahraini experts: %w", err)
+	}
+	
+	// Count non-Bahraini experts
+	err = s.db.QueryRow("SELECT COUNT(*) FROM experts WHERE is_bahraini = 0").Scan(&nonBahrainiCount)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to count non-Bahraini experts: %w", err)
+	}
+	
+	return bahrainiCount, nonBahrainiCount, nil
+}
+
+// GetEngagementStatistics retrieves statistics about expert engagements
+func (s *SQLiteStore) GetEngagementStatistics() ([]domain.AreaStat, error) {
+	// Query to analyze engagement distribution by type 
+	rows, err := s.db.Query(`
+		SELECT engagement_type, COUNT(*) as count, 
+		       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count
+		FROM expert_engagements
+		GROUP BY engagement_type
+		ORDER BY count DESC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query engagement statistics: %w", err)
+	}
+	defer rows.Close()
+	
+	// Initialize stats as empty slice to prevent null in JSON
+	stats := []domain.AreaStat{}
+	var totalEngagements int
+	
+	// First, collect all counts
+	for rows.Next() {
+		var stat domain.AreaStat
+		var completedCount int
+		if err := rows.Scan(&stat.Name, &stat.Count, &completedCount); err != nil {
+			return nil, fmt.Errorf("failed to scan engagement row: %w", err)
+		}
+		totalEngagements += stat.Count
+		stats = append(stats, stat)
+	}
+	
+	// Calculate percentages
+	if totalEngagements > 0 {
+		for i := range stats {
+			stats[i].Percentage = float64(stats[i].Count) / float64(totalEngagements) * 100
+		}
+	}
+	
+	return stats, nil
+}
+
+// GetExpertGrowthByMonth retrieves statistics about expert growth by month
+func (s *SQLiteStore) GetExpertGrowthByMonth(months int) ([]domain.GrowthStat, error) {
+	// Default to 12 months if not specified
+	if months <= 0 {
+		months = 12
+	}
+	
+	// Query to analyze the growth pattern of experts over time
+	rows, err := s.db.Query(`
+		SELECT 
+			strftime('%Y-%m', created_at) as month,
+			COUNT(*) as count
+		FROM experts
+		WHERE created_at >= date('now', '-' || ? || ' months')
+		GROUP BY month
+		ORDER BY month
+	`, months)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query expert growth: %w", err)
+	}
+	defer rows.Close()
+	
+	// Initialize stats as empty slice to prevent null in JSON
+	stats := []domain.GrowthStat{}
+	var prevCount int
+	
+	// Process each month
+	for rows.Next() {
+		var stat domain.GrowthStat
+		var monthStr string
+		var count int
+		if err := rows.Scan(&monthStr, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan growth stats row: %w", err)
+		}
+		
+		stat.Period = monthStr
+		stat.Count = count
+		
+		// Calculate growth rate (except for first month)
+		if len(stats) > 0 && prevCount > 0 {
+			stat.GrowthRate = (float64(count) - float64(prevCount)) / float64(prevCount) * 100
+		}
+		
+		prevCount = count
+		stats = append(stats, stat)
+	}
+	
+	// If no data for some months in the range, fill with zeroes for continuity
+	if len(stats) < months {
+		// Generate a complete list of months
+		endDate := time.Now()
+		startDate := endDate.AddDate(0, -months, 0)
+		
+		filledStats := make([]domain.GrowthStat, 0, months)
+		
+		// Create a map of existing stats for lookup
+		existingStats := make(map[string]domain.GrowthStat)
+		for _, stat := range stats {
+			existingStats[stat.Period] = stat
+		}
+		
+		// Fill in all months
+		for m := 0; m < months; m++ {
+			currDate := startDate.AddDate(0, m, 0)
+			monthStr := fmt.Sprintf("%04d-%02d", currDate.Year(), int(currDate.Month()))
+			
+			if stat, exists := existingStats[monthStr]; exists {
+				filledStats = append(filledStats, stat)
+			} else {
+				// Add empty stat
+				filledStats = append(filledStats, domain.GrowthStat{
+					Period: monthStr,
+					Count:  0,
+				})
+			}
+		}
+		
+		// Recalculate growth rates with filled data
+		for i := 1; i < len(filledStats); i++ {
+			prevCount := filledStats[i-1].Count
+			if prevCount > 0 {
+				filledStats[i].GrowthRate = (float64(filledStats[i].Count) - float64(prevCount)) / float64(prevCount) * 100
+			}
+		}
+		
+		stats = filledStats
+	}
+	
+	return stats, nil
+}
+
+
+================================================
+FILE: backend/internal/storage/sqlite/store.go
+================================================
+// Package sqlite provides a SQLite implementation of the storage interface
+package sqlite
+
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
+	
+	_ "github.com/mattn/go-sqlite3"
+	"expertdb/internal/storage"
+)
+
+// SQLiteStore implements the Storage interface with SQLite backend
+type SQLiteStore struct {
+	db *sql.DB
+}
+
+// Verify that SQLiteStore implements the Storage interface at compile time
+var _ storage.Storage = (*SQLiteStore)(nil)
+
+// New creates a new SQLite database connection
+func New(dbPath string) (*SQLiteStore, error) {
+	// Create the directory if it doesn't exist
+	dir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create database directory: %w", err)
+	}
+	
+	// Connect to the database
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Test the connection
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
+	
+	// Create the store
+	store := &SQLiteStore{
+		db: db,
+	}
+	
+	return store, nil
+}
+
+// Close closes the database connection
+func (s *SQLiteStore) Close() error {
+	return s.db.Close()
+}
+
+// InitDB initializes the database schema if it doesn't exist
+func (s *SQLiteStore) InitDB() error {
+	// Check if tables exist by querying a key table
+	var count int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='experts'").Scan(&count)
+	if err != nil || count == 0 {
+		return fmt.Errorf("database schema not initialized: %w", err)
+	}
+	
+	return nil
+}
+
+
+================================================
+FILE: backend/internal/storage/sqlite/user.go
+================================================
+package sqlite
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+	
+	"expertdb/internal/domain"
+)
+
+// CreateUser creates a new user in the database
+func (s *SQLiteStore) CreateUser(user *domain.User) (int64, error) {
+	// Validate required fields
+	if user.Name == "" || user.Email == "" || user.PasswordHash == "" {
+		return 0, domain.ErrValidation
+	}
+
+	// Check if email already exists
+	var exists bool
+	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)", user.Email).Scan(&exists)
+	if err != nil {
+		return 0, fmt.Errorf("failed to check for existing email: %w", err)
+	}
+	
+	if exists {
+		return 0, errors.New("email already exists")
+	}
+
+	// Initialize with current time if not set
+	if user.CreatedAt.IsZero() {
+		user.CreatedAt = time.Now().UTC()
+	}
+	
+	// Handle NULL last_login
+	var lastLogin interface{} = nil
+	if !user.LastLogin.IsZero() {
+		lastLogin = user.LastLogin
+	}
+
+	query := `
+		INSERT INTO users (
+			name, email, password_hash, role, is_active, created_at, last_login
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
+	`
+
+	result, err := s.db.Exec(
+		query,
+		user.Name, user.Email, user.PasswordHash, user.Role,
+		user.IsActive, user.CreatedAt, lastLogin,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to insert user: %w", err)
+	}
+	
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get last insert id: %w", err)
+	}
+	
+	user.ID = id
+	return id, nil
+}
+
+// GetUser retrieves a user by ID
+func (s *SQLiteStore) GetUser(id int64) (*domain.User, error) {
+	query := `
+		SELECT id, name, email, password_hash, role, is_active, created_at, last_login
+		FROM users
+		WHERE id = ?
+	`
+
+	var user domain.User
+	var nullableLastLogin sql.NullTime
+	err := s.db.QueryRow(query, id).Scan(
+		&user.ID, &user.Name, &user.Email, &user.PasswordHash,
+		&user.Role, &user.IsActive, &user.CreatedAt, &nullableLastLogin,
+	)
+	
+	if nullableLastLogin.Valid {
+		user.LastLogin = nullableLastLogin.Time
+	}
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get user by ID: %w", err)
+	}
+
+	return &user, nil
+}
+
+// GetUserByEmail retrieves a user by email
+func (s *SQLiteStore) GetUserByEmail(email string) (*domain.User, error) {
+	query := `
+		SELECT id, name, email, password_hash, role, is_active, created_at, last_login
+		FROM users
+		WHERE email = ?
+	`
+
+	var user domain.User
+	var nullableLastLogin sql.NullTime
+	err := s.db.QueryRow(query, email).Scan(
+		&user.ID, &user.Name, &user.Email, &user.PasswordHash,
+		&user.Role, &user.IsActive, &user.CreatedAt, &nullableLastLogin,
+	)
+	
+	if nullableLastLogin.Valid {
+		user.LastLogin = nullableLastLogin.Time
+	}
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	return &user, nil
+}
+
+// ListUsers retrieves all users with pagination
+func (s *SQLiteStore) ListUsers(limit, offset int) ([]*domain.User, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	query := `
+		SELECT id, name, email, password_hash, role, is_active, created_at, last_login
+		FROM users
+		ORDER BY created_at DESC
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := s.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*domain.User
+	for rows.Next() {
+		var user domain.User
+		var nullableLastLogin sql.NullTime
+		err := rows.Scan(
+			&user.ID, &user.Name, &user.Email, &user.PasswordHash,
+			&user.Role, &user.IsActive, &user.CreatedAt, &nullableLastLogin,
+		)
+		
+		if nullableLastLogin.Valid {
+			user.LastLogin = nullableLastLogin.Time
+		}
+		
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user row: %w", err)
+		}
+		users = append(users, &user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating user rows: %w", err)
+	}
+
+	return users, nil
+}
+
+// UpdateUser updates an existing user
+func (s *SQLiteStore) UpdateUser(user *domain.User) error {
+	// First get the current user to preserve values that aren't explicitly changed
+	current, err := s.GetUser(user.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get current user state: %w", err)
+	}
+	
+	// Preserve existing values for empty fields
+	if user.Name == "" {
+		user.Name = current.Name
+	}
+	
+	if user.Email == "" {
+		user.Email = current.Email
+	}
+	
+	if user.PasswordHash == "" {
+		user.PasswordHash = current.PasswordHash
+	}
+	
+	if user.Role == "" {
+		user.Role = current.Role
+	}
+	
+	// Handle NULL for last_login
+	var lastLogin interface{} = nil
+	if !user.LastLogin.IsZero() {
+		lastLogin = user.LastLogin
+	} else if !current.LastLogin.IsZero() {
+		// Preserve the existing last login time
+		lastLogin = current.LastLogin
+	}
+
+	query := `
+		UPDATE users
+		SET name = ?, email = ?, password_hash = ?, role = ?, 
+			is_active = ?, last_login = ?
+		WHERE id = ?
+	`
+
+	result, err := s.db.Exec(
+		query,
+		user.Name, user.Email, user.PasswordHash, user.Role,
+		user.IsActive, lastLogin, user.ID,
+	)
+	
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+	
+	// Verify the update affected a row
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for user update: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+
+	return nil
+}
+
+// UpdateUserLastLogin updates the last login timestamp for a user
+func (s *SQLiteStore) UpdateUserLastLogin(id int64) error {
+	query := "UPDATE users SET last_login = ? WHERE id = ?"
+	result, err := s.db.Exec(query, time.Now().UTC(), id)
+	if err != nil {
+		return fmt.Errorf("failed to update user last login: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected for last login update: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	
+	return nil
+}
+
+// EnsureAdminExists ensures that an admin user with the given credentials exists
+func (s *SQLiteStore) EnsureAdminExists(adminEmail, adminName, adminPasswordHash string) error {
+	// Check if admin with given email already exists
+	user, err := s.GetUserByEmail(adminEmail)
+	if err == nil && user != nil {
+		// Admin already exists, no need to create
+		return nil
+	}
+	
+	// Admin doesn't exist, create a new one
+	admin := &domain.User{
+		Name:         adminName,
+		Email:        adminEmail,
+		PasswordHash: adminPasswordHash,
+		Role:         "admin",
+		IsActive:     true,
+		CreatedAt:    time.Now().UTC(),
+		LastLogin:    time.Now().UTC(),
+	}
+	
+	_, err = s.CreateUser(admin)
+	if err != nil {
+		return fmt.Errorf("failed to create admin user: %w", err)
+	}
+	
+	return nil
+}
+
