@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	
+
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -61,26 +62,26 @@ func (h *ExpertHandler) HandleGetExperts(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Process sorting parameters
-	sortBy := "name" // Default sort field
+	sortBy := "name"   // Default sort field
 	sortOrder := "asc" // Default sort order
-	
+
 	if sortParam := queryParams.Get("sort_by"); sortParam != "" {
 		// Validate sort field against allowed fields
 		allowedSortFields := map[string]bool{
-			"name": true, "institution": true, "role": true, 
+			"name": true, "institution": true, "role": true,
 			"created_at": true, "rating": true, "general_area": true,
 		}
 		if allowedSortFields[sortParam] {
 			sortBy = sortParam
 		}
 	}
-	
+
 	if orderParam := queryParams.Get("sort_order"); orderParam != "" {
 		if orderParam == "desc" {
 			sortOrder = "desc"
 		}
 	}
-	
+
 	// Add sorting to filters
 	filters["sort_by"] = sortBy
 	filters["sort_order"] = sortOrder
@@ -90,7 +91,7 @@ func (h *ExpertHandler) HandleGetExperts(w http.ResponseWriter, r *http.Request)
 	if err != nil || limit <= 0 {
 		limit = 10 // Default limit
 	}
-	
+
 	offset, err := strconv.Atoi(queryParams.Get("offset"))
 	if err != nil || offset < 0 {
 		offset = 0 // Default offset
@@ -103,7 +104,7 @@ func (h *ExpertHandler) HandleGetExperts(w http.ResponseWriter, r *http.Request)
 			countFilters[k] = v
 		}
 	}
-	
+
 	totalCount, err := h.store.CountExperts(countFilters)
 	if err != nil {
 		log.Error("Failed to count experts: %v", err)
@@ -120,7 +121,7 @@ func (h *ExpertHandler) HandleGetExperts(w http.ResponseWriter, r *http.Request)
 
 	// Set total count header for pagination
 	w.Header().Set("X-Total-Count", fmt.Sprintf("%d", totalCount))
-	
+
 	// Return results
 	log.Debug("Returning %d experts", len(experts))
 	w.Header().Set("Content-Type", "application/json")
@@ -131,7 +132,7 @@ func (h *ExpertHandler) HandleGetExperts(w http.ResponseWriter, r *http.Request)
 // HandleGetExpert handles GET /api/experts/{id} requests
 func (h *ExpertHandler) HandleGetExpert(w http.ResponseWriter, r *http.Request) error {
 	log := logger.Get()
-	
+
 	// Extract and validate expert ID from path
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -151,7 +152,7 @@ func (h *ExpertHandler) HandleGetExpert(w http.ResponseWriter, r *http.Request) 
 			w.WriteHeader(http.StatusOK)
 			return json.NewEncoder(w).Encode(&domain.Expert{})
 		}
-		
+
 		log.Error("Failed to get expert: %v", err)
 		return fmt.Errorf("failed to retrieve expert: %w", err)
 	}
@@ -167,17 +168,42 @@ func (h *ExpertHandler) HandleGetExpert(w http.ResponseWriter, r *http.Request) 
 func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Request) error {
 	log := logger.Get()
 	log.Debug("Processing POST /api/experts request")
-	
+
 	// Parse request body
 	var expert domain.Expert
 	if err := json.NewDecoder(r.Body).Decode(&expert); err != nil {
 		log.Warn("Failed to parse expert creation request: %v", err)
-		return fmt.Errorf("invalid request body: %w", err)
+		return writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": fmt.Sprintf("Invalid JSON format: %v", err),
+		})
+	}
+
+	// Validate required fields
+	errors := []string{}
+	if expert.Name == "" {
+		errors = append(errors, "name is required")
+	}
+	
+	if expert.GeneralArea <= 0 {
+		errors = append(errors, "generalArea must be a positive number")
+	}
+	
+	if expert.Email != "" && !isValidEmail(expert.Email) {
+		errors = append(errors, fmt.Sprintf("invalid email format: %s", expert.Email))
+	}
+	
+	if len(errors) > 0 {
+		log.Warn("Expert validation failed: %v", errors)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error":  "Validation failed",
+			"errors": errors,
+		})
 	}
 
 	// Set creation time if not provided
 	if expert.CreatedAt.IsZero() {
 		expert.CreatedAt = time.Now()
+		expert.UpdatedAt = expert.CreatedAt
 	}
 
 	// Create expert in database
@@ -185,33 +211,53 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 	id, err := h.store.CreateExpert(&expert)
 	if err != nil {
 		log.Error("Failed to create expert in database: %v", err)
-		
+
 		// Check specifically for UNIQUE constraint violations on expert_id
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") && 
-		   strings.Contains(err.Error(), "expert_id") {
-			return fmt.Errorf("an expert with this ID already exists: %w", err)
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") &&
+			strings.Contains(err.Error(), "expert_id") {
+			return writeJSON(w, http.StatusConflict, map[string]string{
+				"error": fmt.Sprintf("Expert ID %s already exists", expert.ExpertID),
+			})
 		}
 		
-		return fmt.Errorf("failed to create expert: %w", err)
+		// Check for foreign key constraint violations
+		if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
+			return writeJSON(w, http.StatusBadRequest, map[string]string{
+				"error": "Referenced resource does not exist (likely invalid generalArea)",
+			})
+		}
+
+		return writeJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": fmt.Sprintf("Database error creating expert: %v", err),
+		})
 	}
 
 	// Return success response
 	log.Info("Expert created successfully with ID: %d", id)
-	resp := map[string]interface{}{
+	return writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"id":      id,
 		"success": true,
 		"message": "Expert created successfully",
-	}
-	
+	})
+}
+
+// Helper function to write JSON responses
+func writeJSON(w http.ResponseWriter, status int, data interface{}) error {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	return json.NewEncoder(w).Encode(resp)
+	w.WriteHeader(status)
+	return json.NewEncoder(w).Encode(data)
+}
+
+// Helper function to validate email format
+func isValidEmail(email string) bool {
+	re := regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+	return re.MatchString(email)
 }
 
 // HandleUpdateExpert handles PUT /api/experts/{id} requests
 func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Request) error {
 	log := logger.Get()
-	
+
 	// Extract and validate expert ID from path
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -300,7 +346,7 @@ func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Reques
 		"success": true,
 		"message": "Expert updated successfully",
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	return json.NewEncoder(w).Encode(resp)
@@ -309,7 +355,7 @@ func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Reques
 // HandleDeleteExpert handles DELETE /api/experts/{id} requests
 func (h *ExpertHandler) HandleDeleteExpert(w http.ResponseWriter, r *http.Request) error {
 	log := logger.Get()
-	
+
 	// Extract and validate expert ID from path
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -325,7 +371,7 @@ func (h *ExpertHandler) HandleDeleteExpert(w http.ResponseWriter, r *http.Reques
 			log.Warn("Expert not found for deletion ID: %d", id)
 			return domain.ErrNotFound
 		}
-		
+
 		log.Error("Failed to delete expert: %v", err)
 		return fmt.Errorf("failed to delete expert: %w", err)
 	}
@@ -336,7 +382,7 @@ func (h *ExpertHandler) HandleDeleteExpert(w http.ResponseWriter, r *http.Reques
 		"success": true,
 		"message": "Expert deleted successfully",
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	return json.NewEncoder(w).Encode(resp)
@@ -346,14 +392,14 @@ func (h *ExpertHandler) HandleDeleteExpert(w http.ResponseWriter, r *http.Reques
 func (h *ExpertHandler) HandleGetExpertAreas(w http.ResponseWriter, r *http.Request) error {
 	log := logger.Get()
 	log.Debug("Processing GET /api/expert/areas request")
-	
+
 	// Retrieve all expert areas from database
 	areas, err := h.store.ListAreas()
 	if err != nil {
 		log.Error("Failed to fetch expert areas: %v", err)
 		return fmt.Errorf("failed to fetch expert areas: %w", err)
 	}
-	
+
 	// Return areas as JSON
 	log.Debug("Returning %d expert areas", len(areas))
 	w.Header().Set("Content-Type", "application/json")

@@ -2,72 +2,37 @@ package sqlite
 
 import (
 	"database/sql"
-	"fmt"
-	"time"
-	
 	"expertdb/internal/domain"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 // GenerateUniqueExpertID generates a unique ID for an expert
 func (s *SQLiteStore) GenerateUniqueExpertID() (string, error) {
-	// Get the count of experts in the database to determine the next ID
-	var count int64
-	err := s.db.QueryRow("SELECT COUNT(*) FROM experts").Scan(&count)
+	id := "EXP-" + uuid.New().String()
+	exists, err := s.ExpertIDExists(id)
 	if err != nil {
-		return "", fmt.Errorf("failed to count experts: %w", err)
+		return "", fmt.Errorf("failed to check expert ID: %w", err)
 	}
-	
-	// Start with a base ID using count + some offset to avoid conflicts
-	// Adding 1000 provides a generous buffer for potential deletions
-	baseID := count + 1000
-	
-	// Try sequential IDs starting from the base
-	for i := 0; i < 100; i++ { // Try up to 100 different IDs
-		candidateID := fmt.Sprintf("EXP-%d", baseID+int64(i))
-		
-		// Check if this ID already exists
-		exists, err := s.ExpertIDExists(candidateID)
-		if err != nil {
-			return "", fmt.Errorf("failed to check if expert ID exists: %w", err)
-		}
-		
-		// If it doesn't exist, we've found a unique ID
-		if !exists {
-			return candidateID, nil
-		}
-	}
-	
-	// If we still couldn't find a unique ID, generate a timestamp-based one
-	timeNow := time.Now().UTC()
-	timestamp := timeNow.Format("20060102150405")
-	random := fmt.Sprintf("%06d", timeNow.Nanosecond()%1000000)
-	
-	expertID := fmt.Sprintf("EXP-%s-%s", timestamp, random)
-	
-	// Final check for uniqueness
-	exists, err := s.ExpertIDExists(expertID)
-	if err != nil {
-		return "", fmt.Errorf("failed to check if timestamp expert ID exists: %w", err)
-	}
-	
 	if exists {
-		// This is extremely unlikely
-		return "", fmt.Errorf("could not generate a unique expert ID after multiple attempts")
+		return s.GenerateUniqueExpertID() // Recursive retry
 	}
-	
-	return expertID, nil
+	return id, nil
 }
 
 // ExpertIDExists checks if an expert ID already exists in the database
 func (s *SQLiteStore) ExpertIDExists(expertID string) (bool, error) {
 	var count int
 	query := "SELECT COUNT(*) FROM experts WHERE expert_id = ?"
-	
+
 	err := s.db.QueryRow(query, expertID).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("failed to check if expert ID exists: %w", err)
 	}
-	
+
 	return count > 0, nil
 }
 
@@ -90,7 +55,7 @@ func (s *SQLiteStore) CreateExpert(expert *domain.Expert) (int64, error) {
 			return 0, fmt.Errorf("expert ID already exists: %s", expert.ExpertID)
 		}
 	}
-	
+
 	query := `
 		INSERT INTO experts (
 			expert_id, name, designation, institution, is_bahraini, is_available, rating,
@@ -98,12 +63,12 @@ func (s *SQLiteStore) CreateExpert(expert *domain.Expert) (int64, error) {
 			cv_path, phone, email, is_published, biography, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	
+
 	if expert.CreatedAt.IsZero() {
 		expert.CreatedAt = time.Now().UTC()
 		expert.UpdatedAt = expert.CreatedAt
 	}
-	
+
 	result, err := s.db.Exec(
 		query,
 		expert.ExpertID, expert.Name, expert.Designation, expert.Institution,
@@ -112,16 +77,29 @@ func (s *SQLiteStore) CreateExpert(expert *domain.Expert) (int64, error) {
 		expert.IsTrained, expert.CVPath, expert.Phone, expert.Email, expert.IsPublished,
 		expert.Biography, expert.CreatedAt, expert.UpdatedAt,
 	)
-	
+
 	if err != nil {
+		// Parse SQLite error to provide more specific error messages
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			if strings.Contains(err.Error(), "expert_id") {
+				return 0, fmt.Errorf("expert ID already exists: %s", expert.ExpertID)
+			} else if strings.Contains(err.Error(), "email") {
+				return 0, fmt.Errorf("email already exists: %s", expert.Email)
+			} else {
+				return 0, fmt.Errorf("unique constraint violation: %w", err)
+			}
+		} else if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
+			return 0, fmt.Errorf("referenced resource does not exist (check generalArea): %w", err)
+		}
+		
 		return 0, fmt.Errorf("failed to create expert: %w", err)
 	}
-	
+
 	id, err := result.LastInsertId()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get expert ID: %w", err)
 	}
-	
+
 	return id, nil
 }
 
@@ -137,47 +115,47 @@ func (s *SQLiteStore) GetExpert(id int64) (*domain.Expert, error) {
 		LEFT JOIN expert_areas ea ON e.general_area = ea.id
 		WHERE e.id = ?
 	`
-	
+
 	var expert domain.Expert
 	var generalAreaName sql.NullString
 	var nationality sql.NullString
-	
+
 	err := s.db.QueryRow(query, id).Scan(
 		&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation, &expert.Institution,
 		&expert.IsBahraini, &nationality, &expert.IsAvailable, &expert.Rating, &expert.Role,
-		&expert.EmploymentType, &expert.GeneralArea, &generalAreaName, 
+		&expert.EmploymentType, &expert.GeneralArea, &generalAreaName,
 		&expert.SpecializedArea, &expert.IsTrained, &expert.CVPath, &expert.Phone, &expert.Email,
 		&expert.IsPublished, &expert.Biography, &expert.CreatedAt, &expert.UpdatedAt,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domain.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get expert: %w", err)
 	}
-	
+
 	if generalAreaName.Valid {
 		expert.GeneralAreaName = generalAreaName.String
 	}
-	
+
 	if nationality.Valid {
 		expert.Nationality = nationality.String
 	}
-	
+
 	// Fetch documents and engagements
 	documents, err := s.ListDocuments(expert.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get expert documents: %w", err)
 	}
 	expert.Documents = documents
-	
+
 	engagements, err := s.ListEngagements(expert.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get expert engagements: %w", err)
 	}
 	expert.Engagements = engagements
-	
+
 	return &expert, nil
 }
 
@@ -193,34 +171,34 @@ func (s *SQLiteStore) GetExpertByEmail(email string) (*domain.Expert, error) {
 		LEFT JOIN expert_areas ea ON e.general_area = ea.id
 		WHERE e.email = ?
 	`
-	
+
 	var expert domain.Expert
 	var generalAreaName sql.NullString
 	var nationality sql.NullString
-	
+
 	err := s.db.QueryRow(query, email).Scan(
 		&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation, &expert.Institution,
 		&expert.IsBahraini, &nationality, &expert.IsAvailable, &expert.Rating, &expert.Role,
-		&expert.EmploymentType, &expert.GeneralArea, &generalAreaName, 
+		&expert.EmploymentType, &expert.GeneralArea, &generalAreaName,
 		&expert.SpecializedArea, &expert.IsTrained, &expert.CVPath, &expert.Phone, &expert.Email,
 		&expert.IsPublished, &expert.Biography, &expert.CreatedAt, &expert.UpdatedAt,
 	)
-	
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, domain.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get expert by email: %w", err)
 	}
-	
+
 	if generalAreaName.Valid {
 		expert.GeneralAreaName = generalAreaName.String
 	}
-	
+
 	if nationality.Valid {
 		expert.Nationality = nationality.String
 	}
-	
+
 	return &expert, nil
 }
 
@@ -231,7 +209,7 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 	if err != nil {
 		return fmt.Errorf("failed to get current expert data: %w", err)
 	}
-	
+
 	// Only update fields that are explicitly set
 	if expert.Name == "" {
 		expert.Name = currentExpert.Name
@@ -272,9 +250,9 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 	if expert.Biography == "" {
 		expert.Biography = currentExpert.Biography
 	}
-	
+
 	expert.UpdatedAt = time.Now().UTC()
-	
+
 	query := `
 		UPDATE experts SET
 			name = ?, designation = ?, institution = ?, is_bahraini = ?,
@@ -284,7 +262,7 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 			is_published = ?, biography = ?, updated_at = ?
 		WHERE id = ?
 	`
-	
+
 	_, err = s.db.Exec(
 		query,
 		expert.Name, expert.Designation, expert.Institution, expert.IsBahraini,
@@ -294,21 +272,45 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 		expert.IsPublished, expert.Biography, expert.UpdatedAt,
 		expert.ID,
 	)
-	
+
 	if err != nil {
+		// Parse SQLite error to provide more specific error messages
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			if strings.Contains(err.Error(), "email") {
+				return fmt.Errorf("email already exists: %s", expert.Email)
+			} else {
+				return fmt.Errorf("unique constraint violation: %w", err)
+			}
+		} else if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
+			return fmt.Errorf("referenced resource does not exist (check generalArea): %w", err)
+		}
+		
 		return fmt.Errorf("failed to update expert: %w", err)
 	}
-	
+
 	return nil
 }
 
 // DeleteExpert deletes an expert by ID
 func (s *SQLiteStore) DeleteExpert(id int64) error {
-	_, err := s.db.Exec("DELETE FROM experts WHERE id = ?", id)
+	result, err := s.db.Exec("DELETE FROM experts WHERE id = ?", id)
 	if err != nil {
+		if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
+			return fmt.Errorf("cannot delete expert: it is referenced by other records: %w", err)
+		}
 		return fmt.Errorf("failed to delete expert: %w", err)
 	}
 	
+	// Check if any row was affected
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+
 	return nil
 }
 
@@ -324,24 +326,24 @@ func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset 
 		FROM experts e
 		LEFT JOIN expert_areas ea ON e.general_area = ea.id
 	`
-	
+
 	// Add WHERE clause and parameters if filters are provided
 	whereClause, params := buildWhereClauseForExpertFilters(filters)
 	if whereClause != "" {
 		queryBase += " WHERE " + whereClause
 	}
-	
+
 	// Add ORDER BY and LIMIT
 	queryBase += " ORDER BY e.updated_at DESC LIMIT ? OFFSET ?"
 	params = append(params, limit, offset)
-	
+
 	// Execute query
 	rows, err := s.db.Query(queryBase, params...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query experts: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var experts []*domain.Expert
 	for rows.Next() {
 		var expert domain.Expert
@@ -359,19 +361,19 @@ func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset 
 		var phone sql.NullString
 		var email sql.NullString
 		var biography sql.NullString
-		
+
 		err := rows.Scan(
 			&expert.ID, &expertID, &name, &designation, &institution,
 			&expert.IsBahraini, &nationality, &expert.IsAvailable, &rating, &role,
-			&employmentType, &expert.GeneralArea, &generalAreaName, 
+			&employmentType, &expert.GeneralArea, &generalAreaName,
 			&specializedArea, &expert.IsTrained, &cvPath, &phone, &email,
 			&expert.IsPublished, &biography, &expert.CreatedAt, &expert.UpdatedAt,
 		)
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan expert row: %w", err)
 		}
-		
+
 		// Assign NULL-safe values to expert struct
 		if expertID.Valid {
 			expert.ExpertID = expertID.String
@@ -415,33 +417,33 @@ func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset 
 		if nationality.Valid {
 			expert.Nationality = nationality.String
 		}
-		
+
 		experts = append(experts, &expert)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating over expert rows: %w", err)
 	}
-	
+
 	return experts, nil
 }
 
 // CountExperts counts the total number of experts matching the given filters
 func (s *SQLiteStore) CountExperts(filters map[string]interface{}) (int, error) {
 	queryBase := "SELECT COUNT(*) FROM experts e"
-	
+
 	// Add WHERE clause if filters are provided
 	whereClause, params := buildWhereClauseForExpertFilters(filters)
 	if whereClause != "" {
 		queryBase += " WHERE " + whereClause
 	}
-	
+
 	var count int
 	err := s.db.QueryRow(queryBase, params...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count experts: %w", err)
 	}
-	
+
 	return count, nil
 }
 
@@ -449,43 +451,43 @@ func (s *SQLiteStore) CountExperts(filters map[string]interface{}) (int, error) 
 func buildWhereClauseForExpertFilters(filters map[string]interface{}) (string, []interface{}) {
 	var conditions []string
 	var params []interface{}
-	
+
 	// Add conditions based on filters
 	if val, ok := filters["name"]; ok && val != "" {
 		conditions = append(conditions, "e.name LIKE ?")
 		params = append(params, "%"+val.(string)+"%")
 	}
-	
+
 	if val, ok := filters["institution"]; ok && val != "" {
 		conditions = append(conditions, "e.institution LIKE ?")
 		params = append(params, "%"+val.(string)+"%")
 	}
-	
+
 	if val, ok := filters["role"]; ok && val != "" {
 		conditions = append(conditions, "e.role = ?")
 		params = append(params, val)
 	}
-	
+
 	if val, ok := filters["generalArea"]; ok && val != 0 {
 		conditions = append(conditions, "e.general_area = ?")
 		params = append(params, val)
 	}
-	
+
 	if val, ok := filters["isBahraini"]; ok {
 		conditions = append(conditions, "e.is_bahraini = ?")
 		params = append(params, val)
 	}
-	
+
 	if val, ok := filters["isAvailable"]; ok {
 		conditions = append(conditions, "e.is_available = ?")
 		params = append(params, val)
 	}
-	
+
 	if val, ok := filters["isPublished"]; ok {
 		conditions = append(conditions, "e.is_published = ?")
 		params = append(params, val)
 	}
-	
+
 	// Combine conditions with AND
 	whereClause := ""
 	if len(conditions) > 0 {
@@ -497,20 +499,20 @@ func buildWhereClauseForExpertFilters(filters map[string]interface{}) (string, [
 			}
 		}
 	}
-	
+
 	return whereClause, params
 }
 
 // ListAreas retrieves all expert areas
 func (s *SQLiteStore) ListAreas() ([]*domain.Area, error) {
 	query := "SELECT id, name FROM expert_areas ORDER BY name"
-	
+
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch expert areas: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var areas []*domain.Area
 	for rows.Next() {
 		var area domain.Area
@@ -519,7 +521,7 @@ func (s *SQLiteStore) ListAreas() ([]*domain.Area, error) {
 		}
 		areas = append(areas, &area)
 	}
-	
+
 	return areas, nil
 }
 
