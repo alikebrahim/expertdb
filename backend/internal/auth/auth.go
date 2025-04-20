@@ -26,10 +26,10 @@ const (
 	
 	// User role definitions for access control
 	// Role hierarchy (from highest to lowest privileges):
-	// super_user > admin > scheduler > user
+	// super_user > admin > planner > user
 	RoleSuperUser = "super_user" // Super user role has complete system access, can create admins
-	RoleAdmin = "admin"          // Admin role has full system access, can create regular users and schedulers
-	RoleScheduler = "scheduler"  // Scheduler role can assign experts to applications
+	RoleAdmin = "admin"          // Admin role has full system access, can create regular users and planners
+	RolePlanner = "planner"  // Planner role can assign experts to applications
 	RoleUser  = "user"           // User role has limited, read-only access
 )
 
@@ -132,7 +132,7 @@ func HasRole(userRole, minRequiredRole string) bool {
 	roleWeights := map[string]int{
 		RoleSuperUser: 40,
 		RoleAdmin:     30,
-		RoleScheduler: 20,
+		RolePlanner:   20,
 		RoleUser:      10,
 		"":            0, // Default for unknown roles
 	}
@@ -148,8 +148,8 @@ func HasRole(userRole, minRequiredRole string) bool {
 // CanManageRole checks if a user with the specified role can manage (create/edit/delete) users with the target role
 func CanManageRole(managerRole, targetRole string) bool {
 	// Role management rules:
-	// - super_user can manage admin, scheduler, and user
-	// - admin can manage scheduler and user
+	// - super_user can manage admin, planner, and user
+	// - admin can manage planner and user
 	// - No one else can manage roles
 	
 	switch managerRole {
@@ -157,8 +157,8 @@ func CanManageRole(managerRole, targetRole string) bool {
 		// Super user can manage any role except another super user
 		return targetRole != RoleSuperUser
 	case RoleAdmin:
-		// Admin can manage scheduler and user roles
-		return targetRole == RoleScheduler || targetRole == RoleUser
+		// Admin can manage planner and user roles
+		return targetRole == RolePlanner || targetRole == RoleUser
 	default:
 		// No other roles can manage users
 		return false

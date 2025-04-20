@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
 import { User } from '../types';
 import { usersApi } from '../services/api';
-import Input from './ui/Input';
-import Button from './ui/Button';
+import { useFormWithNotifications } from '../hooks/useForm';
+import { userSchema } from '../utils/formSchemas';
+import { Form, FormField, LoadingOverlay } from './ui';
 
 interface UserFormData {
   name: string;
   email: string;
   password?: string;
-  role: 'admin' | 'user';
+  confirmPassword?: string;
+  role: 'admin' | 'user' | 'manager';
   isActive: boolean;
 }
 
@@ -21,29 +22,36 @@ interface UserFormProps {
 
 const UserForm = ({ user, onSuccess, onCancel }: UserFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  const { 
-    register, 
-    handleSubmit, 
-    formState: { errors }
-  } = useForm<UserFormData>({
-    defaultValues: user ? {
-      name: user.name,
-      email: user.email,
-      role: user.role as 'admin' | 'user',
-      isActive: user.isActive
-    } : {
-      role: 'user',
-      isActive: true
-    }
-  });
   
   const isEditMode = !!user;
   
+  const form = useFormWithNotifications<UserFormData>({
+    schema: userSchema,
+    defaultValues: user ? {
+      name: user.name,
+      email: user.email,
+      role: user.role as 'admin' | 'user' | 'manager',
+      isActive: user.isActive,
+      password: '',
+      confirmPassword: '',
+    } : {
+      name: '',
+      email: '',
+      role: 'user',
+      isActive: true,
+      password: '',
+      confirmPassword: '',
+    }
+  });
+  
+  const roleOptions = [
+    { label: 'User', value: 'user' },
+    { label: 'Admin', value: 'admin' },
+    { label: 'Manager', value: 'manager' },
+  ];
+  
   const onSubmit = async (data: UserFormData) => {
     setIsSubmitting(true);
-    setError(null);
     
     try {
       // Remove password if empty (for edit mode)
@@ -51,116 +59,117 @@ const UserForm = ({ user, onSuccess, onCancel }: UserFormProps) => {
         delete data.password;
       }
       
+      // Remove confirmPassword before sending to API
+      const { confirmPassword, ...apiData } = data;
+      
       let response;
       
       if (isEditMode && user) {
-        response = await usersApi.updateUser(user.id, data);
+        response = await usersApi.updateUser(user.id, apiData);
       } else {
         if (!data.password) {
-          setError('Password is required for new users');
-          setIsSubmitting(false);
-          return;
+          return { 
+            success: false, 
+            message: 'Password is required for new users' 
+          };
         }
-        response = await usersApi.createUser(data);
+        response = await usersApi.createUser(apiData);
       }
       
       if (response.success) {
         onSuccess();
+        return { 
+          success: true, 
+          message: `User ${isEditMode ? 'updated' : 'created'} successfully` 
+        };
       } else {
-        setError(response.message || `Failed to ${isEditMode ? 'update' : 'create'} user`);
+        return { 
+          success: false, 
+          message: response.message || `Failed to ${isEditMode ? 'update' : 'create'} user` 
+        };
       }
     } catch (error) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} user:`, error);
-      setError(`An error occurred while ${isEditMode ? 'updating' : 'creating'} the user`);
+      return { 
+        success: false, 
+        message: `An error occurred while ${isEditMode ? 'updating' : 'creating'} the user` 
+      };
     } finally {
       setIsSubmitting(false);
     }
   };
   
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {error && (
-        <div className="bg-secondary bg-opacity-10 text-secondary p-3 rounded">
-          {error}
-        </div>
-      )}
-      
-      <Input
-        label="Name *"
-        error={errors.name?.message}
-        {...register('name', { required: 'Name is required' })}
-      />
-      
-      <Input
-        label="Email *"
-        type="email"
-        error={errors.email?.message}
-        {...register('email', { 
-          required: 'Email is required',
-          pattern: {
-            value: /\S+@\S+\.\S+/,
-            message: 'Invalid email format',
-          }
-        })}
-      />
-      
-      <Input
-        label={isEditMode ? 'Password (leave blank to keep current)' : 'Password *'}
-        type="password"
-        error={errors.password?.message}
-        {...register('password', { 
-          ...(isEditMode ? {} : { required: 'Password is required' }),
-          minLength: {
-            value: 6,
-            message: 'Password must be at least 6 characters',
-          }
-        })}
-      />
-      
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-neutral-700 mb-1">
-          Role *
-        </label>
-        <select
-          className="w-full px-3 py-2 bg-white border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-          {...register('role', { required: 'Role is required' })}
-        >
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
-        </select>
-        {errors.role && (
-          <p className="mt-1 text-sm text-secondary">{errors.role.message}</p>
-        )}
-      </div>
-      
-      <div className="flex items-center mb-4">
-        <input
-          type="checkbox"
-          id="isActive"
-          className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
-          {...register('isActive')}
+    <LoadingOverlay isLoading={isSubmitting}>
+      <Form
+        form={form}
+        onSubmit={form.handleSubmitWithNotifications(onSubmit)}
+        className="space-y-4"
+        resetOnSuccess={false}
+        submitText={isEditMode ? 'Update User' : 'Create User'}
+        showResetButton={true}
+        resetText="Cancel"
+        submitButtonPosition="right"
+        onReset={onCancel}
+      >
+        <h2 className="text-xl font-bold mb-4">
+          {isEditMode ? 'Edit User' : 'Create New User'}
+        </h2>
+        
+        <FormField
+          form={form}
+          name="name"
+          label="Name"
+          placeholder="Enter user's full name"
+          required
         />
-        <label htmlFor="isActive" className="ml-2 block text-sm text-neutral-700">
-          Active Account
-        </label>
-      </div>
-      
-      <div className="flex justify-end space-x-3">
-        <Button 
-          type="button" 
-          variant="outline" 
-          onClick={onCancel}
-        >
-          Cancel
-        </Button>
-        <Button 
-          type="submit" 
-          isLoading={isSubmitting}
-        >
-          {isEditMode ? 'Update User' : 'Create User'}
-        </Button>
-      </div>
-    </form>
+        
+        <FormField
+          form={form}
+          name="email"
+          label="Email"
+          type="email"
+          placeholder="Enter user's email address"
+          required
+        />
+        
+        <FormField
+          form={form}
+          name="password"
+          label={isEditMode ? 'Password (leave blank to keep current)' : 'Password'}
+          type="password"
+          placeholder="Enter password"
+          required={!isEditMode}
+        />
+        
+        <FormField
+          form={form}
+          name="confirmPassword"
+          label="Confirm Password"
+          type="password"
+          placeholder="Confirm password"
+          required={!isEditMode}
+          hint={isEditMode ? "Only required when changing password" : ""}
+        />
+        
+        <FormField
+          form={form}
+          name="role"
+          label="Role"
+          type="select"
+          options={roleOptions}
+          required
+        />
+        
+        <FormField
+          form={form}
+          name="isActive"
+          label="Active Account"
+          type="checkbox"
+          hint="Inactive users cannot log in"
+        />
+      </Form>
+    </LoadingOverlay>
   );
 };
 

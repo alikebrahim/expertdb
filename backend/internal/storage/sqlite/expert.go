@@ -203,7 +203,7 @@ func (s *SQLiteStore) GetExpert(id int64) (*domain.Expert, error) {
 		expert.Documents = docSlice
 	}
 
-	engagements, err := s.ListEngagements(expert.ID)
+	engagements, err := s.ListEngagements(expert.ID, "", 100, 0) // empty string for all types, default limit
 	if err != nil {
 		return nil, fmt.Errorf("failed to get expert engagements: %w", err)
 	}

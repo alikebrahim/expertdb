@@ -75,10 +75,10 @@ func IsSuperUser(ctx context.Context) bool {
 	return ok && role == RoleSuperUser
 }
 
-// IsScheduler checks if the user in the context is a scheduler or higher
-func IsScheduler(ctx context.Context) bool {
+// IsPlanner checks if the user in the context is a planner or higher
+func IsPlanner(ctx context.Context) bool {
 	role, ok := GetUserRoleFromContext(ctx)
-	return ok && HasRole(role, RoleScheduler)
+	return ok && HasRole(role, RolePlanner)
 }
 
 // SetUserClaimsInContext adds user claims to the request context

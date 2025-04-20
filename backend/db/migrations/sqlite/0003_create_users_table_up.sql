@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS "users" (
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('super_user', 'admin', 'scheduler', 'user')),
+    role TEXT NOT NULL CHECK (role IN ('super_user', 'admin', 'planner', 'user')),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP

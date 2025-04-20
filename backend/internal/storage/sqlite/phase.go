@@ -11,13 +11,13 @@ import (
 )
 
 // ListPhases retrieves a list of phases with optional filtering
-func (s *SQLiteStore) ListPhases(status string, schedulerID int64, limit, offset int) ([]*domain.Phase, error) {
+func (s *SQLiteStore) ListPhases(status string, plannerID int64, limit, offset int) ([]*domain.Phase, error) {
 	log := logger.Get()
 	
-	query := `SELECT p.id, p.phase_id, p.title, p.assigned_scheduler_id, u.name AS scheduler_name,
+	query := `SELECT p.id, p.phase_id, p.title, p.assigned_planner_id, u.name AS planner_name,
 	          p.status, p.created_at, p.updated_at
 	          FROM phases p
-	          LEFT JOIN users u ON p.assigned_scheduler_id = u.id
+	          LEFT JOIN users u ON p.assigned_planner_id = u.id
 	          WHERE 1=1`
 	
 	var args []interface{}
@@ -28,10 +28,10 @@ func (s *SQLiteStore) ListPhases(status string, schedulerID int64, limit, offset
 		args = append(args, status)
 	}
 	
-	// Apply scheduler filter if provided
-	if schedulerID > 0 {
-		query += " AND p.assigned_scheduler_id = ?"
-		args = append(args, schedulerID)
+	// Apply planner filter if provided
+	if plannerID > 0 {
+		query += " AND p.assigned_planner_id = ?"
+		args = append(args, plannerID)
 	}
 	
 	// Add order by and limits
@@ -54,15 +54,15 @@ func (s *SQLiteStore) ListPhases(status string, schedulerID int64, limit, offset
 	phases := []*domain.Phase{}
 	for rows.Next() {
 		var phase domain.Phase
-		var schedulerName sql.NullString
+		var plannerName sql.NullString
 		var createdAt, updatedAt string
 		
 		err := rows.Scan(
 			&phase.ID,
 			&phase.PhaseID,
 			&phase.Title,
-			&phase.AssignedSchedulerID,
-			&schedulerName,
+			&phase.AssignedPlannerID,
+			&plannerName,
 			&phase.Status,
 			&createdAt,
 			&updatedAt,
@@ -77,9 +77,9 @@ func (s *SQLiteStore) ListPhases(status string, schedulerID int64, limit, offset
 		phase.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 		phase.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
 		
-		// Set scheduler name if available
-		if schedulerName.Valid {
-			phase.SchedulerName = schedulerName.String
+		// Set planner name if available
+		if plannerName.Valid {
+			phase.PlannerName = plannerName.String
 		}
 		
 		// Fetch applications for this phase
@@ -105,22 +105,22 @@ func (s *SQLiteStore) ListPhases(status string, schedulerID int64, limit, offset
 func (s *SQLiteStore) GetPhase(id int64) (*domain.Phase, error) {
 	log := logger.Get()
 	
-	query := `SELECT p.id, p.phase_id, p.title, p.assigned_scheduler_id, u.name AS scheduler_name,
+	query := `SELECT p.id, p.phase_id, p.title, p.assigned_planner_id, u.name AS planner_name,
 	          p.status, p.created_at, p.updated_at
 	          FROM phases p
-	          LEFT JOIN users u ON p.assigned_scheduler_id = u.id
+	          LEFT JOIN users u ON p.assigned_planner_id = u.id
 	          WHERE p.id = ?`
 	
 	var phase domain.Phase
-	var schedulerName sql.NullString
+	var plannerName sql.NullString
 	var createdAt, updatedAt string
 	
 	err := s.db.QueryRow(query, id).Scan(
 		&phase.ID,
 		&phase.PhaseID,
 		&phase.Title,
-		&phase.AssignedSchedulerID,
-		&schedulerName,
+		&phase.AssignedPlannerID,
+		&plannerName,
 		&phase.Status,
 		&createdAt,
 		&updatedAt,
@@ -138,9 +138,9 @@ func (s *SQLiteStore) GetPhase(id int64) (*domain.Phase, error) {
 	phase.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 	phase.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
 	
-	// Set scheduler name if available
-	if schedulerName.Valid {
-		phase.SchedulerName = schedulerName.String
+	// Set planner name if available
+	if plannerName.Valid {
+		phase.PlannerName = plannerName.String
 	}
 	
 	// Fetch applications for this phase
@@ -159,22 +159,22 @@ func (s *SQLiteStore) GetPhase(id int64) (*domain.Phase, error) {
 func (s *SQLiteStore) GetPhaseByPhaseID(phaseID string) (*domain.Phase, error) {
 	log := logger.Get()
 	
-	query := `SELECT p.id, p.phase_id, p.title, p.assigned_scheduler_id, u.name AS scheduler_name,
+	query := `SELECT p.id, p.phase_id, p.title, p.assigned_planner_id, u.name AS planner_name,
 	          p.status, p.created_at, p.updated_at
 	          FROM phases p
-	          LEFT JOIN users u ON p.assigned_scheduler_id = u.id
+	          LEFT JOIN users u ON p.assigned_planner_id = u.id
 	          WHERE p.phase_id = ?`
 	
 	var phase domain.Phase
-	var schedulerName sql.NullString
+	var plannerName sql.NullString
 	var createdAt, updatedAt string
 	
 	err := s.db.QueryRow(query, phaseID).Scan(
 		&phase.ID,
 		&phase.PhaseID,
 		&phase.Title,
-		&phase.AssignedSchedulerID,
-		&schedulerName,
+		&phase.AssignedPlannerID,
+		&plannerName,
 		&phase.Status,
 		&createdAt,
 		&updatedAt,
@@ -192,9 +192,9 @@ func (s *SQLiteStore) GetPhaseByPhaseID(phaseID string) (*domain.Phase, error) {
 	phase.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 	phase.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
 	
-	// Set scheduler name if available
-	if schedulerName.Valid {
-		phase.SchedulerName = schedulerName.String
+	// Set planner name if available
+	if plannerName.Valid {
+		phase.PlannerName = plannerName.String
 	}
 	
 	// Fetch applications for this phase
@@ -253,10 +253,10 @@ func (s *SQLiteStore) CreatePhase(phase *domain.Phase) (int64, error) {
 	
 	// Insert the phase
 	result, err := tx.Exec(
-		"INSERT INTO phases (phase_id, title, assigned_scheduler_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+		"INSERT INTO phases (phase_id, title, assigned_planner_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
 		phase.PhaseID,
 		phase.Title,
-		phase.AssignedSchedulerID,
+		phase.AssignedPlannerID,
 		phase.Status,
 		phase.CreatedAt.Format(time.RFC3339),
 		phase.UpdatedAt.Format(time.RFC3339),
@@ -360,9 +360,9 @@ func (s *SQLiteStore) UpdatePhase(phase *domain.Phase) error {
 	// Update phase
 	phase.UpdatedAt = time.Now().UTC()
 	_, err = s.db.Exec(
-		"UPDATE phases SET title = ?, assigned_scheduler_id = ?, status = ?, updated_at = ? WHERE id = ?",
+		"UPDATE phases SET title = ?, assigned_planner_id = ?, status = ?, updated_at = ? WHERE id = ?",
 		phase.Title,
-		phase.AssignedSchedulerID,
+		phase.AssignedPlannerID,
 		phase.Status,
 		phase.UpdatedAt.Format(time.RFC3339),
 		phase.ID,
@@ -745,7 +745,7 @@ func (s *SQLiteStore) UpdatePhaseApplicationExperts(id int64, expert1ID, expert2
 	log := logger.Get()
 	
 	// Check if application exists
-	app, err := s.GetPhaseApplication(id)
+	_, err := s.GetPhaseApplication(id)
 	if err != nil {
 		return err // Error already logged in GetPhaseApplication
 	}
@@ -870,11 +870,14 @@ func (s *SQLiteStore) UpdatePhaseApplicationStatus(id int64, status, rejectionNo
 		}
 		
 		// Determine engagement type based on application type
+		// Mapping QP (Qualification Placement) to validator and IL (Institutional Listing) to evaluator
 		var engagementType string
-		if app.Type == "validation" {
-			engagementType = "validator"
+		if app.Type == "validation" || app.Type == "QP" {
+			engagementType = "validator"  // QP (Qualification Placement) maps to validator
+		} else if app.Type == "evaluation" || app.Type == "IL" {
+			engagementType = "evaluator"  // IL (Institutional Listing) maps to evaluator
 		} else {
-			engagementType = "evaluator"
+			return fmt.Errorf("invalid application type: %s", app.Type)
 		}
 		
 		// Create engagement for expert 1 if assigned

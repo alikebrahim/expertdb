@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
 import { Engagement } from '../types';
 import { engagementApi, expertRequestsApi } from '../services/api';
+import { z } from 'zod';
+import { useFormWithNotifications } from '../hooks/useForm';
+import { Form } from './ui/Form';
+import { FormField } from './ui/FormField';
+import { LoadingOverlay } from './ui/LoadingSpinner';
 import Button from './ui/Button';
-import Input from './ui/Input';
 
 interface EngagementFormProps {
   expertId: number;
@@ -12,33 +15,56 @@ interface EngagementFormProps {
   onCancel: () => void;
 }
 
-type EngagementFormData = {
-  title: string;
-  description: string;
-  engagementType: string;
-  status: string;
-  startDate: string;
-  endDate: string;
-  contactPerson: string;
-  contactEmail: string;
-  organizationName: string;
-  notes: string;
-  requestId?: string;
-};
+// Engagement form schema
+const engagementFormSchema = z.object({
+  title: z.string().min(2, 'Title is required'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
+  engagementType: z.enum(['consultation', 'project', 'workshop', 'training', 'research', 'other']),
+  status: z.enum(['pending', 'confirmed', 'in_progress', 'completed', 'cancelled']),
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: z.string().min(1, 'End date is required'),
+  contactPerson: z.string().min(2, 'Contact person is required'),
+  contactEmail: z.string().email('Please provide a valid email address'),
+  organizationName: z.string().min(2, 'Organization name is required'),
+  notes: z.string().optional(),
+  requestId: z.string().optional(),
+});
+
+type EngagementFormData = z.infer<typeof engagementFormSchema>;
 
 const EngagementForm = ({ expertId, engagement, onSuccess, onCancel }: EngagementFormProps) => {
   const isEditMode = !!engagement;
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [requestOptions, setRequestOptions] = useState<{ value: string; label: string }[]>([]);
   
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<EngagementFormData>({
+  // Define engagement type options
+  const engagementTypeOptions = [
+    { value: 'consultation', label: 'Consultation' },
+    { value: 'project', label: 'Project' },
+    { value: 'workshop', label: 'Workshop' },
+    { value: 'training', label: 'Training' },
+    { value: 'research', label: 'Research' },
+    { value: 'other', label: 'Other' }
+  ];
+  
+  // Define status options
+  const statusOptions = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'confirmed', label: 'Confirmed' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' }
+  ];
+  
+  // Initialize form with default values
+  const form = useFormWithNotifications<EngagementFormData>({
+    schema: engagementFormSchema,
     defaultValues: isEditMode
       ? {
           title: engagement.title,
           description: engagement.description,
-          engagementType: engagement.engagementType,
-          status: engagement.status,
+          engagementType: engagement.engagementType as any,
+          status: engagement.status as any,
           startDate: engagement.startDate.split('T')[0],
           endDate: engagement.endDate.split('T')[0],
           contactPerson: engagement.contactPerson,
@@ -83,8 +109,7 @@ const EngagementForm = ({ expertId, engagement, onSuccess, onCancel }: Engagemen
   }, []);
 
   const onSubmit = async (data: EngagementFormData) => {
-    setIsSubmitting(true);
-    setError(null);
+    setIsLoading(true);
     
     try {
       // Transform form data to API format
@@ -102,188 +127,150 @@ const EngagementForm = ({ expertId, engagement, onSuccess, onCancel }: Engagemen
       }
       
       if (response.success) {
-        reset();
         onSuccess(response.data);
+        return { 
+          success: true, 
+          message: `Engagement ${isEditMode ? 'updated' : 'created'} successfully!` 
+        };
       } else {
-        setError(response.message || `Failed to ${isEditMode ? 'update' : 'create'} engagement`);
+        return { 
+          success: false, 
+          message: response.message || `Failed to ${isEditMode ? 'update' : 'create'} engagement` 
+        };
       }
     } catch (error) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} engagement:`, error);
-      setError(`An error occurred while ${isEditMode ? 'updating' : 'creating'} the engagement`);
+      return { 
+        success: false, 
+        message: error instanceof Error 
+          ? error.message 
+          : `An error occurred while ${isEditMode ? 'updating' : 'creating'} the engagement` 
+      };
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-md mb-4">
-          {error}
-        </div>
-      )}
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-          <Input
-            {...register('title', { required: 'Title is required' })}
-            error={errors.title?.message}
+    <LoadingOverlay 
+      isLoading={isLoading} 
+      className="w-full"
+      label={isEditMode ? "Updating engagement..." : "Creating engagement..."}
+    >
+      <Form
+        form={form}
+        onSubmit={form.handleSubmitWithNotifications(onSubmit)}
+        className="space-y-4"
+        submitText={isEditMode ? 'Update Engagement' : 'Create Engagement'}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            form={form}
+            name="title"
+            label="Title"
+            required
+          />
+          
+          <FormField
+            form={form}
+            name="organizationName"
+            label="Organization"
+            required
           />
         </div>
         
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Organization</label>
-          <Input
-            {...register('organizationName', { required: 'Organization is required' })}
-            error={errors.organizationName?.message}
-          />
-        </div>
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-        <textarea
-          {...register('description', { required: 'Description is required' })}
-          className={`w-full px-3 py-2 border rounded-md ${
-            errors.description ? 'border-red-500' : 'border-gray-300'
-          }`}
+        <FormField
+          form={form}
+          name="description"
+          label="Description"
+          type="textarea"
           rows={3}
+          required
         />
-        {errors.description && (
-          <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
-        )}
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Engagement Type</label>
-          <select
-            {...register('engagementType', { required: 'Engagement type is required' })}
-            className={`w-full px-3 py-2 border rounded-md ${
-              errors.engagementType ? 'border-red-500' : 'border-gray-300'
-            }`}
-          >
-            <option value="consultation">Consultation</option>
-            <option value="project">Project</option>
-            <option value="workshop">Workshop</option>
-            <option value="training">Training</option>
-            <option value="research">Research</option>
-            <option value="other">Other</option>
-          </select>
-          {errors.engagementType && (
-            <p className="mt-1 text-sm text-red-600">{errors.engagementType.message}</p>
-          )}
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            form={form}
+            name="engagementType"
+            label="Engagement Type"
+            type="select"
+            options={engagementTypeOptions}
+            required
+          />
+          
+          <FormField
+            form={form}
+            name="status"
+            label="Status"
+            type="select"
+            options={statusOptions}
+            required
+          />
         </div>
         
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-          <select
-            {...register('status', { required: 'Status is required' })}
-            className={`w-full px-3 py-2 border rounded-md ${
-              errors.status ? 'border-red-500' : 'border-gray-300'
-            }`}
-          >
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          {errors.status && (
-            <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
-          )}
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-          <Input
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            form={form}
+            name="startDate"
+            label="Start Date"
             type="date"
-            {...register('startDate', { required: 'Start date is required' })}
-            error={errors.startDate?.message}
+            required
           />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-          <Input
+          
+          <FormField
+            form={form}
+            name="endDate"
+            label="End Date"
             type="date"
-            {...register('endDate', { required: 'End date is required' })}
-            error={errors.endDate?.message}
-          />
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
-          <Input
-            {...register('contactPerson', { required: 'Contact person is required' })}
-            error={errors.contactPerson?.message}
+            required
           />
         </div>
         
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
-          <Input
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            form={form}
+            name="contactPerson"
+            label="Contact Person"
+            required
+          />
+          
+          <FormField
+            form={form}
+            name="contactEmail"
+            label="Contact Email"
             type="email"
-            {...register('contactEmail', { 
-              required: 'Email is required',
-              pattern: {
-                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                message: 'Invalid email address'
-              }
-            })}
-            error={errors.contactEmail?.message}
+            required
           />
         </div>
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Related Expert Request (Optional)</label>
-        <select
-          {...register('requestId')}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-        >
-          {requestOptions.map(option => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
-        <textarea
-          {...register('notes')}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          rows={3}
+        
+        <FormField
+          form={form}
+          name="requestId"
+          label="Related Expert Request (Optional)"
+          type="select"
+          options={requestOptions}
         />
-      </div>
-      
-      <div className="flex justify-end space-x-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={isSubmitting}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          variant="primary"
-          disabled={isSubmitting}
-        >
-          {isSubmitting 
-            ? (isEditMode ? 'Updating...' : 'Creating...') 
-            : (isEditMode ? 'Update Engagement' : 'Create Engagement')}
-        </Button>
-      </div>
-    </form>
+        
+        <FormField
+          form={form}
+          name="notes"
+          label="Notes (Optional)"
+          type="textarea"
+          rows={3}
+          hint="Any additional information about this engagement"
+        />
+        
+        <div className="flex justify-end space-x-3 mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+          >
+            Cancel
+          </Button>
+        </div>
+      </Form>
+    </LoadingOverlay>
   );
 };
 

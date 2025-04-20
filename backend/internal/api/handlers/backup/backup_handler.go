@@ -299,7 +299,7 @@ func (h *Handler) addEngagementsToZip(zipWriter *zip.Writer, tempDir string) err
 	// Write data rows for each expert's engagements
 	allEngagements := make(map[int64]*domain.Engagement)
 	for _, expert := range experts {
-		engagements, err := h.store.ListEngagements(expert.ID)
+		engagements, err := h.store.ListEngagements(expert.ID, "", 1000, 0) // empty string for all types, high limit
 		if err != nil {
 			return fmt.Errorf("failed to retrieve engagements for expert %d: %w", expert.ID, err)
 		}

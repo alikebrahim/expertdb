@@ -1,3 +1,4 @@
+-- +goose Up
 -- Migration file for Phase Planning and Engagement System
 -- Creates tables for phases and phase applications
 
@@ -6,11 +7,11 @@ CREATE TABLE IF NOT EXISTS phases (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phase_id TEXT NOT NULL UNIQUE,  -- Business identifier (e.g., "PH-2025-001")
     title TEXT NOT NULL,            -- Title/name of the phase
-    assigned_scheduler_id INTEGER,  -- ID of the scheduler user assigned to this phase
+    assigned_planner_id INTEGER,    -- ID of the planner user assigned to this phase
     status TEXT NOT NULL,           -- Status: "draft", "in_progress", "completed", "cancelled"
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (assigned_scheduler_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (assigned_planner_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Create phase_applications table
@@ -34,9 +35,21 @@ CREATE TABLE IF NOT EXISTS phase_applications (
 -- Create indexes for better performance
 CREATE INDEX idx_phases_phase_id ON phases(phase_id);
 CREATE INDEX idx_phases_status ON phases(status);
-CREATE INDEX idx_phases_assigned_scheduler ON phases(assigned_scheduler_id);
+CREATE INDEX idx_phases_assigned_planner ON phases(assigned_planner_id);
 CREATE INDEX idx_phase_applications_phase_id ON phase_applications(phase_id);
 CREATE INDEX idx_phase_applications_type ON phase_applications(type);
 CREATE INDEX idx_phase_applications_status ON phase_applications(status);
 CREATE INDEX idx_phase_applications_expert_1 ON phase_applications(expert_1);
 CREATE INDEX idx_phase_applications_expert_2 ON phase_applications(expert_2);
+
+-- +goose Down
+DROP INDEX IF EXISTS idx_phase_applications_expert_2;
+DROP INDEX IF EXISTS idx_phase_applications_expert_1;
+DROP INDEX IF EXISTS idx_phase_applications_status;
+DROP INDEX IF EXISTS idx_phase_applications_type;
+DROP INDEX IF EXISTS idx_phase_applications_phase_id;
+DROP INDEX IF EXISTS idx_phases_assigned_planner;
+DROP INDEX IF EXISTS idx_phases_status;
+DROP INDEX IF EXISTS idx_phases_phase_id;
+DROP TABLE IF EXISTS phase_applications;
+DROP TABLE IF EXISTS phases;

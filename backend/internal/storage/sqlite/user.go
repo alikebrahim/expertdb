@@ -39,10 +39,10 @@ func (s *SQLiteStore) CreateUser(user *domain.User) (int64, error) {
 		// Apply role creation constraints:
 		// 1. If creating a super_user, verify the user is self-bootstrapping (like server initialization)
 		// 2. For creating admin and below, verify creator is a super_user
-		// 3. For creating scheduler and below, verify creator is admin or super_user
+		// 3. For creating planner and below, verify creator is admin or super_user
 		
 		// For the initial implementation, we'll simply check if the role is valid
-		validRoles := []string{"super_user", "admin", "scheduler", "user"}
+		validRoles := []string{"super_user", "admin", "planner", "user"}
 		roleValid := false
 		for _, role := range validRoles {
 			if user.Role == role {
@@ -330,11 +330,11 @@ func (s *SQLiteStore) CreateUserWithRoleCheck(user *domain.User, creatorRole str
 func canCreateUserWithRole(creatorRole, targetRole string) bool {
 	switch creatorRole {
 	case "super_user":
-		// Super user can create admin, scheduler, and regular users
-		return targetRole == "admin" || targetRole == "scheduler" || targetRole == "user"
+		// Super user can create admin, planner, and regular users
+		return targetRole == "admin" || targetRole == "planner" || targetRole == "user"
 	case "admin":
-		// Admin can create scheduler and regular users
-		return targetRole == "scheduler" || targetRole == "user"
+		// Admin can create planner and regular users
+		return targetRole == "planner" || targetRole == "user"
 	default:
 		// No other roles can create users
 		return false
@@ -366,13 +366,13 @@ func (s *SQLiteStore) DeleteUser(id int64) error {
 		}
 	}
 	
-	// If deleting a scheduler, handle cascade deletion of scheduler assignments
-	if role == "scheduler" {
-		// In a real implementation, you would delete/reassign any scheduler assignments here
+	// If deleting a planner, handle cascade deletion of planner assignments
+	if role == "planner" {
+		// In a real implementation, you would delete/reassign any planner assignments here
 		// For example:
-		// _, err := s.db.Exec("UPDATE phases SET assigned_scheduler_id = NULL WHERE assigned_scheduler_id = ?", id)
+		// _, err := s.db.Exec("UPDATE phases SET assigned_planner_id = NULL WHERE assigned_planner_id = ?", id)
 		// if err != nil {
-		//     return fmt.Errorf("failed to clear scheduler assignments: %w", err)
+		//     return fmt.Errorf("failed to clear planner assignments: %w", err)
 		// }
 	}
 	

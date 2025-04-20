@@ -166,9 +166,16 @@ func (s *SQLiteStore) GetExpertsByNationality() (int, int, error) {
 // GetEngagementStatistics retrieves statistics about expert engagements
 func (s *SQLiteStore) GetEngagementStatistics() ([]domain.AreaStat, error) {
 	// Query to analyze engagement distribution by type - restrict to validator and evaluator types
+	// and map them to QP and IL application types
 	rows, err := s.db.Query(`
-		SELECT engagement_type, COUNT(*) as count, 
-		       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count
+		SELECT 
+			CASE 
+				WHEN engagement_type = 'validator' THEN 'QP (Qualification Placement)'
+				WHEN engagement_type = 'evaluator' THEN 'IL (Institutional Listing)'
+				ELSE engagement_type 
+			END as type_label,
+			COUNT(*) as count, 
+			SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count
 		FROM expert_engagements
 		WHERE engagement_type IN ('validator', 'evaluator')
 		GROUP BY engagement_type

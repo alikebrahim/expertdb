@@ -1,1064 +1,1406 @@
 # ExpertDB API Endpoints Documentation
 
-**Date**: April 17, 2025  
-**Version**: 1.0  
-**Context**:  
-ExpertDB is a small internal tool for managing a database of experts, designed for a department with 10-12 users and a maximum of 1200 database entries over 5 years. The tool is not exposed to the internet, and security is handled organizationally, so the focus is on simplicity, maintainability, and clear error messaging rather than high scalability or robust security measures. The backend is built in Go, uses SQLite as the database, and provides a RESTful API with JSON payloads, JWT authentication, and permissive CORS settings (`*`).
+**Date**: April 20, 2025\
+**Version**: 1.1\
+**Context**:\
+ExpertDB is a lightweight internal tool for managing a database of experts, designed for a department with 10-12 users and a maximum of 1200 database entries over 5 years. The tool operates on an intranet, with security handled organizationally, prioritizing simplicity, maintainability, and clear error messaging over complex scalability or security measures. The backend is built in Go, uses SQLite as the database, and provides a RESTful API with JSON payloads, JWT authentication, and permissive CORS settings (`*`).
 
-**Purpose**:  
-This document provides a detailed reference for all API endpoints, including their functionality, request/response structures, and implementation notes. It serves as a guide for developers and users within the department to interact with the ExpertDB system effectively.
+**Purpose**:\
+This document provides an updated reference for all API endpoints, incorporating new features and changes implemented through Phase 12 of the ExpertDB Implementation Plan. It details endpoint functionality, request/response structures, and implementation notes to guide developers and users within the department.
 
 ## Table of Contents
-1. [Overview](#overview)
-2. [General Notes](#general-notes)
-3. [Authentication Endpoints](#authentication-endpoints)
-   - [POST /api/auth/login](#post-apiauthlogin)
-4. [User Management Endpoints](#user-management-endpoints)
-   - [POST /api/users](#post-apiusers)
-   - [DELETE /api/users/{id}](#delete-apiusersid)
-5. [Expert Management Endpoints](#expert-management-endpoints)
-   - [POST /api/experts](#post-apiexperts)
-   - [GET /api/experts](#get-apiexperts)
-   - [GET /api/experts/{id}](#get-apiexpertsid)
-   - [PUT /api/experts/{id}](#put-apiexpertsid)
-   - [DELETE /api/experts/{id}](#delete-apiexpertsid)
-   - [GET /api/expert/areas](#get-apiexpertareas)
-6. [Expert Request Management Endpoints](#expert-request-management-endpoints)
-   - [POST /api/expert-requests](#post-apiexpert-requests)
-   - [GET /api/expert-requests](#get-apiexpert-requests)
-   - [GET /api/expert-requests/{id}](#get-apiexpert-requestsid)
-   - [PUT /api/expert-requests/{id}](#put-apiexpert-requestsid)
-7. [Document Management Endpoints](#document-management-endpoints)
-   - [POST /api/documents](#post-apidocuments)
-   - [GET /api/experts/{id}/documents](#get-apiexpertsiddocuments)
-   - [GET /api/documents/{id}](#get-apidocumentsid)
-   - [DELETE /api/documents/{id}](#delete-apidocumentsid)
-8. [Engagement Management Endpoints](#engagement-management-endpoints)
-   - [GET /api/expert-engagements](#get-apiexpert-engagements)
-9. [Statistics Endpoints](#statistics-endpoints)
-   - [GET /api/statistics](#get-apistatistics)
-   - [GET /api/statistics/growth](#get-apistatisticsgrowth)
-   - [GET /api/statistics/nationality](#get-apistatisticsnationality)
-   - [GET /api/statistics/engagements](#get-apistatisticsengagements)
+
+ 1. Overview
+ 2. General Notes
+ 3. Authentication Endpoints
+    - POST /api/auth/login
+ 4. User Management Endpoints
+    - POST /api/users
+    - DELETE /api/users/{id}
+ 5. Expert Management Endpoints
+    - POST /api/experts
+    - GET /api/experts
+    - GET /api/experts/{id}
+    - PUT /api/experts/{id}
+    - DELETE /api/experts/{id}
+    - GET /api/expert/areas
+    - POST /api/expert/areas
+    - PUT /api/expert/areas/{id}
+ 6. Expert Request Management Endpoints
+    - POST /api/expert-requests
+    - GET /api/expert-requests
+    - GET /api/expert-requests/{id}
+    - PUT /api/expert-requests/{id}
+    - PUT /api/expert-requests/{id}/edit
+    - POST /api/expert-requests/batch-approve
+ 7. Document Management Endpoints
+    - POST /api/documents
+    - GET /api/experts/{id}/documents
+    - GET /api/documents/{id}
+    - DELETE /api/documents/{id}
+ 8. Engagement Management Endpoints
+    - GET /api/expert-engagements
+    - POST /api/engagements/import
+ 9. Phase Planning Endpoints
+    - POST /api/phases
+    - GET /api/phases
+    - PUT /api/phases/{id}/applications/{app_id}
+    - PUT /api/phases/{id}/applications/{app_id}/review
+10. Statistics Endpoints
+    - GET /api/statistics
+    - GET /api/statistics/growth
+    - GET /api/statistics/nationality
+    - GET /api/statistics/engagements
+    - GET /api/statistics/areas
+11. Backup Endpoints
+    - GET /api/backup
 
 ## Overview
-The ExpertDB backend provides a RESTful API for managing expert profiles, expert requests, user accounts, documents, engagements, and system statistics. The API is implemented in Go, with endpoints defined in the `internal/api` directory, primarily in `server.go` and the `handlers` subpackage. It uses SQLite (`expertdb.sqlite`) for data storage, JWT for authentication, and the `internal/logger` package for logging requests and responses to `./logs`.
 
-The API is designed for:
-- **Small Scale**: Supports 10-12 users and up to 1200 expert entries over 5 years.
-- **Internal Use**: Not exposed to the internet, with security managed organizationally.
-- **Simplicity**: Prioritizes clear error messages and straightforward CRUD operations over complex optimizations.
-- **Modularity**: Follows a layered architecture (Domain, Storage, Service, API) as outlined in `backend/README.md`.
+The ExpertDB backend provides a RESTful API for managing expert profiles, requests, users, documents, engagements, phase planning, statistics, and backups. Implemented in Go, it uses SQLite (`expertdb.sqlite`), JWT authentication, and logs requests/responses to `./logs` via `internal/logger`. The API supports a small user base with a focus on simplicity and clear error messaging, as outlined in `SRS.md` and `ExpertDB Implementation Plan.markdown`.
 
-Endpoints are grouped into categories for authentication, user management, expert management, expert requests, documents, engagements, and statistics. Most endpoints require authentication via a JWT token, with admin-only endpoints restricted to users with the `admin` role.
+Recent updates (Phases 2-12) include:
+
+- Enhanced user roles (`super_user`, `scheduler`).
+- Approval document support and batch approvals.
+- Extended access for expert, document, and area endpoints.
+- Phase planning with application and engagement management.
+- Improved statistics (published experts, yearly growth, area stats).
+- Specialization area creation/renaming.
+- CSV backup functionality.
+- Engagement filtering and import.
+
+Endpoints are grouped by functionality, with most requiring JWT authentication and role-based access control enforced via `internal/auth/middleware.go`.
 
 ## General Notes
-- **Authentication**: All endpoints (except `/api/auth/login` and health checks) require a JWT token in the `Authorization: Bearer <token>` header, obtained via `/api/auth/login`. Admin-only endpoints are protected by middleware in `internal/auth/middleware.go`.
+
+- **Authentication**: All endpoints except `/api/auth/login` require a JWT token in the `Authorization: Bearer <token>` header. Role-based permissions (`super_user`, `admin`, `scheduler`, `regular`) are enforced.
 - **Access Levels**:
-  - **Public**: Only `/api/auth/login` and health check endpoints are accessible without authentication
-  - **User**: Authenticated users have read-only access to experts, expert areas, documents, and engagements
-  - **Scheduler**: Can manage engagements (create, update, delete)
-  - **Admin**: Can manage experts, expert requests, documents, and users
-  - **Super User**: Has full system access including statistics and user deletion
-- **CORS**: Configured to allow all origins (`*`), suitable for internal use but may need adjustment if exposed externally.
-- **Error Handling**: Errors return JSON with an `error` field. Improvements suggested in `ERRORS.md` include specific messages and aggregated validation errors for clarity.
-- **Database**: Uses SQLite with schema defined in `db/migrations/sqlite`. The small scale ensures SQLite is sufficient.
-- **Logging**: Requests and responses are logged to `./logs` with details like HTTP status, headers, and payloads.
-- **Testing**: The `test_api.sh` script validates endpoints, covering happy paths and edge cases (e.g., invalid payloads).
-- **Payload Validation**: Required fields are enforced, with defaults (e.g., `pending` status for expert requests) applied where applicable.
+  - **Super User**: Full access, including admin creation and deletion.
+  - **Admin**: Manages users, experts, requests, documents, areas, phases, and backups.
+  - **Scheduler**: Submits requests, proposes experts for phase plans, views experts/documents.
+  - **Regular**: Submits requests, views experts/documents.
+- **CORS**: Allows all origins (`*`), suitable for intranet use.
+- **Error Handling**: Returns JSON with specific `error` messages, improved per `ERRORS.md` recommendations (e.g., aggregated validation errors).
+- **Database**: SQLite with schema in `db/migrations/sqlite`. Indexes added for filters (`nationality`, `general_area`, etc.).
+- **Logging**: Logs to `./logs` with HTTP status, headers, and payloads.
+- **Testing**: `test_api.sh` validates endpoints, covering new features and edge cases.
+- **Payload Validation**: Enforces required fields, applies defaults (e.g., `pending` status).
 - **HTTP Status Codes**:
   - `200 OK`: Successful GET, PUT, DELETE.
   - `201 Created`: Successful POST.
-  - `400 Bad Request`: Invalid payload or parameters.
-  - `401 Unauthorized`: Invalid or missing token.
-  - `403 Forbidden`: Insufficient permissions (e.g., non-admin access).
+  - `400 Bad Request`: Invalid payload/parameters.
+  - `401 Unauthorized`: Invalid/missing token.
+  - `403 Forbidden`: Insufficient permissions.
   - `404 Not Found`: Resource not found.
-  - `409 Conflict`: Duplicate resource (e.g., email or expert ID).
-  - `500 Internal Server Error`: Unexpected server errors.
+  - `409 Conflict`: Duplicate resource.
+  - `500 Internal Server Error`: Unexpected errors.
 
 ## Authentication Endpoints
 
 ### POST /api/auth/login
-- **Purpose**: Authenticates a user and returns a JWT token for session management.
+
+- **Purpose**: Authenticates a user and returns a JWT token.
 - **Method**: POST
 - **Path**: `/api/auth/login`
 - **Request Payload**:
+
   ```json
   {
-    "email": "string",    // Required: User's email (e.g., "admin@expertdb.com")
-    "password": "string"  // Required: User's password (e.g., "adminpassword")
+    "email": "string",    // Required: e.g., "admin@expertdb.com"
+    "password": "string"  // Required: e.g., "adminpassword"
   }
   ```
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
       "user": {
-        "id": int,           // User ID (e.g., 1)
-        "name": "string",    // User name (e.g., "Admin User")
-        "email": "string",   // User email (e.g., "admin@expertdb.com")
-        "role": "string",    // Role ("admin" or "user")
-        "isActive": boolean, // Active status (e.g., true)
-        "createdAt": "string", // ISO 8601 timestamp (e.g., "2025-04-10T10:04:59.744473095+03:00")
-        "lastLogin": "string"  // ISO 8601 timestamp (e.g., "2025-04-17T10:13:09.703248012+03:00")
+        "id": int,           // e.g., 1
+        "name": "string",    // e.g., "Admin User"
+        "email": "string",   // e.g., "admin@expertdb.com"
+        "role": "string",    // e.g., "super_user"
+        "isActive": boolean, // e.g., true
+        "createdAt": "string", // e.g., "2025-04-10T10:04:59Z"
+        "lastLogin": "string"  // e.g., "2025-04-20T10:13:09Z"
       },
-      "token": "string"      // JWT token (e.g., "eyJhbGciOiJIUzI1NiIs...")
+      "token": "string"      // JWT token
     }
     ```
   - **Error (400 Bad Request)**:
+
     ```json
-    {
-      "error": "string"     // e.g., "Invalid request payload"
-    }
+    { "error": "Invalid request payload" }
     ```
   - **Error (401 Unauthorized)**:
+
     ```json
-    {
-      "error": "string"     // e.g., "Invalid credentials"
-    }
+    { "error": "Invalid credentials" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/auth.go:HandleLogin`
-  - Validates email/password, checks user in `users` table, verifies password hash using `golang.org/x/crypto`.
-  - Generates JWT via `internal/auth/jwt.go`.
+  - Validates credentials, checks `users` table, uses `golang.org/x/crypto` for password verification, generates JWT via `internal/auth/jwt.go`.
 - **Notes**:
-  - Used by admin and regular users.
-  - Logs successful logins (e.g., "User logged in successfully: admin@expertdb.com").
-  - Token is required for all other endpoints except this one.
+  - Supports `super_user`, `admin`, `scheduler`, `regular` roles.
+  - Logs successful logins.
 
 ## User Management Endpoints
 
 ### POST /api/users
-- **Purpose**: Creates a new user account (admin-only).
+
+- **Purpose**: Creates a new user account.
 - **Method**: POST
 - **Path**: `/api/users`
 - **Request Headers**:
-  - `Authorization: Bearer <admin_token>`
+  - `Authorization: Bearer <super_user_token|admin_token>`
 - **Request Payload**:
+
   ```json
   {
-    "name": "string",     // Required: User name (e.g., "Test User 1744873989")
-    "email": "string",    // Required: User email (e.g., "testuser1744873989@example.com")
-    "password": "string", // Required: Password (e.g., "password123")
-    "role": "string",     // Required: Role ("admin" or "user")
-    "isActive": boolean   // Required: Active status (e.g., true)
+    "name": "string",     // Required: e.g., "Test User"
+    "email": "string",    // Required: e.g., "test@example.com"
+    "password": "string", // Required: e.g., "password123"
+    "role": "string",     // Required: e.g., "scheduler"
+    "isActive": boolean   // Required: e.g., true
   }
   ```
 - **Response Payload**:
   - **Success (201 Created)**:
+
     ```json
     {
-      "id": int,           // New user ID (e.g., 18)
-      "success": boolean,  // true
-      "message": "string"  // e.g., "User created successfully"
+      "id": int,           // e.g., 18
+      "success": true,
+      "message": "User created successfully"
     }
     ```
   - **Error (400 Bad Request)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "Invalid request payload"
-    }
+    { "error": "Invalid request payload" }
+    ```
+  - **Error (403 Forbidden)**:
+
+    ```json
+    { "error": "Creator cannot create user with role 'admin'" }
     ```
   - **Error (409 Conflict)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "Email already exists"
-    }
+    { "error": "Email already exists" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/user.go`
-  - Validates input, checks email uniqueness, hashes password using `internal/auth/password.go`.
-  - Inserts into `users` table via `internal/storage/sqlite/user.go`.
+  - Enforces role hierarchy via `internal/storage/sqlite/user.go:CreateUserWithRoleCheck`.
+  - Super users create admins; admins create schedulers/regular users.
 - **Notes**:
-  - Requires admin role, enforced by middleware.
-  - Logs creation (e.g., "New user created: testuser1744873989@example.com").
+  - Logs creation (e.g., "New user created: test@example.com").
+  - Updated in Phase 2 to support `super_user` and `scheduler` roles.
 
 ### DELETE /api/users/{id}
-- **Purpose**: Deletes a user by ID (admin-only).
+
+- **Purpose**: Deletes a user by ID.
 - **Method**: DELETE
-- **Path**: `/api/users/{id}` (e.g., `/api/users/18`)
+- **Path**: `/api/users/{id}`
 - **Request Headers**:
-  - `Authorization: Bearer <admin_token>`
+  - `Authorization: Bearer <super_user_token|admin_token>`
 - **Request Payload**: None
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
-      "success": boolean,  // true
-      "message": "string"  // e.g., "User deleted successfully"
+      "success": true,
+      "message": "User deleted successfully"
     }
     ```
-  - **Error (404 Not Found)**:
+  - **Error (403 Forbidden)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "User not found"
-    }
+    { "error": "Only super users can delete admin accounts" }
+    ```
+  - **Error (404 Not Found)**:
+
+    ```json
+    { "error": "User not found" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/user.go`
-  - Deletes from `users` table via `internal/storage/sqlite/user.go`.
+  - Super users delete admins; admins delete schedulers/regular users.
+  - Cascades deletion of scheduler assignments.
 - **Notes**:
-  - Requires admin role.
-  - Logs deletion (e.g., "User deleted: ID 18, Email: testuser1744873989@example.com").
+  - Logs deletion (e.g., "User deleted: ID 18").
+  - Updated in Phase 2 for role-based deletion restrictions.
 
 ## Expert Management Endpoints
 
 ### POST /api/experts
-- **Purpose**: Creates a new expert profile (admin-only).
+
+- **Purpose**: Creates a new expert profile.
 - **Method**: POST
 - **Path**: `/api/experts`
 - **Request Headers**:
   - `Authorization: Bearer <admin_token>`
 - **Request Payload**:
+
   ```json
   {
-    "name": "string",           // Required: Name (e.g., "Test Expert 1744873989")
-    "institution": "string",    // Optional: Institution (e.g., "Test University 1744873989")
-    "primaryContact": "string", // Required: Contact (e.g., "expert1744873989@example.com")
-    "contactType": "string",    // Required: Contact type (e.g., "email")
-    "designation": "string",    // Optional: Designation (e.g., "Professor")
-    "isBahraini": boolean,      // Optional: Bahraini status (e.g., true)
-    "availability": "string",   // Optional: Availability ("yes" or "no")
-    "rating": "string",         // Optional: Rating (e.g., "5")
-    "role": "string",           // Required: Role (e.g., "evaluator")
-    "employmentType": "string", // Optional: Employment type (e.g., "academic")
-    "generalArea": int,         // Required: General area ID (e.g., 1)
-    "specializedArea": "string",// Optional: Specialized area (e.g., "Software Engineering")
-    "isTrained": boolean,       // Optional: Trained status (e.g., true)
-    "isPublished": boolean,     // Optional: Published status (e.g., true)
-    "biography": "string",      // Optional: Biography (e.g., "Expert created for testing.")
-    "skills": ["string"]        // Optional: Skills (e.g., ["Go", "Testing"])
+    "name": "string",           // Required
+    "institution": "string",    // Required
+    "email": "string",          // Required
+    "designation": "string",    // Required
+    "isBahraini": boolean,      // Required
+    "isAvailable": boolean,     // Required
+    "rating": "string",         // Required
+    "role": "string",           // Required
+    "employmentType": "string", // Required
+    "generalArea": int,         // Required
+    "specializedArea": "string",// Required
+    "isTrained": boolean,       // Required
+    "cvPath": "string",         // Required
+    "phone": "string",          // Required
+    "isPublished": boolean,     // Required
+    "biography": "string",      // Required
+    "skills": ["string"],       // Required
+    "approvalDocumentPath": "string" // Required
   }
   ```
 - **Response Payload**:
   - **Success (201 Created)**:
+
     ```json
     {
-      "id": int,           // Expert ID (e.g., 459)
-      "success": boolean,  // true
-      "message": "string"  // e.g., "Expert created successfully"
+      "id": int,
+      "success": true,
+      "message": "Expert created successfully"
     }
     ```
   - **Error (400 Bad Request)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "role is required"
-    }
+    { "errors": ["name is required", "invalid general_area"] }
     ```
   - **Error (409 Conflict)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "Expert ID already exists"
-    }
-    ```
-  - **Error (500 Internal Server Error)**:
-    ```json
-    {
-      "error": "string"    // e.g., "Failed to create expert: UNIQUE constraint failed: experts.expert_id"
-    }
+    { "error": "Expert ID already exists" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/expert.go:HandleCreateExpert`
-  - Validates required fields, generates `expert_id` if not provided (format: `EXP-<request_id>-<timestamp>`).
-  - Inserts into `experts` table via `internal/storage/sqlite/expert.go`.
+  - Generates unique `expert_id` (e.g., `EXP-0001`) via `internal/storage/sqlite/expert.go`.
+  - Validates fields, stores in `experts` table.
 - **Notes**:
-  - Requires admin role.
-  - Logs creation attempts and errors (e.g., "Creating expert: Test Expert 1744873989").
-  - Validation failures (e.g., invalid email) return specific errors, but improvements are suggested in `ERRORS.md`.
+  - Updated in Phase 1 to fix `UNIQUE constraint` issue.
+  - Phase 5 added `approvalDocumentPath`.
+  - Logs creation (e.g., "Creating expert: Test Expert").
 
 ### GET /api/experts
-- **Purpose**: Retrieves a paginated list of experts with optional filters, enhanced sorting, and pagination metadata.
+
+- **Purpose**: Retrieves a paginated list of experts with filters and sorting.
 - **Method**: GET
 - **Path**: `/api/experts`
 - **Request Headers**:
   - `Authorization: Bearer <token>`
 - **Query Parameters**:
-  - `limit`: Integer (e.g., 5) – Max number of experts.
-  - `offset`: Integer (e.g., 0) – Pagination offset.
-  - `sort_by`: String – Sort field with expanded options:
-    - `name` (default), `institution`, `role`, `created_at`, `updated_at`, `rating`, `general_area` 
-    - New options: `expert_id`, `designation`, `employment_type`, `nationality`, `specialized_area`, `is_bahraini`, `is_available`, `is_published`
-    - Also accepts camelCase versions (e.g., `expertId`, `specializedArea`)
-  - `sort_order`: String (e.g., "asc") – Sort direction ("asc" or "desc").
-  - `name`: String – Filter by name (partial match).
-  - `is_available`: String ("true"/"false") – Filter by availability.
-  - `role`: String – Filter by role (exact match).
-  - `generalArea`: Integer – Filter by general area ID.
-  - `by_nationality`: String ("Bahraini"/"non-Bahraini") – Filter by nationality.
-  - `by_general_area`: Integer – Filter by general area ID (alternative parameter).
-  - `by_specialized_area`: String – Filter by specialized area (partial match).
-  - `by_employment_type`: String – Filter by employment type (e.g., "academic").
-  - `by_role`: String – Filter by role (alternative parameter).
-- **Request Payload**: None
+  - `limit`, `offset`: Pagination.
+  - `sort_by`: e.g., `name`, `rating`, `expert_id`, `specialized_area`.
+  - `sort_order`: `asc` or `desc`.
+  - `by_nationality`: `Bahraini` or `non-Bahraini`.
+  - `by_general_area`: Area ID.
+  - `by_specialized_area`: Text search.
+  - `by_employment_type`: e.g., `academic`.
+  - `by_role`: e.g., `evaluator`.
 - **Response Headers**:
-  - `X-Total-Count`: Total number of experts matching filters
-  - `X-Total-Pages`: Total number of pages available
-  - `X-Current-Page`: Current page number
-  - `X-Page-Size`: Number of items per page
-  - `X-Has-Next-Page`: Boolean indicating if there's a next page
-  - `X-Has-Prev-Page`: Boolean indicating if there's a previous page
+  - `X-Total-Count`, `X-Total-Pages`, `X-Current-Page`, `X-Page-Size`, `X-Has-Next-Page`, `X-Has-Prev-Page`
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
       "experts": [
         {
-          "id": int,               // Expert ID (e.g., 440)
-          "expertId": "string",    // Unique ID (e.g., "EXP-5-1744706079")
-          "name": "string",        // Name
-          "designation": "string", // Designation
-          "institution": "string", // Institution
-          "isBahraini": boolean,   // Bahraini status
-          "nationality": "string", // Nationality
-          "isAvailable": boolean,  // Availability
-          "rating": "string",      // Rating
-          "role": "string",        // Role
-          "employmentType": "string", // Employment type
-          "generalArea": int,      // General area ID
-          "generalAreaName": "string", // General area name
-          "specializedArea": "string", // Specialized area
-          "isTrained": boolean,    // Trained status
-          "cvPath": "string",      // CV path
-          "phone": "string",       // Phone
-          "email": "string",       // Email
-          "isPublished": boolean,  // Published status
-          "biography": "string",   // Biography
-          "createdAt": "string",   // ISO 8601 timestamp
-          "updatedAt": "string"    // ISO 8601 timestamp
+          "id": int,
+          "expertId": "string",
+          "name": "string",
+          "designation": "string",
+          "institution": "string",
+          "isBahraini": boolean,
+          "isAvailable": boolean,
+          "rating": "string",
+          "role": "string",
+          "employmentType": "string",
+          "generalArea": int,
+          "generalAreaName": "string",
+          "specializedArea": "string",
+          "isTrained": boolean,
+          "cvPath": "string",
+          "phone": "string",
+          "email": "string",
+          "isPublished": boolean,
+          "biography": "string",
+          "approvalDocumentPath": "string",
+          "createdAt": "string",
+          "updatedAt": "string"
         }
       ],
       "pagination": {
-        "totalCount": int,        // Total number of experts matching filters
-        "totalPages": int,        // Total number of pages
-        "currentPage": int,       // Current page number
-        "pageSize": int,          // Number of items per page
-        "hasNextPage": boolean,   // Indicates if there's a next page
-        "hasPrevPage": boolean,   // Indicates if there's a previous page
-        "hasMore": boolean        // Indicates if there are more results
+        "totalCount": int,
+        "totalPages": int,
+        "currentPage": int,
+        "pageSize": int,
+        "hasNextPage": boolean,
+        "hasPrevPage": boolean,
+        "hasMore": boolean
       }
     }
     ```
   - **Error (400 Bad Request)**:
+
     ```json
-    {
-      "error": "string"        // e.g., "Invalid query parameters"
-    }
+    { "error": "Invalid query parameters" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/expert.go`
-  - Queries `experts` table with pagination, sorting, and filtering.
+  - Supports extended filters and sorting (Phase 3).
 - **Notes**:
-  - Accessible to authenticated users.
-  - Enhanced in Phase 3B with improved sorting and pagination metadata.
-  - Headers continue to be provided for API clients that rely on them.
-  - Adds detailed pagination metadata in the response body.
-  - Fields can be sorted in many different ways (e.g., by name, nationality, availability).
-  - Combines multiple filters with AND logic.
-  - Supports a variety of filters for nationality, area, role, etc.
-  - Logs query details (e.g., "Retrieving experts with filters: map[by_nationality:Bahraini sort_by:name sort_order:asc]").
+  - Accessible to all authenticated users (Phase 2D).
+  - Logs queries (e.g., "Retrieving experts with filters").
 
 ### GET /api/experts/{id}
-- **Purpose**: Retrieves details of a specific expert by ID.
+
+- **Purpose**: Retrieves a specific expert’s details.
 - **Method**: GET
-- **Path**: `/api/experts/{id}` (e.g., `/api/experts/440`)
+- **Path**: `/api/experts/{id}`
 - **Request Headers**:
   - `Authorization: Bearer <token>`
-- **Request Payload**: None
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
-      "id": int,               // Expert ID
-      "expertId": "string",    // Unique ID
-      "name": "string",        // Name
-      "designation": "string", // Designation
-      "institution": "string", // Institution
-      "isBahraini": boolean,   // Bahraini status
-      "nationality": "string", // Nationality
-      "isAvailable": boolean,  // Availability
-      "rating": "string",      // Rating
-      "role": "string",        // Role
-      "employmentType": "string", // Employment type
-      "generalArea": int,      // General area ID
-      "generalAreaName": "string", // General area name
-      "specializedArea": "string", // Specialized area
-      "isTrained": boolean,    // Trained status
-      "cvPath": "string",      // CV path
-      "phone": "string",       // Phone
-      "email": "string",       // Email
-      "isPublished": boolean,  // Published status
-      "biography": "string",   // Biography
-      "createdAt": "string",   // ISO 8601 timestamp
-      "updatedAt": "string"    // ISO 8601 timestamp
+      "id": int,
+      "expertId": "string",
+      "name": "string",
+      "designation": "string",
+      "institution": "string",
+      "isBahraini": boolean,
+      "isAvailable": boolean,
+      "rating": "string",
+      "role": "string",
+      "employmentType": "string",
+      "generalArea": int,
+      "generalAreaName": "string",
+      "specializedArea": "string",
+      "isTrained": boolean,
+      "cvPath": "string",
+      "phone": "string",
+      "email": "string",
+      "isPublished": boolean,
+      "biography": "string",
+      "approvalDocumentPath": "string",
+      "createdAt": "string",
+      "updatedAt": "string"
     }
     ```
   - **Error (404 Not Found)**:
+
     ```json
-    {
-      "error": "string"        // e.g., "Expert not found"
-    }
+    { "error": "Expert not found" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/expert.go`
-  - Fetches from `experts` table.
+  - Includes `approvalDocumentPath` (Phase 3C).
 - **Notes**:
-  - Accessible to authenticated users.
-  - Logs retrieval (e.g., "Successfully retrieved expert: ID: 440").
+  - Accessible to all authenticated users (Phase 2D).
 
 ### PUT /api/experts/{id}
-- **Purpose**: Updates an existing expert profile (admin-only).
+
+- **Purpose**: Updates an expert profile.
 - **Method**: PUT
-- **Path**: `/api/experts/{id}` (e.g., `/api/experts/440`)
+- **Path**: `/api/experts/{id}`
 - **Request Headers**:
   - `Authorization: Bearer <admin_token>`
 - **Request Payload**:
+
   ```json
   {
-    "name": "string",           // Optional: Name
-    "institution": "string",    // Optional: Institution
-    "primaryContact": "string", // Optional: Contact
-    "contactType": "string",    // Optional: Contact type
-    "designation": "string",    // Optional: Designation
-    "isBahraini": boolean,      // Optional: Bahraini status
-    "availability": "string",   // Optional: Availability
-    "rating": "string",         // Optional: Rating
-    "role": "string",           // Optional: Role
-    "employmentType": "string", // Optional: Employment type
-    "generalArea": int,         // Optional: General area ID
-    "specializedArea": "string",// Optional: Specialized area
-    "isTrained": boolean,       // Optional: Trained status
-    "isPublished": boolean,     // Optional: Published status
-    "biography": "string",      // Optional: Biography
-    "skills": ["string"]        // Optional: Skills
+    "name": "string",
+    "institution": "string",
+    "email": "string",
+    "designation": "string",
+    "isBahraini": boolean,
+    "isAvailable": boolean,
+    "rating": "string",
+    "role": "string",
+    "employmentType": "string",
+    "generalArea": int,
+    "specializedArea": "string",
+    "isTrained": boolean,
+    "cvPath": "string",
+    "phone": "string",
+    "isPublished": boolean,
+    "biography": "string",
+    "skills": ["string"],
+    "approvalDocumentPath": "string"
   }
   ```
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
-      "success": boolean,  // true
-      "message": "string"  // e.g., "Expert updated successfully"
+      "success": true,
+      "message": "Expert updated successfully"
     }
     ```
   - **Error (400 Bad Request)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "Invalid request payload"
-    }
-    ```
-  - **Error (404 Not Found)**:
-    ```json
-    {
-      "error": "string"    // e.g., "Expert not found"
-    }
+    { "error": "Invalid request payload" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/expert.go`
-  - Updates specified fields in `experts` table.
+  - Updates specified fields, including `approvalDocumentPath`.
 - **Notes**:
-  - Requires admin role.
-  - Only provided fields are updated.
-  - Logs updates (e.g., "Expert updated successfully: ID: 440").
+  - Logs updates (e.g., "Expert updated: ID 440").
 
 ### DELETE /api/experts/{id}
-- **Purpose**: Deletes an expert by ID (admin-only).
+
+- **Purpose**: Deletes an expert.
 - **Method**: DELETE
-- **Path**: `/api/experts/{id}` (e.g., `/api/experts/440`)
+- **Path**: `/api/experts/{id}`
 - **Request Headers**:
   - `Authorization: Bearer <admin_token>`
-- **Request Payload**: None
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
-      "success": boolean,  // true
-      "message": "string"  // e.g., "Expert deleted successfully"
+      "success": true,
+      "message": "Expert deleted successfully"
     }
     ```
   - **Error (404 Not Found)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "Expert not found"
-    }
+    { "error": "Expert not found" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/expert.go`
-  - Deletes from `experts` table, cascading to `expert_documents`.
+  - Cascades to documents, including approval documents (Phase 6C).
 - **Notes**:
-  - Requires admin role.
-  - Logs deletion (e.g., "Expert deleted successfully: ID: 440").
+  - Logs deletion (e.g., "Expert deleted: ID 440").
 
 ### GET /api/expert/areas
-- **Purpose**: Retrieves a list of available expert areas.
+
+- **Purpose**: Retrieves all specialization areas.
 - **Method**: GET
 - **Path**: `/api/expert/areas`
 - **Request Headers**:
-  - `Authorization: Bearer <token>` (required)
-- **Request Payload**: None
+  - `Authorization: Bearer <token>`
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     [
-      {
-        "id": int,         // Area ID (e.g., 1)
-        "name": "string"   // Area name (e.g., "Art and Design")
-      }
+      { "id": int, "name": "string" }
     ]
     ```
   - **Error (401 Unauthorized)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "Unauthorized"
-    }
-    ```
-  - **Error (500 Internal Server Error)**:
-    ```json
-    {
-      "error": "string"    // e.g., "Failed to retrieve expert areas"
-    }
+    { "error": "Unauthorized" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/expert.go`
-  - Fetches from `expert_areas` table.
+  - Extended to all authenticated users (Phase 8A).
 - **Notes**:
-  - Requires authentication (previously was public).
-  - Returns 34 areas (e.g., "Art and Design", "Information Technology").
   - Logs retrieval (e.g., "Returning 34 expert areas").
+
+### POST /api/expert/areas
+
+- **Purpose**: Creates a new specialization area.
+- **Method**: POST
+- **Path**: `/api/expert/areas`
+- **Request Headers**:
+  - `Authorization: Bearer <admin_token>`
+- **Request Payload**:
+
+  ```json
+  { "name": "string" } // Required
+  ```
+- **Response Payload**:
+  - **Success (201 Created)**:
+
+    ```json
+    {
+      "id": int,
+      "success": true,
+      "message": "Area created successfully"
+    }
+    ```
+  - **Error (400 Bad Request)**:
+
+    ```json
+    { "error": "Name is required" }
+    ```
+  - **Error (409 Conflict)**:
+
+    ```json
+    { "error": "Area name already exists" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/expert.go`
+  - Inserts into `expert_areas` table (Phase 8B).
+- **Notes**:
+  - Logs creation (e.g., "Area created: New Area").
+
+### PUT /api/expert/areas/{id}
+
+- **Purpose**: Renames a specialization area.
+- **Method**: PUT
+- **Path**: `/api/expert/areas/{id}`
+- **Request Headers**:
+  - `Authorization: Bearer <admin_token>`
+- **Request Payload**:
+
+  ```json
+  { "name": "string" } // Required
+  ```
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "message": "Area updated successfully"
+    }
+    ```
+  - **Error (400 Bad Request)**:
+
+    ```json
+    { "error": "Name is required" }
+    ```
+  - **Error (404 Not Found)**:
+
+    ```json
+    { "error": "Area not found" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/expert.go`
+  - Updates `expert_areas`, cascades to `experts` and `expert_requests` (Phase 8C).
+- **Notes**:
+  - Uses transactions for integrity.
+  - Logs update (e.g., "Area renamed: ID 1").
 
 ## Expert Request Management Endpoints
 
 ### POST /api/expert-requests
-- **Purpose**: Submits a new expert request for review.
+
+- **Purpose**: Submits an expert request with CV upload.
 - **Method**: POST
 - **Path**: `/api/expert-requests`
 - **Request Headers**:
-  - `Authorization: Bearer <token>`
-- **Request Payload**:
-  ```json
-  {
-    "name": "string",           // Required: Name (e.g., "Request Expert 1744873989")
-    "designation": "string",    // Optional: Designation (e.g., "Researcher")
-    "institution": "string",    // Optional: Institution (e.g., "Request University 1744873989")
-    "isBahraini": boolean,      // Optional: Bahraini status (e.g., false)
-    "isAvailable": boolean,     // Optional: Availability (e.g., true)
-    "rating": "string",         // Optional: Rating (e.g., "4")
-    "role": "string",           // Optional: Role (e.g., "reviewer")
-    "employmentType": "string", // Optional: Employment type (e.g., "freelance")
-    "generalArea": int,         // Required: General area ID (e.g., 1)
-    "specializedArea": "string",// Optional: Specialized area (e.g., "Quantum Physics")
-    "isTrained": boolean,       // Optional: Trained status (e.g., false)
-    "phone": "string",          // Optional: Phone (e.g., "+97311111744873989")
-    "email": "string",          // Optional: Email (e.g., "request1744873989@example.com")
-    "isPublished": boolean,     // Optional: Published status (e.g., false)
-    "biography": "string"       // Optional: Biography (e.g., "Researcher requesting addition.")
-  }
+  - `Authorization: Bearer <scheduler_token|regular_token>`
+- **Request Payload**: Form-data
+
+  ```text
+  name: string           // Required
+  designation: string     // Required
+  institution: string     // Required
+  isBahraini: boolean    // Required
+  isAvailable: boolean   // Required
+  rating: string         // Required
+  role: string           // Required
+  employmentType: string // Required
+  generalArea: int       // Required
+  specializedArea: string// Required
+  isTrained: boolean     // Required
+  phone: string          // Required
+  email: string          // Required
+  biography: string      // Required
+  skills: string         // Required: JSON array
+  isPublished: boolean   // Optional, defaults to false
+  cv: file               // Required: PDF
   ```
 - **Response Payload**:
   - **Success (201 Created)**:
+
     ```json
     {
-      "id": int,               // Request ID (e.g., 26)
-      "name": "string",        // Name
-      "designation": "string", // Designation
-      "institution": "string", // Institution
-      "isBahraini": boolean,   // Bahraini status
-      "isAvailable": boolean,  // Availability
-      "rating": "string",      // Rating
-      "role": "string",        // Role
-      "employmentType": "string", // Employment type
-      "generalArea": int,      // General area ID
-      "specializedArea": "string", // Specialized area
-      "isTrained": boolean,    // Trained status
-      "cvPath": "string",      // CV path
-      "phone": "string",       // Phone
-      "email": "string",       // Email
-      "isPublished": boolean,  // Published status
-      "status": "string",      // Status (e.g., "pending")
-      "biography": "string",   // Biography
-      "createdAt": "string",   // ISO 8601 timestamp
-      "reviewedAt": "string"   // ISO 8601 timestamp
+      "id": int,
+      "name": "string",
+      "status": "pending",
+      "cvPath": "string",
+      ...
     }
     ```
   - **Error (400 Bad Request)**:
+
     ```json
-    {
-      "error": "string"        // e.g., "name is required"
-    }
+    { "errors": ["name is required", "cv file missing"] }
     ```
 - **Implementation**:
-  - File: `internal/api/handlers/expert_request.go:HandleCreateExpertRequest`
-  - Validates required fields, sets default `status` to "pending".
-  - Inserts into `expert_requests` table.
+  - File: `internal/api/handlers/expert_request.go`
+  - Stores CV via `internal/documents/service.go` (Phase 4A).
 - **Notes**:
-  - Accessible to authenticated users.
-  - Logs creation (e.g., "Expert request created successfully: ID: 26").
-  - Validation improvements suggested in `ERRORS.md`.
+  - Logs creation (e.g., "Expert request created: ID 26").
+  - Improved validation (Phase 4A).
 
 ### GET /api/expert-requests
-- **Purpose**: Retrieves a paginated list of expert requests.
+
+- **Purpose**: Retrieves paginated expert requests with status filtering.
 - **Method**: GET
 - **Path**: `/api/expert-requests`
 - **Request Headers**:
   - `Authorization: Bearer <admin_token>`
 - **Query Parameters**:
-  - `limit`: Integer (e.g., 5)
-  - `offset`: Integer (e.g., 0)
-- **Request Payload**: None
+  - `limit`, `offset`: Pagination.
+  - `status`: `pending`, `approved`, `rejected`.
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     [
       {
-        "id": int,               // Request ID
-        "name": "string",        // Name
-        "designation": "string", // Designation
-        "institution": "string", // Institution
-        "isBahraini": boolean,   // Bahraini status
-        "isAvailable": boolean,  // Availability
-        "rating": "string",      // Rating
-        "role": "string",        // Role
-        "employmentType": "string", // Employment type
-        "generalArea": int,      // General area ID
-        "specializedArea": "string", // Specialized area
-        "isTrained": boolean,    // Trained status
-        "cvPath": "string",      // CV path
-        "phone": "string",       // Phone
-        "email": "string",       // Email
-        "isPublished": boolean,  // Published status
-        "status": "string",      // Status
-        "biography": "string",   // Biography
-        "createdAt": "string",   // ISO 8601 timestamp
-        "reviewedAt": "string"   // ISO 8601 timestamp
+        "id": int,
+        "name": "string",
+        "status": "string",
+        "cvPath": "string",
+        "approvalDocumentPath": "string",
+        ...
       }
     ]
     ```
   - **Error (400 Bad Request)**:
+
     ```json
-    {
-      "error": "string"        // e.g., "Invalid query parameters"
-    }
+    { "error": "Invalid status parameter" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/expert_request.go`
-  - Queries `expert_requests` table with pagination.
+  - Filters by status (Phase 4B).
 - **Notes**:
-  - Requires admin role.
-  - Logs retrieval (e.g., "Returning 5 expert requests").
+  - Logs retrieval (e.g., "Returning 5 requests").
 
 ### GET /api/expert-requests/{id}
-- **Purpose**: Retrieves details of a specific expert request.
+
+- **Purpose**: Retrieves a specific expert request.
 - **Method**: GET
-- **Path**: `/api/expert-requests/{id}` (e.g., `/api/expert-requests/26`)
+- **Path**: `/api/expert-requests/{id}`
 - **Request Headers**:
   - `Authorization: Bearer <admin_token>`
-- **Request Payload**: None
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
-      "id": int,               // Request ID
-      "name": "string",        // Name
-      "designation": "string", // Designation
-      "institution": "string", // Institution
-      "isBahraini": boolean,   // Bahraini status
-      "isAvailable": boolean,  // Availability
-      "rating": "string",      // Rating
-      "role": "string",        // Role
-      "employmentType": "string", // Employment type
-      "generalArea": int,      // General area ID
-      "specializedArea": "string", // Specialized area
-      "isTrained": boolean,    // Trained status
-      "cvPath": "string",      // CV path
-      "phone": "string",       // Phone
-      "email": "string",       // Email
-      "isPublished": boolean,  // Published status
-      "status": "string",      // Status
-      "biography": "string",   // Biography
-      "createdAt": "string",   // ISO 8601 timestamp
-      "reviewedAt": "string"   // ISO 8601 timestamp
+      "id": int,
+      "name": "string",
+      "status": "string",
+      "cvPath": "string",
+      "approvalDocumentPath": "string",
+      ...
     }
     ```
   - **Error (404 Not Found)**:
+
     ```json
-    {
-      "error": "string"        // e.g., "Expert request not found"
-    }
+    { "error": "Expert request not found" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/expert_request.go`
-  - Fetches from `expert_requests` table.
+  - Includes `cvPath` (Phase 4B).
 - **Notes**:
-  - Requires admin role.
-  - Logs retrieval (e.g., "Successfully retrieved expert request: ID: 26").
+  - Logs retrieval (e.g., "Retrieved request: ID 26").
 
 ### PUT /api/expert-requests/{id}
-- **Purpose**: Updates an expert request, typically to approve or reject it (admin-only).
+
+- **Purpose**: Approves or rejects an expert request with approval document.
 - **Method**: PUT
-- **Path**: `/api/expert-requests/{id}` (e.g., `/api/expert-requests/26`)
+- **Path**: `/api/expert-requests/{id}`
 - **Request Headers**:
   - `Authorization: Bearer <admin_token>`
-- **Request Payload**:
-  ```json
-  {
-    "status": "string",          // Required: Status ("approved" or "rejected")
-    "rejectionReason": "string"  // Optional: Reason for rejection (e.g., "Test rejection")
-  }
+- **Request Payload**: Form-data
+
+  ```text
+  status: string          // Required: "approved" or "rejected"
+  rejectionReason: string // Optional
+  approvalDocument: file  // Required for approval
   ```
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
-      "success": boolean,  // true
-      "message": "string"  // e.g., "Expert request updated successfully"
+      "success": true,
+      "message": "Expert request updated successfully"
     }
     ```
   - **Error (400 Bad Request)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "Invalid status"
-    }
-    ```
-  - **Error (404 Not Found)**:
-    ```json
-    {
-      "error": "string"    // e.g., "Expert request not found"
-    }
+    { "error": "Approval document required" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/expert_request.go`
-  - Updates `status` and `reviewedAt` in `expert_requests` table.
-  - On approval, creates an expert in `experts` table.
+  - Stores approval document, creates expert on approval (Phase 5B).
 - **Notes**:
-  - Requires admin role.
-  - Logs updates (e.g., "Expert request updated successfully: ID: 26, Status: approved").
-  - Approval generates a unique `expert_id` (e.g., "EXP-26-1744873990").
+  - Logs update (e.g., "Request approved: ID 26").
+
+### PUT /api/expert-requests/{id}/edit
+
+- **Purpose**: Edits an expert request before approval.
+- **Method**: PUT
+- **Path**: `/api/expert-requests/{id}/edit`
+- **Request Headers**:
+  - `Authorization: Bearer <admin_token|owner_token>`
+- **Request Payload**: Form-data
+
+  ```text
+  name: string
+  designation: string
+  institution: string
+  ...
+  cv: file
+  ```
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "message": "Expert request updated successfully"
+    }
+    ```
+  - **Error (403 Forbidden)**:
+
+    ```json
+    { "error": "Only admins or request owner can edit" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/expert_request.go`
+  - Admins edit any request; users edit their rejected requests (Phase 4C).
+- **Notes**:
+  - Logs update (e.g., "Request edited: ID 26").
+
+### POST /api/expert-requests/batch-approve
+
+- **Purpose**: Approves multiple expert requests with one approval document.
+- **Method**: POST
+- **Path**: `/api/expert-requests/batch-approve`
+- **Request Headers**:
+  - `Authorization: Bearer <admin_token>`
+- **Request Payload**: Form-data
+
+  ```text
+  requestIds: string     // JSON array of IDs
+  approvalDocument: file // Required
+  ```
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "message": "Batch approval completed",
+      "results": [
+        { "id": int, "status": "success" | "failed", "error": "string" }
+      ]
+    }
+    ```
+  - **Error (400 Bad Request)**:
+
+    ```json
+    { "error": "Missing approval document" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/expert_request.go`
+  - Uses transactions for consistency (Phase 5C).
+- **Notes**:
+  - Logs results (e.g., "Batch approved 3 requests").
 
 ## Document Management Endpoints
 
 ### POST /api/documents
-- **Purpose**: Uploads a document (e.g., CV) for an expert (admin-only).
+
+- **Purpose**: Uploads a document for an expert.
 - **Method**: POST
 - **Path**: `/api/documents`
 - **Request Headers**:
   - `Authorization: Bearer <admin_token>`
 - **Request Payload**: Form-data
+
   ```text
-  file: file           // Required: File (e.g., sample_cv.txt)
-  documentType: string // Required: Type (e.g., "cv")
-  expertId: int        // Required: Expert ID (e.g., 440)
+  file: file           // Required
+  documentType: string // Required: e.g., "cv", "approval"
+  expertId: int        // Required
   ```
 - **Response Payload**:
   - **Success (201 Created)**:
+
     ```json
     {
-      "id": int,           // Document ID
-      "success": boolean,  // true
-      "message": "string"  // e.g., "Document uploaded successfully"
+      "id": int,
+      "success": true,
+      "message": "Document uploaded successfully"
     }
     ```
   - **Error (400 Bad Request)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "Missing file"
-    }
+    { "error": "Invalid document type" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/documents/document_handler.go`
-  - Stores file in `UPLOAD_PATH` (default: `./data/documents`).
-  - Inserts metadata into `expert_documents` table.
+  - Supports `cv`, `approval`, `certificate`, `publication`, `other` (Phase 6B).
 - **Notes**:
-  - Requires admin role.
-  - Logs upload attempts (e.g., via `test_api.sh`).
+  - Logs upload (e.g., "Document uploaded for expert: ID 440").
 
 ### GET /api/experts/{id}/documents
-- **Purpose**: Retrieves a list of documents for an expert.
+
+- **Purpose**: Lists documents for an expert.
 - **Method**: GET
-- **Path**: `/api/experts/{id}/documents` (e.g., `/api/experts/440/documents`)
+- **Path**: `/api/experts/{id}/documents`
 - **Request Headers**:
   - `Authorization: Bearer <token>`
-- **Request Payload**: None
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     [
       {
-        "id": int,         // Document ID
-        "expertId": int,   // Expert ID
-        "documentType": "string", // Type
-        "filePath": "string",     // File path
-        "createdAt": "string"     // ISO 8601 timestamp
+        "id": int,
+        "expertId": int,
+        "documentType": "string",
+        "filePath": "string",
+        "createdAt": "string"
       }
     ]
     ```
   - **Error (404 Not Found)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "Expert not found"
-    }
+    { "error": "Expert not found" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/documents/document_handler.go`
-  - Queries `expert_documents` table.
+  - Accessible to all users (Phase 6A).
 - **Notes**:
-  - Accessible to authenticated users.
-  - Logs retrieval (e.g., via `test_api.sh`).
+  - Includes CVs and approval documents.
 
 ### GET /api/documents/{id}
-- **Purpose**: Retrieves details of a specific document.
+
+- **Purpose**: Retrieves a specific document.
 - **Method**: GET
-- **Path**: `/api/documents/{id}` (e.g., `/api/documents/1`)
+- **Path**: `/api/documents/{id}`
 - **Request Headers**:
   - `Authorization: Bearer <token>`
-- **Request Payload**: None
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
-      "id": int,         // Document ID
-      "expertId": int,   // Expert ID
-      "documentType": "string", // Type
-      "filePath": "string",     // File path
-      "createdAt": "string"     // ISO 8601 timestamp
+      "id": int,
+      "expertId": int,
+      "documentType": "string",
+      "filePath": "string",
+      "createdAt": "string"
     }
     ```
   - **Error (404 Not Found)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "Document not found"
-    }
+    { "error": "Document not found" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/documents/document_handler.go`
-  - Fetches from `expert_documents` table.
+  - Accessible to all users (Phase 6A).
 - **Notes**:
-  - Accessible to authenticated users.
-  - Logs retrieval (e.g., via `test_api.sh`).
+  - Logs retrieval (e.g., "Retrieved document: ID 1").
 
 ### DELETE /api/documents/{id}
-- **Purpose**: Deletes a document by ID (admin-only).
+
+- **Purpose**: Deletes a document.
 - **Method**: DELETE
-- **Path**: `/api/documents/{id}` (e.g., `/api/documents/1`)
+- **Path**: `/api/documents/{id}`
 - **Request Headers**:
   - `Authorization: Bearer <admin_token>`
-- **Request Payload**: None
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
-      "success": boolean,  // true
-      "message": "string"  // e.g., "Document deleted successfully"
+      "success": true,
+      "message": "Document deleted successfully"
     }
     ```
   - **Error (404 Not Found)**:
+
     ```json
-    {
-      "error": "string"    // e.g., "Document not found"
-    }
+    { "error": "Document not found" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/documents/document_handler.go`
-  - Deletes from `expert_documents` table and removes file.
+  - Cascades with expert deletion (Phase 6C).
 - **Notes**:
-  - Requires admin role.
-  - Logs deletion (e.g., via `test_api.sh`).
+  - Logs deletion (e.g., "Document deleted: ID 1").
 
 ## Engagement Management Endpoints
 
 ### GET /api/expert-engagements
-- **Purpose**: Retrieves a list of expert engagements.
+
+- **Purpose**: Lists engagements with filters.
 - **Method**: GET
 - **Path**: `/api/expert-engagements`
 - **Request Headers**:
-  - `Authorization: Bearer <token>`
+  - `Authorization: Bearer <admin_token>`
 - **Query Parameters**:
-  - `limit`: Integer (e.g., 5)
-  - `offset`: Integer (e.g., 0)
-- **Request Payload**: None
+  - `limit`, `offset`: Pagination.
+  - `expert_id`: Filter by expert ID.
+  - `type`: `validator` or `evaluator`.
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     [
       {
-        "id": int,               // Engagement ID
-        "expertId": int,         // Expert ID
-        "type": "string",        // Type (e.g., "evaluation")
-        "description": "string", // Description
-        "startDate": "string",   // ISO 8601 timestamp
-        "endDate": "string",     // ISO 8601 timestamp
-        "createdAt": "string"    // ISO 8601 timestamp
+        "id": int,
+        "expertId": int,
+        "engagementType": "string",
+        "startDate": "string",
+        "projectName": "string",
+        "status": "string",
+        "notes": "string",
+        "createdAt": "string"
       }
     ]
     ```
   - **Error (400 Bad Request)**:
+
     ```json
-    {
-      "error": "string"        // e.g., "Invalid query parameters"
-    }
+    { "error": "Invalid query parameters" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/engagements/engagement_handler.go`
-  - Queries `expert_engagements` table.
+  - Filters added in Phase 11A; types restricted to `validator`, `evaluator` (Phase 11B).
 - **Notes**:
-  - Accessible to authenticated users.
-  - Logs retrieval (e.g., via `test_api.sh`).
+  - Logs retrieval (e.g., "Retrieved engagements").
+
+### POST /api/engagements/import
+
+- **Purpose**: Imports past engagements from CSV/JSON.
+- **Method**: POST
+- **Path**: `/api/engagements/import`
+- **Request Headers**:
+  - `Authorization: Bearer <admin_token>`
+- **Request Payload**: Form-data
+
+  ```text
+  format: string      // Required: "csv" or "json"
+  file: file          // Required
+  ```
+  - CSV Example:
+
+    ```csv
+    expert_id,type,date,details
+    1,validator,2025-01-01,Project X
+    ```
+  - JSON Example:
+
+    ```json
+    [
+      {
+        "expert_id": 1,
+        "type": "validator",
+        "date": "2025-01-01",
+        "details": "Project X"
+      }
+    ]
+    ```
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "message": "Engagements imported successfully",
+      "imported": int,
+      "failed": int
+    }
+    ```
+  - **Error (400 Bad Request)**:
+
+    ```json
+    { "error": "Invalid format" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/engagements/engagement_handler.go`
+  - Validates and deduplicates via `internal/storage/sqlite/engagement.go` (Phase 11C).
+- **Notes**:
+  - Logs import results (e.g., "Imported 10 engagements").
+
+## Phase Planning Endpoints
+
+### POST /api/phases
+
+- **Purpose**: Creates a phase plan with applications.
+- **Method**: POST
+- **Path**: `/api/phases`
+- **Request Headers**:
+  - `Authorization: Bearer <admin_token>`
+- **Request Payload**:
+
+  ```json
+  {
+    "title": "string",
+    "assignedSchedulerId": int,
+    "status": "string",
+    "applications": [
+      {
+        "type": "string",       // "QP" or "IL"
+        "institutionName": "string",
+        "qualificationName": "string",
+        "expert1": int,
+        "expert2": int,
+        "status": "string"
+      }
+    ]
+  }
+  ```
+- **Response Payload**:
+  - **Success (201 Created)**:
+
+    ```json
+    {
+      "id": int,
+      "success": true,
+      "message": "Phase created successfully"
+    }
+    ```
+  - **Error (400 Bad Request)**:
+
+    ```json
+    { "error": "Title is required" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/phase/phase_handler.go`
+  - Stores in `phases` and `phase_applications` tables (Phase 10B).
+- **Notes**:
+  - Logs creation (e.g., "Phase created: ID 1").
+
+### GET /api/phases
+
+- **Purpose**: Lists phase plans with filters.
+- **Method**: GET
+- **Path**: `/api/phases`
+- **Request Headers**:
+  - `Authorization: Bearer <admin_token>`
+- **Query Parameters**:
+  - `limit`, `offset`: Pagination.
+  - `status`: Phase status.
+  - `scheduler_id`: Assigned scheduler ID.
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    [
+      {
+        "id": int,
+        "phaseId": "string",
+        "title": "string",
+        "assignedSchedulerId": int,
+        "status": "string",
+        "createdAt": "string",
+        "updatedAt": "string",
+        "applications": [
+          {
+            "id": int,
+            "phaseId": int,
+            "type": "string",
+            "institutionName": "string",
+            "qualificationName": "string",
+            "expert1": int,
+            "expert1Name": "string",
+            "expert2": int,
+            "expert2Name": "string",
+            "status": "string",
+            "rejectionNotes": "string",
+            "createdAt": "string",
+            "updatedAt": "string"
+          }
+        ]
+      }
+    ]
+    ```
+  - **Error (400 Bad Request)**:
+
+    ```json
+    { "error": "Invalid query parameters" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/phase/phase_handler.go`
+  - Supports filtering (Phase 10E).
+- **Notes**:
+  - Logs retrieval (e.g., "Retrieved phases").
+
+### PUT /api/phases/{id}/applications/{app_id}
+
+- **Purpose**: Proposes experts for a phase application.
+- **Method**: PUT
+- **Path**: `/api/phases/{id}/applications/{app_id}`
+- **Request Headers**:
+  - `Authorization: Bearer <scheduler_token>`
+- **Request Payload**:
+
+  ```json
+  {
+    "expert1": int,
+    "expert2": int
+  }
+  ```
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "message": "Experts proposed successfully"
+    }
+    ```
+  - **Error (400 Bad Request)**:
+
+    ```json
+    { "error": "Invalid expert ID" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/phase/phase_handler.go`
+  - Validates expert IDs (Phase 10C).
+- **Notes**:
+  - Logs update (e.g., "Experts proposed for application: ID 1").
+
+### PUT /api/phases/{id}/applications/{app_id}/review
+
+- **Purpose**: Approves or rejects a phase application, creating engagements.
+- **Method**: PUT
+- **Path**: `/api/phases/{id}/applications/{app_id}/review`
+- **Request Headers**:
+  - `Authorization: Bearer <admin_token>`
+- **Request Payload**:
+
+  ```json
+  {
+    "status": "string",       // "approved", "rejected", "pending"
+    "rejectionNotes": "string"
+  }
+  ```
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "message": "Application reviewed successfully"
+    }
+    ```
+  - **Error (400 Bad Request)**:
+
+    ```json
+    { "error": "Rejection notes required for rejection" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/phase/phase_handler.go`
+  - Creates `validator`/`evaluator` engagements on approval (Phase 10D).
+- **Notes**:
+  - Uses transactions; logs review (e.g., "Application approved: ID 1").
 
 ## Statistics Endpoints
 
 ### GET /api/statistics
+
 - **Purpose**: Retrieves overall system statistics.
 - **Method**: GET
 - **Path**: `/api/statistics`
 - **Request Headers**:
-  - `Authorization: Bearer <token>`
-- **Request Payload**: None
+  - `Authorization: Bearer <super_user_token>`
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
-      "totalExperts": int,        // Total experts (e.g., 459)
-      "activeCount": int,         // Active experts (e.g., 379)
-      "bahrainiPercentage": float,// Bahraini percentage (e.g., 59.25925925925925)
+      "totalExperts": int,
+      "activeCount": int,
+      "bahrainiPercentage": float,
+      "publishedCount": int,
+      "publishedRatio": float,
       "topAreas": [
-        {
-          "name": "string",      // Area ID (e.g., "10")
-          "count": int,          // Count (e.g., 67)
-          "percentage": float     // Percentage (e.g., 14.596949891067537)
-        }
+        { "name": "string", "count": int, "percentage": float }
       ],
       "engagementsByType": [
-        {
-          "name": "string",      // Type (e.g., "evaluation")
-          "count": int,          // Count (e.g., 100)
-          "percentage": float     // Percentage (e.g., 25)
-        }
+        { "name": "string", "count": int, "percentage": float }
       ],
-      "monthlyGrowth": [
-        {
-          "period": "string",    // Year-month (e.g., "2025-03")
-          "count": int,          // Count (e.g., 436)
-          "growthRate": float     // Rate (e.g., 0)
-        }
+      "yearlyGrowth": [
+        { "period": "string", "count": int, "growthRate": float }
       ],
       "mostRequestedExperts": [
-        {
-          "expertId": "string",  // ID (e.g., "E001")
-          "name": "string",      // Name (e.g., "Ammar Jreisat")
-          "count": int           // Count (e.g., 160)
-        }
+        { "expertId": "string", "name": "string", "count": int }
       ],
-      "lastUpdated": "string"     // ISO 8601 timestamp
+      "lastUpdated": "string"
     }
     ```
   - **Error (500 Internal Server Error)**:
+
     ```json
-    {
-      "error": "string"           // e.g., "Failed to retrieve statistics"
-    }
+    { "error": "Failed to retrieve statistics" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/statistics/statistics_handler.go`
-  - Aggregates data from multiple tables.
+  - Added `publishedCount`, `publishedRatio` (Phase 7A).
 - **Notes**:
-  - Accessible to authenticated users.
-  - Logs retrieval (e.g., "Successfully retrieved system statistics").
+  - Logs retrieval (e.g., "Retrieved statistics").
 
 ### GET /api/statistics/growth
-- **Purpose**: Retrieves expert growth statistics over a period.
+
+- **Purpose**: Retrieves yearly expert growth.
 - **Method**: GET
 - **Path**: `/api/statistics/growth`
 - **Request Headers**:
-  - `Authorization: Bearer <token>`
+  - `Authorization: Bearer <super_user_token>`
 - **Query Parameters**:
-  - `months`: Integer (e.g., 6) – Number of months.
-- **Request Payload**: None
+  - `years`: e.g., 5
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     [
-      {
-        "period": "string",    // Year-month (e.g., "2025-03")
-        "count": int,          // Count (e.g., 436)
-        "growthRate": float     // Rate (e.g., 0)
-      }
+      { "period": "string", "count": int, "growthRate": float }
     ]
     ```
   - **Error (400 Bad Request)**:
+
     ```json
-    {
-      "error": "string"        // e.g., "Invalid months parameter"
-    }
+    { "error": "Invalid years parameter" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/statistics/statistics_handler.go`
-  - Queries `experts` table, grouped by month.
+  - Switched to yearly from monthly (Phase 7B).
 - **Notes**:
-  - Accessible to authenticated users.
-  - Logs retrieval (e.g., "Retrieved growth statistics for 6 months").
+  - Logs retrieval (e.g., "Retrieved growth for 5 years").
 
 ### GET /api/statistics/nationality
-- **Purpose**: Retrieves nationality distribution statistics.
+
+- **Purpose**: Retrieves nationality distribution.
 - **Method**: GET
 - **Path**: `/api/statistics/nationality`
 - **Request Headers**:
-  - `Authorization: Bearer <token>`
-- **Request Payload**: None
+  - `Authorization: Bearer <super_user_token>`
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     {
       "stats": [
-        {
-          "name": "string",    // Nationality (e.g., "Bahraini")
-          "count": int,        // Count (e.g., 272)
-          "percentage": float   // Percentage (e.g., 62.96296296296296)
-        }
+        { "name": "string", "count": int, "percentage": float }
       ],
-      "total": int             // Total experts (e.g., 432)
+      "total": int
     }
     ```
   - **Error (500 Internal Server Error)**:
+
     ```json
-    {
-      "error": "string"        // e.g., "Failed to retrieve nationality statistics"
-    }
+    { "error": "Failed to retrieve nationality statistics" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/statistics/statistics_handler.go`
-  - Aggregates from `experts` table.
 - **Notes**:
-  - Accessible to authenticated users.
-  - Logs retrieval (e.g., "Total experts: 432 (Bahraini: 272, Non-Bahraini: 160)").
+  - Logs retrieval (e.g., "Retrieved nationality stats").
 
 ### GET /api/statistics/engagements
+
 - **Purpose**: Retrieves engagement type statistics.
 - **Method**: GET
 - **Path**: `/api/statistics/engagements`
 - **Request Headers**:
-  - `Authorization: Bearer <token>`
-- **Request Payload**: None
+  - `Authorization: Bearer <super_user_token>`
 - **Response Payload**:
   - **Success (200 OK)**:
+
     ```json
     [
-      {
-        "name": "string",    // Type (e.g., "evaluation")
-        "count": int,        // Count (e.g., 100)
-        "percentage": float   // Percentage (e.g., 25)
-      }
+      { "name": "string", "count": int, "percentage": float }
     ]
     ```
   - **Error (500 Internal Server Error)**:
+
     ```json
-    {
-      "error": "string"        // e.g., "Failed to retrieve engagement statistics"
-    }
+    { "error": "Failed to retrieve engagement statistics" }
     ```
 - **Implementation**:
   - File: `internal/api/handlers/statistics/statistics_handler.go`
-  - Queries `expert_engagements` table.
+  - Restricted to `validator`, `evaluator` (Phase 7C).
 - **Notes**:
-  - Accessible to authenticated users.
-  - Logs retrieval (e.g., "Successfully retrieved engagement statistics").
+  - Logs retrieval (e.g., "Retrieved engagement stats").
+
+### GET /api/statistics/areas
+
+- **Purpose**: Retrieves general and specialized area statistics.
+- **Method**: GET
+- **Path**: `/api/statistics/areas`
+- **Request Headers**:
+  - `Authorization: Bearer <super_user_token>`
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "generalAreas": [
+        { "name": "string", "count": int, "percentage": float }
+      ],
+      "topSpecializedAreas": [
+        { "name": "string", "count": int, "percentage": float }
+      ],
+      "bottomSpecializedAreas": [
+        { "name": "string", "count": int, "percentage": float }
+      ]
+    }
+    ```
+  - **Error (500 Internal Server Error)**:
+
+    ```json
+    { "error": "Failed to retrieve area statistics" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/statistics/statistics_handler.go`
+  - Added in Phase 7D for top/bottom 5 specialized areas.
+- **Notes**:
+  - Logs retrieval (e.g., "Retrieved area stats").
+
+## Backup Endpoints
+
+### GET /api/backup
+
+- **Purpose**: Generates a ZIP file with CSV exports of database tables.
+- **Method**: GET
+- **Path**: `/api/backup`
+- **Request Headers**:
+  - `Authorization: Bearer <admin_token>`
+- **Response Payload**:
+  - **Success (200 OK)**:
+    - Content-Type: `application/zip`
+    - Content-Disposition: `attachment; filename=expertdb_backup.zip`
+    - ZIP file containing CSVs for `experts`, `expert_requests`, `expert_engagements`, `expert_documents`, `expert_areas`.
+  - **Error (500 Internal Server Error)**:
+
+    ```json
+    { "error": "Failed to generate backup" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/backup/backup_handler.go`
+  - Uses `archive/zip` (Phase 9A).
+- **Notes**:
+  - Logs generation (e.g., "Backup generated successfully").
 
 ## Conclusion
-This artifact provides a complete and detailed reference for all ExpertDB API endpoints, covering their purpose, request/response structures, implementation details, and usage notes. It is designed to support the small team managing the tool, ensuring clarity and ease of use for development and maintenance. The endpoints are tested via `test_api.sh`, which validates functionality and edge cases, as seen in the logs (`api_test_run_20250417_101309.log`). For further improvements, refer to `ERRORS.md` for enhanced error messaging suggestions.
+
+This updated API reference reflects enhancements through Phase 12, including new endpoints for phase planning, engagement imports, area management, and backups. It supports the department’s needs with clear documentation, tested via `test_api.sh`, and aligns with `SRS.md` requirements. For further error handling improvements, refer to `ERRORS.md`.

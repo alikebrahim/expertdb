@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import Input from './ui/Input';
-import Button from './ui/Button';
+import { useFormWithNotifications } from '../hooks/useForm';
+import { expertFilterSchema } from '../utils/formSchemas';
+import { Form, FormField } from './ui';
 
 interface FiltersFormData {
   name?: string;
@@ -11,15 +11,32 @@ interface FiltersFormData {
   expertArea?: string;
   nationality?: string;
   isAvailable?: boolean;
+  rating?: string;
+  isBahraini?: boolean;
 }
 
 interface ExpertFiltersProps {
   onFilterChange: (filters: FiltersFormData) => void;
+  initialFilters?: FiltersFormData;
 }
 
-const ExpertFilters = ({ onFilterChange }: ExpertFiltersProps) => {
+const ExpertFilters = ({ onFilterChange, initialFilters = {} }: ExpertFiltersProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { register, handleSubmit, reset } = useForm<FiltersFormData>();
+  
+  const form = useFormWithNotifications<FiltersFormData>({
+    schema: expertFilterSchema,
+    defaultValues: {
+      name: initialFilters.name || '',
+      role: initialFilters.role || '',
+      type: initialFilters.type || '',
+      affiliation: initialFilters.affiliation || '',
+      expertArea: initialFilters.expertArea || '',
+      nationality: initialFilters.nationality || '',
+      isAvailable: initialFilters.isAvailable || false,
+      rating: initialFilters.rating || '',
+      isBahraini: initialFilters.isBahraini || false,
+    }
+  });
   
   const roles = [
     { value: '', label: 'All Roles' },
@@ -38,6 +55,15 @@ const ExpertFilters = ({ onFilterChange }: ExpertFiltersProps) => {
     { value: 'government', label: 'Government' },
     { value: 'other', label: 'Other' }
   ];
+  
+  const ratingOptions = [
+    { value: '', label: 'Any Rating' },
+    { value: '1', label: '1 Star & Above' },
+    { value: '2', label: '2 Stars & Above' },
+    { value: '3', label: '3 Stars & Above' },
+    { value: '4', label: '4 Stars & Above' },
+    { value: '5', label: '5 Stars Only' },
+  ];
 
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded);
@@ -45,25 +71,30 @@ const ExpertFilters = ({ onFilterChange }: ExpertFiltersProps) => {
   
   const onSubmit = (data: FiltersFormData) => {
     // Convert empty strings to undefined
-    Object.keys(data).forEach(key => {
-      const k = key as keyof FiltersFormData;
-      if (data[k] === '') {
-        data[k] = undefined;
-      }
-    });
+    const cleanedData = Object.fromEntries(
+      Object.entries(data).filter(([_, value]) => {
+        if (typeof value === 'string') {
+          return value !== '';
+        }
+        return value !== undefined;
+      })
+    ) as FiltersFormData;
     
-    onFilterChange(data);
+    onFilterChange(cleanedData);
+    return { success: true };
   };
   
   const handleReset = () => {
-    reset({
+    form.reset({
       name: '',
       role: '',
       type: '',
       affiliation: '',
       expertArea: '',
       nationality: '',
-      isAvailable: undefined
+      isAvailable: false,
+      rating: '',
+      isBahraini: false,
     });
     
     onFilterChange({});
@@ -75,102 +106,109 @@ const ExpertFilters = ({ onFilterChange }: ExpertFiltersProps) => {
         <h2 className="text-lg font-semibold text-primary">Filter Experts</h2>
         <button 
           onClick={toggleExpanded}
-          className="text-primary hover:text-primary-light"
+          className="text-primary hover:text-primary-light flex items-center"
+          type="button"
         >
-          {isExpanded ? 'Hide Filters' : 'Show All Filters'}
+          {isExpanded ? (
+            <>
+              <span>Hide Filters</span>
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </>
+          ) : (
+            <>
+              <span>Show All Filters</span>
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </>
+          )}
         </button>
       </div>
       
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <Form
+        form={form}
+        onSubmit={form.handleSubmitWithNotifications(onSubmit)}
+        showResetButton={true}
+        resetText="Reset"
+        submitText="Apply Filters"
+        submitButtonPosition="right"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Basic filters always visible */}
-          <Input
+          <FormField
+            form={form}
+            name="name"
             label="Expert Name"
             placeholder="Search by name"
-            {...register('name')}
           />
           
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Role
-            </label>
-            <select
-              className="w-full px-3 py-2 bg-white border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-              {...register('role')}
-            >
-              {roles.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <FormField
+            form={form}
+            name="role"
+            label="Role"
+            type="select"
+            options={roles}
+          />
           
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Type
-            </label>
-            <select
-              className="w-full px-3 py-2 bg-white border border-neutral-300 rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-              {...register('type')}
-            >
-              {types.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <FormField
+            form={form}
+            name="type"
+            label="Type"
+            type="select"
+            options={types}
+          />
           
           {/* Advanced filters */}
           {isExpanded && (
             <>
-              <Input
+              <FormField
+                form={form}
+                name="affiliation"
                 label="Affiliation"
                 placeholder="Institution or company"
-                {...register('affiliation')}
               />
               
-              <Input
+              <FormField
+                form={form}
+                name="expertArea"
                 label="Expert Area"
                 placeholder="Area of expertise"
-                {...register('expertArea')}
               />
               
-              <Input
+              <FormField
+                form={form}
+                name="nationality"
                 label="Nationality"
                 placeholder="Expert nationality"
-                {...register('nationality')}
               />
               
-              <div className="mb-4 flex items-center">
-                <input
-                  type="checkbox"
-                  id="isAvailable"
-                  className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
-                  {...register('isAvailable')}
-                />
-                <label htmlFor="isAvailable" className="ml-2 block text-sm text-neutral-700">
-                  Available experts only
-                </label>
-              </div>
+              <FormField
+                form={form}
+                name="rating"
+                label="Minimum Rating"
+                type="select"
+                options={ratingOptions}
+              />
+              
+              <FormField
+                form={form}
+                name="isAvailable"
+                label="Available experts only"
+                type="checkbox"
+              />
+              
+              <FormField
+                form={form}
+                name="isBahraini"
+                label="Bahraini citizens only"
+                type="checkbox"
+              />
             </>
           )}
         </div>
-        
-        <div className="flex justify-end space-x-3 mt-4">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={handleReset}
-          >
-            Reset
-          </Button>
-          <Button type="submit">
-            Apply Filters
-          </Button>
-        </div>
-      </form>
+      </Form>
     </div>
   );
 };

@@ -199,19 +199,19 @@ func (s *Server) registerRoutes() {
 	}))))
 	
 	//
-	// SCHEDULER ACCESS
+	// PLANNER ACCESS
 	//
 	
 	// Engagement management endpoints (create, update, delete)
-	s.mux.Handle("POST /api/engagements", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleScheduler, func(w http.ResponseWriter, r *http.Request) error {
+	s.mux.Handle("POST /api/engagements", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RolePlanner, func(w http.ResponseWriter, r *http.Request) error {
 		return engagementHandler.HandleCreateEngagement(w, r)
 	}))))
 	
-	s.mux.Handle("PUT /api/engagements/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleScheduler, func(w http.ResponseWriter, r *http.Request) error {
+	s.mux.Handle("PUT /api/engagements/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RolePlanner, func(w http.ResponseWriter, r *http.Request) error {
 		return engagementHandler.HandleUpdateEngagement(w, r)
 	}))))
 	
-	s.mux.Handle("DELETE /api/engagements/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleScheduler, func(w http.ResponseWriter, r *http.Request) error {
+	s.mux.Handle("DELETE /api/engagements/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RolePlanner, func(w http.ResponseWriter, r *http.Request) error {
 		return engagementHandler.HandleDeleteEngagement(w, r)
 	}))))
 	
@@ -319,8 +319,8 @@ func (s *Server) registerRoutes() {
 		return phaseHandler.HandleUpdatePhase(w, r)
 	}))))
 	
-	// Update application experts - scheduler access
-	s.mux.Handle("PUT /api/phases/{id}/applications/{app_id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleScheduler, func(w http.ResponseWriter, r *http.Request) error {
+	// Update application experts - planner access
+	s.mux.Handle("PUT /api/phases/{id}/applications/{app_id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RolePlanner, func(w http.ResponseWriter, r *http.Request) error {
 		return phaseHandler.HandleUpdateApplicationExperts(w, r)
 	}))))
 	

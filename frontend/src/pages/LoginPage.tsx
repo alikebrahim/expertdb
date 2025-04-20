@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import LoginForm from '../components/LoginForm';
+import { LoginForm } from '../components/forms';
+import NotificationContainer from '../components/ui/NotificationContainer';
 
 const LoginPage = () => {
   const { isAuthenticated, user } = useAuth();
@@ -37,6 +38,7 @@ const LoginPage = () => {
         
         <LoginForm />
       </div>
+      <NotificationContainer />
     </div>
   );
 };

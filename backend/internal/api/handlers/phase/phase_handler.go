@@ -34,15 +34,15 @@ func (h *Handler) HandleListPhases(w http.ResponseWriter, r *http.Request) error
 	limit := 100 // Default limit
 	offset := 0  // Default offset
 	
-	// Parse scheduler ID
-	var schedulerID int64
-	schedulerIDParam := queryParams.Get("scheduler_id")
-	if schedulerIDParam != "" {
+	// Parse planner ID
+	var plannerID int64
+	plannerIDParam := queryParams.Get("planner_id")
+	if plannerIDParam != "" {
 		var err error
-		schedulerID, err = strconv.ParseInt(schedulerIDParam, 10, 64)
+		plannerID, err = strconv.ParseInt(plannerIDParam, 10, 64)
 		if err != nil {
-			log.Debug("Invalid scheduler_id parameter: %v", err)
-			return fmt.Errorf("invalid scheduler_id parameter: %v", err)
+			log.Debug("Invalid planner_id parameter: %v", err)
+			return fmt.Errorf("invalid planner_id parameter: %v", err)
 		}
 	}
 	
@@ -62,7 +62,7 @@ func (h *Handler) HandleListPhases(w http.ResponseWriter, r *http.Request) error
 	}
 	
 	// Get phases from store
-	phases, err := h.store.ListPhases(status, schedulerID, limit, offset)
+	phases, err := h.store.ListPhases(status, plannerID, limit, offset)
 	if err != nil {
 		log.Error("Failed to list phases: %v", err)
 		return fmt.Errorf("failed to list phases: %w", err)
@@ -128,7 +128,7 @@ func (h *Handler) HandleGetPhase(w http.ResponseWriter, r *http.Request) error {
 // createPhaseRequest represents the request to create a new phase
 type createPhaseRequest struct {
 	Title             string                 `json:"title"`
-	AssignedSchedulerID int64               `json:"assignedSchedulerId"`
+	AssignedPlannerID int64                 `json:"assignedPlannerId"`
 	Status            string                 `json:"status"`
 	Applications      []createApplicationRequest `json:"applications"`
 }
@@ -162,20 +162,20 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 		validationErrors = append(validationErrors, "title is required")
 	}
 	
-	if req.AssignedSchedulerID <= 0 {
-		validationErrors = append(validationErrors, "assigned scheduler ID is required")
+	if req.AssignedPlannerID <= 0 {
+		validationErrors = append(validationErrors, "assigned planner ID is required")
 	} else {
-		// Verify scheduler exists and has scheduler role
-		user, err := h.store.GetUser(req.AssignedSchedulerID)
+		// Verify planner exists and has planner role
+		user, err := h.store.GetUser(req.AssignedPlannerID)
 		if err != nil {
 			if err == domain.ErrNotFound {
-				validationErrors = append(validationErrors, fmt.Sprintf("scheduler with ID %d does not exist", req.AssignedSchedulerID))
+				validationErrors = append(validationErrors, fmt.Sprintf("planner with ID %d does not exist", req.AssignedPlannerID))
 			} else {
-				log.Error("Failed to get scheduler user: %v", err)
-				return fmt.Errorf("failed to verify scheduler: %w", err)
+				log.Error("Failed to get planner user: %v", err)
+				return fmt.Errorf("failed to verify planner: %w", err)
 			}
-		} else if user.Role != "scheduler" {
-			validationErrors = append(validationErrors, fmt.Sprintf("user with ID %d is not a scheduler", req.AssignedSchedulerID))
+		} else if user.Role != "planner" {
+			validationErrors = append(validationErrors, fmt.Sprintf("user with ID %d is not a planner", req.AssignedPlannerID))
 		}
 	}
 	
@@ -199,7 +199,8 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 		if strings.TrimSpace(app.Type) == "" {
 			validationErrors = append(validationErrors, fmt.Sprintf("application %d: type is required", i+1))
 		} else {
-			validTypes := []string{"validation", "evaluation"}
+			// Support both traditional types and explicit QP/IL types
+			validTypes := []string{"validation", "evaluation", "QP", "IL"}
 			valid := false
 			for _, t := range validTypes {
 				if app.Type == t {
@@ -208,7 +209,7 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 				}
 			}
 			if !valid {
-				validationErrors = append(validationErrors, fmt.Sprintf("application %d: type must be one of: validation, evaluation", i+1))
+				validationErrors = append(validationErrors, fmt.Sprintf("application %d: type must be one of: validation (QP), evaluation (IL)", i+1))
 			}
 		}
 		
@@ -268,7 +269,7 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 	// Create phase object
 	phase := &domain.Phase{
 		Title:             req.Title,
-		AssignedSchedulerID: req.AssignedSchedulerID,
+		AssignedPlannerID: req.AssignedPlannerID,
 		Status:            req.Status,
 		Applications:      make([]domain.PhaseApplication, len(req.Applications)),
 		CreatedAt:         time.Now().UTC(),
@@ -310,14 +311,14 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 	}
 	
 	// Create phase in store
-	phaseID, err = h.store.CreatePhase(phase)
+	phaseIDInt, err := h.store.CreatePhase(phase)
 	if err != nil {
 		log.Error("Failed to create phase: %v", err)
 		return fmt.Errorf("failed to create phase: %w", err)
 	}
 	
 	// Get created phase to return
-	createdPhase, err := h.store.GetPhase(phaseID)
+	createdPhase, err := h.store.GetPhase(phaseIDInt)
 	if err != nil {
 		log.Error("Failed to get created phase: %v", err)
 		return fmt.Errorf("failed to get created phase: %w", err)
@@ -332,7 +333,7 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 // updatePhaseRequest represents the request to update a phase
 type updatePhaseRequest struct {
 	Title             string `json:"title"`
-	AssignedSchedulerID int64 `json:"assignedSchedulerId"`
+	AssignedPlannerID int64 `json:"assignedPlannerId"`
 	Status            string `json:"status"`
 }
 
@@ -378,22 +379,22 @@ func (h *Handler) HandleUpdatePhase(w http.ResponseWriter, r *http.Request) erro
 		phase.Title = req.Title
 	}
 	
-	// Update scheduler if provided
-	if req.AssignedSchedulerID > 0 && req.AssignedSchedulerID != phase.AssignedSchedulerID {
-		// Verify scheduler exists and has scheduler role
-		user, err := h.store.GetUser(req.AssignedSchedulerID)
+	// Update planner if provided
+	if req.AssignedPlannerID > 0 && req.AssignedPlannerID != phase.AssignedPlannerID {
+		// Verify planner exists and has planner role
+		user, err := h.store.GetUser(req.AssignedPlannerID)
 		if err != nil {
 			if err == domain.ErrNotFound {
-				validationErrors = append(validationErrors, fmt.Sprintf("scheduler with ID %d does not exist", req.AssignedSchedulerID))
+				validationErrors = append(validationErrors, fmt.Sprintf("planner with ID %d does not exist", req.AssignedPlannerID))
 			} else {
-				log.Error("Failed to get scheduler user: %v", err)
-				return fmt.Errorf("failed to verify scheduler: %w", err)
+				log.Error("Failed to get planner user: %v", err)
+				return fmt.Errorf("failed to verify planner: %w", err)
 			}
-		} else if user.Role != "scheduler" {
-			validationErrors = append(validationErrors, fmt.Sprintf("user with ID %d is not a scheduler", req.AssignedSchedulerID))
+		} else if user.Role != "planner" {
+			validationErrors = append(validationErrors, fmt.Sprintf("user with ID %d is not a planner", req.AssignedPlannerID))
 		} else {
-			phase.AssignedSchedulerID = req.AssignedSchedulerID
-			phase.SchedulerName = user.Name
+			phase.AssignedPlannerID = req.AssignedPlannerID
+			phase.PlannerName = user.Name
 		}
 	}
 	

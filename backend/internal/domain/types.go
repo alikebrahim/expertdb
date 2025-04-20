@@ -111,7 +111,7 @@ type User struct {
 	Name         string    `json:"name"`         // Full name of the user
 	Email        string    `json:"email"`        // Email address (used for login)
 	PasswordHash string    `json:"-"`            // Hashed password (never exposed in JSON)
-	Role         string    `json:"role"`         // User role: "super_user", "admin", "scheduler", or "user"
+	Role         string    `json:"role"`         // User role: "super_user", "admin", "planner", or "user"
 	IsActive     bool      `json:"isActive"`     // Account status (active/inactive)
 	CreatedAt    time.Time `json:"createdAt"`    // Timestamp when user was created
 	LastLogin    time.Time `json:"lastLogin,omitempty"` // Timestamp of last successful login
@@ -191,8 +191,8 @@ type Phase struct {
 	ID                int64             `json:"id"`                // Primary key identifier
 	PhaseID           string            `json:"phaseId"`           // Business identifier (e.g., "PH-2025-001")
 	Title             string            `json:"title"`             // Title/name of the phase
-	AssignedSchedulerID int64           `json:"assignedSchedulerId"` // ID of scheduler user assigned to this phase
-	SchedulerName     string            `json:"schedulerName,omitempty"` // Name of assigned scheduler (not stored in DB)
+	AssignedPlannerID int64           `json:"assignedPlannerId"` // ID of planner user assigned to this phase
+	PlannerName     string            `json:"plannerName,omitempty"` // Name of assigned planner (not stored in DB)
 	Status            string            `json:"status"`            // Status: "draft", "in_progress", "completed", "cancelled"
 	Applications      []PhaseApplication `json:"applications,omitempty"` // List of applications in this phase
 	CreatedAt         time.Time         `json:"createdAt"`         // When the phase was created
@@ -236,7 +236,7 @@ type CreateUserRequest struct {
 	Name     string `json:"name"`     // Full name of the user
 	Email    string `json:"email"`    // Email address (used for login)
 	Password string `json:"password"` // Initial password (plaintext in request only)
-	Role     string `json:"role"`     // User role: "super_user", "admin", "scheduler", or "user"
+	Role     string `json:"role"`     // User role: "super_user", "admin", "planner", or "user"
 	IsActive bool   `json:"isActive"` // Initial account status
 }
 

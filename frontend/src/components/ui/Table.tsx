@@ -1,4 +1,5 @@
 import React, { ReactNode } from 'react';
+import { SkeletonTable } from './Skeleton';
 
 interface TableProps {
   headers: string[];
@@ -9,14 +10,26 @@ interface TableProps {
     totalPages: number;
     onPageChange: (page: number) => void;
   };
+  isLoading?: boolean;
+  loadingRows?: number;
+  emptyState?: ReactNode;
+  isDataEmpty?: boolean;
 }
 
 export const Table: React.FC<TableProps> = ({ 
   headers, 
   children, 
   className = '',
-  pagination 
+  pagination,
+  isLoading = false,
+  loadingRows = 5,
+  emptyState,
+  isDataEmpty = false
 }) => {
+  if (isLoading) {
+    return <SkeletonTable rows={loadingRows} columns={headers.length} className={className} />;
+  }
+  
   return (
     <div className={`overflow-x-auto ${className}`}>
       <table className="min-w-full bg-white border border-neutral-200 rounded-md overflow-hidden">
@@ -33,7 +46,15 @@ export const Table: React.FC<TableProps> = ({
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-200">
-          {children}
+          {isDataEmpty ? (
+            <tr>
+              <td colSpan={headers.length} className="py-8 px-4 text-center text-gray-500">
+                {emptyState || "No data available"}
+              </td>
+            </tr>
+          ) : (
+            children
+          )}
         </tbody>
       </table>
       

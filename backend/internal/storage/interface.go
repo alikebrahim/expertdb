@@ -68,7 +68,7 @@ type Storage interface {
 	GetAreaStatistics() (map[string][]domain.AreaStat, error)
 	
 	// Phase planning methods
-	ListPhases(status string, schedulerID int64, limit, offset int) ([]*domain.Phase, error)
+	ListPhases(status string, plannerID int64, limit, offset int) ([]*domain.Phase, error)
 	GetPhase(id int64) (*domain.Phase, error)
 	GetPhaseByPhaseID(phaseID string) (*domain.Phase, error)
 	CreatePhase(phase *domain.Phase) (int64, error)
@@ -79,7 +79,7 @@ type Storage interface {
 	GetPhaseApplication(id int64) (*domain.PhaseApplication, error)
 	CreatePhaseApplication(app *domain.PhaseApplication) (int64, error)
 	UpdatePhaseApplication(app *domain.PhaseApplication) error
-	ListPhaseApplications(phaseID int64) ([]*domain.PhaseApplication, error)
+	ListPhaseApplications(phaseID int64) ([]domain.PhaseApplication, error)
 	UpdatePhaseApplicationExperts(id int64, expert1ID, expert2ID int64) error
 	UpdatePhaseApplicationStatus(id int64, status, rejectionNotes string) error
 	

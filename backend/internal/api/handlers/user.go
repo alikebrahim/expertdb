@@ -44,7 +44,7 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) e
 	}
 	
 	// Validate role against allowed values
-	validRoles := []string{auth.RoleSuperUser, auth.RoleAdmin, auth.RoleScheduler, auth.RoleUser}
+	validRoles := []string{auth.RoleSuperUser, auth.RoleAdmin, auth.RolePlanner, auth.RoleUser}
 	isValidRole := false
 	for _, role := range validRoles {
 		if req.Role == role {

@@ -2,7 +2,8 @@ import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { 
   ApiResponse, User, Expert, ExpertRequest, 
   NationalityStats, GrowthStats,
-  PaginatedResponse
+  PaginatedResponse, Engagement, Document,
+  AreaStats, Phase, PhaseApplication
 } from '../types';
 
 // Check if we're in debug mode
@@ -179,14 +180,25 @@ export const authApi = {
 
 // Experts API
 export const expertsApi = {
-  getExperts: (page: number = 1, limit: number = 10, params?: Record<string, string | boolean>) => 
-    request<PaginatedResponse<Expert>>({
+  getExperts: (limit: number = 10, offset: number = 0, params?: Record<string, string | boolean | number>) => 
+    request<{
+      experts: Expert[];
+      pagination: {
+        totalCount: number;
+        totalPages: number;
+        currentPage: number;
+        pageSize: number;
+        hasNextPage: boolean;
+        hasPrevPage: boolean;
+        hasMore: boolean;
+      }
+    }>({
       url: '/experts',
       method: 'GET',
       params: {
         ...params,
-        page,
-        limit
+        limit,
+        offset
       },
     }),
 
@@ -197,7 +209,11 @@ export const expertsApi = {
     }),
 
   createExpert: (data: FormData) => 
-    request<Expert>({
+    request<{
+      id: number;
+      success: boolean;
+      message: string;
+    }>({
       url: '/experts',
       method: 'POST',
       data,
@@ -207,7 +223,10 @@ export const expertsApi = {
     }),
 
   updateExpert: (id: string, data: FormData) => 
-    request<Expert>({
+    request<{
+      success: boolean;
+      message: string;
+    }>({
       url: `/experts/${id}`,
       method: 'PUT',
       data,
@@ -217,29 +236,25 @@ export const expertsApi = {
     }),
     
   deleteExpert: (id: string) => 
-    request<void>({
+    request<{
+      success: boolean;
+      message: string;
+    }>({
       url: `/experts/${id}`,
       method: 'DELETE',
-    }),
-
-  downloadExpertPdf: (id: string) => 
-    api({
-      url: `/experts/${id}/approval-pdf`,
-      method: 'GET',
-      responseType: 'blob',
     }),
 };
 
 // Expert Requests API
 export const expertRequestsApi = {
-  getExpertRequests: (page: number = 1, limit: number = 10, params?: Record<string, string | boolean>) => 
-    request<PaginatedResponse<ExpertRequest>>({
+  getExpertRequests: (limit: number = 10, offset: number = 0, params?: Record<string, string | boolean>) => 
+    request<ExpertRequest[]>({
       url: '/expert-requests',
       method: 'GET',
       params: {
         ...params,
-        page,
-        limit
+        limit,
+        offset
       },
     }),
 
@@ -259,17 +274,48 @@ export const expertRequestsApi = {
       },
     }),
 
-  updateExpertRequest: (id: string, data: Partial<ExpertRequest>) => 
-    request<ExpertRequest>({
+  updateExpertRequest: (id: string, data: FormData) => 
+    request<{
+      success: boolean;
+      message: string;
+    }>({
       url: `/expert-requests/${id}`,
       method: 'PUT',
       data,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     }),
-
-  deleteExpertRequest: (id: string) => 
-    request<void>({
-      url: `/expert-requests/${id}`,
-      method: 'DELETE',
+    
+  editExpertRequest: (id: string, data: FormData) => 
+    request<{
+      success: boolean;
+      message: string;
+    }>({
+      url: `/expert-requests/${id}/edit`,
+      method: 'PUT',
+      data,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    }),
+    
+  batchApprove: (data: FormData) => 
+    request<{
+      success: boolean;
+      message: string;
+      results: Array<{
+        id: number;
+        status: 'success' | 'failed';
+        error?: string;
+      }>;
+    }>({
+      url: '/expert-requests/batch-approve',
+      method: 'POST',
+      data,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     }),
 };
 
@@ -321,33 +367,43 @@ export const statisticsApi = {
       method: 'GET',
     }),
 
-  getGrowthStats: (months?: number) => 
+  getGrowthStats: (years?: number) => 
     request<GrowthStats[]>({
       url: '/statistics/growth',
       method: 'GET',
-      params: { months },
+      params: { years },
     }),
 
   getOverallStats: () => 
     request<{
       totalExperts: number;
-      totalBahraini: number;
-      totalInternational: number;
-      totalEngagements: number;
-      byEmploymentType: Record<string, number>;
-      byAvailability: Record<string, number>;
+      activeCount: number;
+      bahrainiPercentage: number;
+      publishedCount: number;
+      publishedRatio: number;
+      topAreas: Array<{ name: string; count: number; percentage: number }>;
+      engagementsByType: Array<{ name: string; count: number; percentage: number }>;
+      yearlyGrowth: Array<{ period: string; count: number; growthRate: number }>;
+      mostRequestedExperts: Array<{ expertId: string; name: string; count: number }>;
+      lastUpdated: string;
     }>({
       url: '/statistics',
       method: 'GET',
     }),
 
   getEngagementStats: () => 
-    request<{
-      total: number;
-      byStatus: Record<string, number>;
-      byType: Record<string, number>;
-    }>({
+    request<Array<{ name: string; count: number; percentage: number }>>({
       url: '/statistics/engagements',
+      method: 'GET',
+    }),
+    
+  getAreaStats: () => 
+    request<{
+      generalAreas: Array<{ name: string; count: number; percentage: number }>;
+      topSpecializedAreas: Array<{ name: string; count: number; percentage: number }>;
+      bottomSpecializedAreas: Array<{ name: string; count: number; percentage: number }>;
+    }>({
+      url: '/statistics/areas',
       method: 'GET',
     }),
 };
@@ -355,13 +411,33 @@ export const statisticsApi = {
 // Expert Areas API
 export const expertAreasApi = {
   getExpertAreas: () => 
-    request<{
+    request<Array<{
       id: number;
       name: string;
-      description: string;
-    }[]>({
+    }>>({
       url: '/expert/areas',
       method: 'GET',
+    }),
+    
+  createExpertArea: (data: { name: string }) => 
+    request<{
+      id: number;
+      success: boolean;
+      message: string;
+    }>({
+      url: '/expert/areas',
+      method: 'POST',
+      data,
+    }),
+    
+  updateExpertArea: (id: number, data: { name: string }) => 
+    request<{
+      success: boolean;
+      message: string;
+    }>({
+      url: `/expert/areas/${id}`,
+      method: 'PUT',
+      data,
     }),
 };
 
@@ -370,14 +446,8 @@ export const documentApi = {
   uploadDocument: (data: FormData) => 
     request<{
       id: number;
-      expertId: number;
-      filename: string;
-      originalFilename: string;
-      documentType: string;
-      contentType: string;
-      size: number;
-      uploadedBy: number;
-      uploadedAt: string;
+      success: boolean;
+      message: string;
     }>({
       url: '/documents',
       method: 'POST',
@@ -394,7 +464,10 @@ export const documentApi = {
     }),
 
   deleteDocument: (id: number) => 
-    request<void>({
+    request<{
+      success: boolean;
+      message: string;
+    }>({
       url: `/documents/${id}`,
       method: 'DELETE',
     }),
@@ -408,51 +481,97 @@ export const documentApi = {
 
 // Engagement API
 export const engagementApi = {
-  getEngagements: (page: number = 1, limit: number = 10, params?: Record<string, string | boolean>) => 
-    request<PaginatedResponse<Engagement>>({
-      url: '/engagements',
+  getEngagements: (limit: number = 10, offset: number = 0, params?: Record<string, string | boolean>) => 
+    request<Engagement[]>({
+      url: '/expert-engagements',
       method: 'GET',
       params: {
         ...params,
-        page,
-        limit
+        limit,
+        offset
       },
     }),
 
-  getEngagementById: (id: string) => 
-    request<Engagement>({
-      url: `/engagements/${id}`,
-      method: 'GET',
+  importEngagements: (data: FormData) => 
+    request<{
+      success: boolean;
+      message: string;
+      imported: number;
+      failed: number;
+    }>({
+      url: '/engagements/import',
+      method: 'POST',
+      data,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     }),
+};
 
-  createEngagement: (data: Partial<Engagement>) => 
-    request<Engagement>({
-      url: '/engagements',
+// Phase Planning API
+export const phaseApi = {
+  createPhase: (data: {
+    title: string;
+    assignedSchedulerId: number;
+    status: string;
+    applications: Array<{
+      type: string;
+      institutionName: string;
+      qualificationName: string;
+      expert1: number;
+      expert2: number;
+      status: string;
+    }>;
+  }) => 
+    request<{
+      id: number;
+      success: boolean;
+      message: string;
+    }>({
+      url: '/phases',
       method: 'POST',
       data,
     }),
 
-  updateEngagement: (id: string, data: Partial<Engagement>) => 
-    request<Engagement>({
-      url: `/engagements/${id}`,
+  getPhases: (limit: number = 10, offset: number = 0, params?: Record<string, string | number>) => 
+    request<Phase[]>({
+      url: '/phases',
+      method: 'GET',
+      params: {
+        ...params,
+        limit,
+        offset
+      },
+    }),
+
+  proposeExperts: (phaseId: number, applicationId: number, data: { expert1: number; expert2: number }) => 
+    request<{
+      success: boolean;
+      message: string;
+    }>({
+      url: `/phases/${phaseId}/applications/${applicationId}`,
       method: 'PUT',
       data,
     }),
 
-  deleteEngagement: (id: string) => 
-    request<void>({
-      url: `/engagements/${id}`,
-      method: 'DELETE',
+  reviewApplication: (phaseId: number, applicationId: number, data: { status: string; rejectionNotes?: string }) => 
+    request<{
+      success: boolean;
+      message: string;
+    }>({
+      url: `/phases/${phaseId}/applications/${applicationId}/review`,
+      method: 'PUT',
+      data,
     }),
+};
 
-  getExpertEngagements: (expertId: string, page: number = 1, limit: number = 10) => 
-    request<PaginatedResponse<Engagement>>({
-      url: `/experts/${expertId}/engagements`,
+// Backup API
+export const backupApi = {
+  generateBackup: () => 
+    api({
+      url: '/backup',
       method: 'GET',
-      params: {
-        page,
-        limit
-      },
+      responseType: 'blob',
     }),
 };
 
@@ -465,4 +584,6 @@ export default {
   expertAreas: expertAreasApi,
   documents: documentApi,
   engagements: engagementApi,
+  phases: phaseApi,
+  backup: backupApi,
 };

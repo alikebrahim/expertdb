@@ -1,73 +1,72 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Expert } from '../types';
-import { expertsApi } from '../services/api';
-import ExpertFilters from '../components/ExpertFilters';
-import ExpertTable from '../components/ExpertTable';
+import * as expertsApi from '../api/experts';
+import { useFetch } from '../hooks';
+import Layout from '../components/layout/Layout';
+import { ExpertFilters } from '../components/filters';
+import { ExpertTable } from '../components/tables';
+import { ProgressStepper } from '../components/ui';
 
-interface ExpertFilters {
+interface ExpertFiltersType {
   name?: string;
   role?: string;
   type?: string;
   affiliation?: string;
-  expertArea?: string;
+  expertAreaId?: string;
   nationality?: string;
+  rating?: string;
   isAvailable?: boolean;
+  isBahraini?: boolean;
 }
 
 const SearchPage = () => {
-  const [experts, setExperts] = useState<Expert[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<ExpertFilters>({});
+  const [filters, setFilters] = useState<ExpertFiltersType>({
+    isAvailable: true // Default to show only available experts
+  });
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [limit] = useState(10);
+  const [currentStep, setCurrentStep] = useState(0);
   
-  // Fetch experts on mount and when filters or pagination change
-  useEffect(() => {
-    const fetchExperts = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        // Convert filters to API-friendly params
-        const params: Record<string, string | boolean> = {};
-        
-        if (filters.name) params.name = filters.name;
-        if (filters.role) params.role = filters.role;
-        if (filters.type) params.employmentType = filters.type;
-        if (filters.affiliation) params.institution = filters.affiliation;
-        if (filters.expertArea) params.general_area = filters.expertArea;
-        if (filters.nationality) params.nationality = filters.nationality;
-        if (filters.isAvailable !== undefined) params.is_available = filters.isAvailable;
-        
-        // Add default filter to show only available experts
-        if (filters.isAvailable === undefined) {
-          params.is_available = true;
-        }
-        
-        const response = await expertsApi.getExperts(page, limit, params);
-        
-        if (response.success) {
-          setExperts(response.data.data);
-          setTotalPages(response.data.totalPages);
-        } else {
-          setError(response.message || 'Failed to fetch experts');
-          setExperts([]);
-          setTotalPages(1);
-        }
-      } catch (error) {
-        console.error('Error fetching experts:', error);
-        setError('An error occurred while fetching experts');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Create fetch function based on current filters and pagination
+  const fetchExperts = async () => {
+    // Convert filters to API-friendly params
+    const params: Record<string, string | boolean | number> = {};
     
-    fetchExperts();
-  }, [filters, page, limit]);
+    if (filters.name) params.name = filters.name;
+    if (filters.role) params.role = filters.role;
+    if (filters.type) params.employmentType = filters.type;
+    if (filters.affiliation) params.institution = filters.affiliation;
+    if (filters.expertAreaId) params.generalArea = parseInt(filters.expertAreaId);
+    if (filters.nationality) params.nationality = filters.nationality;
+    if (filters.rating) params.minRating = parseInt(filters.rating);
+    if (filters.isAvailable !== undefined) params.isAvailable = filters.isAvailable;
+    if (filters.isBahraini !== undefined) params.isBahraini = filters.isBahraini;
+    
+    const offset = (page - 1) * limit;
+    const response = await expertsApi.getExperts(limit, offset, params);
+    
+    if (response.success && response.data) {
+      return {
+        experts: response.data.experts,
+        totalPages: response.data.pagination.totalPages
+      };
+    } else {
+      throw new Error(response.message || 'Failed to fetch experts');
+    }
+  };
   
-  const handleFilterChange = (newFilters: ExpertFilters) => {
+  // Use the fetch hook
+  const { 
+    data, 
+    isLoading, 
+    error, 
+    refetch 
+  } = useFetch(fetchExperts, {
+    errorMessage: 'Failed to fetch experts',
+    deps: [filters, page, limit],
+  });
+  
+  const handleFilterChange = (newFilters: ExpertFiltersType) => {
     setFilters(newFilters);
     setPage(1); // Reset to first page when filters change
   };
@@ -76,28 +75,46 @@ const SearchPage = () => {
     setPage(newPage);
   };
   
+  // Define search process steps
+  const searchSteps = [
+    { id: 'filter', label: 'Define filters', description: 'Set search criteria' },
+    { id: 'results', label: 'View results', description: 'Browse matching experts' },
+    { id: 'contact', label: 'Contact experts', description: 'Reach out to selected experts' },
+  ];
+
   return (
-    <div>
+    <Layout>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-primary">Expert Search</h1>
         <p className="text-neutral-600">
           Search and filter experts based on various criteria
         </p>
+        
+        <div className="my-6">
+          <ProgressStepper 
+            steps={searchSteps} 
+            currentStep={currentStep}
+            onStepClick={setCurrentStep}
+            showPercentage
+          />
+        </div>
       </div>
       
-      <ExpertFilters onFilterChange={handleFilterChange} />
+      <ExpertFilters onFilterChange={handleFilterChange} initialFilters={filters} />
       
-      <ExpertTable 
-        experts={experts} 
-        isLoading={isLoading}
-        error={error}
-        pagination={{
-          currentPage: page,
-          totalPages: totalPages,
-          onPageChange: handlePageChange
-        }}
-      />
-    </div>
+      <div className="bg-white shadow rounded-lg overflow-hidden mt-6">
+        <ExpertTable 
+          experts={data?.experts || []} 
+          isLoading={isLoading}
+          error={error ? error.message : null}
+          pagination={{
+            currentPage: page,
+            totalPages: data?.totalPages || 1,
+            onPageChange: handlePageChange
+          }}
+        />
+      </div>
+    </Layout>
   );
 };
 

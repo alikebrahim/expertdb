@@ -97,7 +97,7 @@ func (h *Handler) HandleGetEngagementStats(w http.ResponseWriter, r *http.Reques
 	log.Debug("Processing GET /api/statistics/engagements request")
 
 	// Get all engagements (we'll process them in memory since SQLite doesn't support complex aggregations)
-	allEngagements, err := h.store.ListEngagements(0) // 0 means all engagements
+	allEngagements, err := h.store.ListEngagements(0, "", 1000, 0) // 0 means all engagements, empty string for all types
 	if err != nil {
 		log.Error("Failed to retrieve engagements: %v", err)
 		return fmt.Errorf("failed to retrieve engagement statistics: %w", err)
@@ -109,8 +109,19 @@ func (h *Handler) HandleGetEngagementStats(w http.ResponseWriter, r *http.Reques
 	total := len(allEngagements)
 
 	for _, engagement := range allEngagements {
-		// Count by type
-		typeCount[engagement.EngagementType]++
+		// Map engagement types to application types for display
+		var displayType string
+		switch engagement.EngagementType {
+		case "validator":
+			displayType = "QP (Qualification Placement)"
+		case "evaluator":
+			displayType = "IL (Institutional Listing)"
+		default:
+			displayType = engagement.EngagementType
+		}
+		
+		// Count by mapped type
+		typeCount[displayType]++
 		
 		// Count by status
 		statusCount[engagement.Status]++

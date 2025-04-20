@@ -524,34 +524,34 @@ execute_curl GET "/api/backup" "" "$user_token" 403 && {
 
 log HEADER "TESTING PHASE PLANNING (PHASE 10)"
 
-# Create scheduler user
-SCHEDULER_CREATE_PAYLOAD='{
-    "name": "Test Scheduler '$TIMESTAMP'",
-    "email": "scheduler'$TIMESTAMP'@example.com",
+# Create planner user
+PLANNER_CREATE_PAYLOAD='{
+    "name": "Test Planner '$TIMESTAMP'",
+    "email": "planner'$TIMESTAMP'@example.com",
     "password": "password123",
-    "role": "scheduler",
+    "role": "planner",
     "isActive": true
 }'
 
-execute_curl POST "/api/users" "$SCHEDULER_CREATE_PAYLOAD" "$admin_token" 201 && {
-    scheduler_id=$(jq -r '.id' /tmp/api_response.json)
-    log INFO "Scheduler user created. ID: $scheduler_id"
+execute_curl POST "/api/users" "$PLANNER_CREATE_PAYLOAD" "$admin_token" 201 && {
+    planner_id=$(jq -r '.id' /tmp/api_response.json)
+    log INFO "Planner user created. ID: $planner_id"
     
-    # Get scheduler token
-    SCHEDULER_CREDENTIALS='{
-        "email": "scheduler'$TIMESTAMP'@example.com",
+    # Get planner token
+    PLANNER_CREDENTIALS='{
+        "email": "planner'$TIMESTAMP'@example.com",
         "password": "password123"
     }'
     
-    execute_curl POST "/api/auth/login" "$SCHEDULER_CREDENTIALS" "" 200 && {
-        scheduler_token=$(jq -r '.token' /tmp/api_response.json)
-        log INFO "Scheduler login successful"
-    } || log ERROR "Failed to login scheduler user"
+    execute_curl POST "/api/auth/login" "$PLANNER_CREDENTIALS" "" 200 && {
+        planner_token=$(jq -r '.token' /tmp/api_response.json)
+        log INFO "Planner login successful"
+    } || log ERROR "Failed to login planner user"
     
     # Test Phase 10B: Phase Creation
     PHASE_PAYLOAD='{
         "title": "Test Phase '$TIMESTAMP'",
-        "assignedSchedulerId": '$scheduler_id',
+        "assignedPlannerId": '$planner_id',
         "status": "draft",
         "applications": [
             {
@@ -591,8 +591,8 @@ execute_curl POST "/api/users" "$SCHEDULER_CREATE_PAYLOAD" "$admin_token" 201 &&
             "expert2": 0
         }'
         
-        if [[ -n "$scheduler_token" && -n "$app_id" ]]; then
-            execute_curl PUT "/api/phases/$phase_id/applications/$app_id" "$PROPOSAL_PAYLOAD" "$scheduler_token" 200 && {
+        if [[ -n "$planner_token" && -n "$app_id" ]]; then
+            execute_curl PUT "/api/phases/$phase_id/applications/$app_id" "$PROPOSAL_PAYLOAD" "$planner_token" 200 && {
                 log INFO "Application experts assigned successfully"
             } || log ERROR "Failed to assign application experts"
             
@@ -629,7 +629,7 @@ execute_curl POST "/api/users" "$SCHEDULER_CREATE_PAYLOAD" "$admin_token" 201 &&
             ((skipped_tests+=3))
         fi
     } || log ERROR "Failed to create phase"
-} || log ERROR "Failed to create scheduler user"
+} || log ERROR "Failed to create planner user"
 
 log HEADER "TESTING AREA MANAGEMENT (PHASE 8)"
 
@@ -841,34 +841,34 @@ VALID_TYPE_PAYLOAD='{
     "startDate": "2025-01-01"
 }'
 
-# Create scheduler user if not already created
-if [[ -z "$scheduler_token" ]]; then
-    SCHEDULER_CREATE_PAYLOAD='{
-        "name": "Test Scheduler '$TIMESTAMP'",
-        "email": "scheduler'$TIMESTAMP'@example.com",
+# Create planner user if not already created
+if [[ -z "$planner_token" ]]; then
+    PLANNER_CREATE_PAYLOAD='{
+        "name": "Test Planner '$TIMESTAMP'",
+        "email": "planner'$TIMESTAMP'@example.com",
         "password": "password123",
-        "role": "scheduler",
+        "role": "planner",
         "isActive": true
     }'
     
-    execute_curl POST "/api/users" "$SCHEDULER_CREATE_PAYLOAD" "$admin_token" 201 && {
-        scheduler_id=$(jq -r '.id' /tmp/api_response.json)
-        log INFO "Scheduler user created. ID: $scheduler_id"
+    execute_curl POST "/api/users" "$PLANNER_CREATE_PAYLOAD" "$admin_token" 201 && {
+        planner_id=$(jq -r '.id' /tmp/api_response.json)
+        log INFO "Planner user created. ID: $planner_id"
         
-        # Get scheduler token
-        SCHEDULER_CREDENTIALS='{
-            "email": "scheduler'$TIMESTAMP'@example.com",
+        # Get planner token
+        PLANNER_CREDENTIALS='{
+            "email": "planner'$TIMESTAMP'@example.com",
             "password": "password123"
         }'
         
-        execute_curl POST "/api/auth/login" "$SCHEDULER_CREDENTIALS" "" 200 && {
-            scheduler_token=$(jq -r '.token' /tmp/api_response.json)
-            log INFO "Scheduler login successful"
-        } || log ERROR "Failed to login scheduler user"
-    } || log ERROR "Failed to create scheduler user"
+        execute_curl POST "/api/auth/login" "$PLANNER_CREDENTIALS" "" 200 && {
+            planner_token=$(jq -r '.token' /tmp/api_response.json)
+            log INFO "Planner login successful"
+        } || log ERROR "Failed to login planner user"
+    } || log ERROR "Failed to create planner user"
 fi
 
-execute_curl POST "/api/engagements" "$VALID_TYPE_PAYLOAD" "$scheduler_token" 201 && {
+execute_curl POST "/api/engagements" "$VALID_TYPE_PAYLOAD" "$planner_token" 201 && {
     test_engagement_id=$(jq -r '.id' /tmp/api_response.json)
     log INFO "Successfully created engagement with valid type"
     
@@ -877,12 +877,12 @@ execute_curl POST "/api/engagements" "$VALID_TYPE_PAYLOAD" "$scheduler_token" 20
         "engagementType": "invalid-type"
     }'
     
-    execute_curl PUT "/api/engagements/$test_engagement_id" "$INVALID_UPDATE_PAYLOAD" "$scheduler_token" 400 && {
+    execute_curl PUT "/api/engagements/$test_engagement_id" "$INVALID_UPDATE_PAYLOAD" "$planner_token" 400 && {
         log INFO "Correctly rejected invalid engagement type update"
     } || log ERROR "Failed to reject invalid engagement type update"
     
     # Clean up test engagement
-    execute_curl DELETE "/api/engagements/$test_engagement_id" "" "$scheduler_token" 200 && {
+    execute_curl DELETE "/api/engagements/$test_engagement_id" "" "$planner_token" 200 && {
         log INFO "Successfully deleted test engagement"
     } || log ERROR "Failed to delete test engagement"
 } || log ERROR "Failed to create engagement with valid type"
