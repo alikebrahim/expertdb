@@ -30,7 +30,7 @@ func (s *SQLiteStore) GetStatistics() (*domain.Statistics, error) {
 	stats.ActiveCount = activeExperts
 	
 	// Get Bahraini experts percentage
-	bahrainiCount, nonBahrainiCount, err := s.GetExpertsByNationality()
+	bahrainiCount, _, err := s.GetExpertsByNationality()
 	if err != nil {
 		return nil, fmt.Errorf("failed to count experts by nationality: %w", err)
 	}
@@ -38,6 +38,14 @@ func (s *SQLiteStore) GetStatistics() (*domain.Statistics, error) {
 	if totalExperts > 0 {
 		stats.BahrainiPercentage = float64(bahrainiCount) / float64(totalExperts) * 100
 	}
+	
+	// Get published experts count and ratio
+	publishedCount, publishedRatio, err := s.GetPublishedExpertStats()
+	if err != nil {
+		return nil, fmt.Errorf("failed to count published experts: %w", err)
+	}
+	stats.PublishedCount = publishedCount
+	stats.PublishedRatio = publishedRatio
 	
 	// Get top areas
 	rows, err := s.db.Query(`
@@ -83,12 +91,14 @@ func (s *SQLiteStore) GetStatistics() (*domain.Statistics, error) {
 		stats.EngagementsByType = []domain.AreaStat{}
 	}
 	
-	// Get monthly growth
-	growthStats, err := s.GetExpertGrowthByMonth(12) // Last 12 months
+	// Get yearly growth (instead of monthly growth)
+	yearlyGrowth, err := s.GetExpertGrowthByYear(5) // Last 5 years
 	if err != nil {
-		return nil, err
+		// Initialize as empty array on error
+		stats.YearlyGrowth = []domain.GrowthStat{}
+	} else {
+		stats.YearlyGrowth = yearlyGrowth
 	}
-	stats.MonthlyGrowth = growthStats
 	
 	// Get most requested experts
 	mostRequested := []domain.ExpertStat{} // Initialize as empty slice
@@ -155,11 +165,12 @@ func (s *SQLiteStore) GetExpertsByNationality() (int, int, error) {
 
 // GetEngagementStatistics retrieves statistics about expert engagements
 func (s *SQLiteStore) GetEngagementStatistics() ([]domain.AreaStat, error) {
-	// Query to analyze engagement distribution by type 
+	// Query to analyze engagement distribution by type - restrict to validator and evaluator types
 	rows, err := s.db.Query(`
 		SELECT engagement_type, COUNT(*) as count, 
 		       SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count
 		FROM expert_engagements
+		WHERE engagement_type IN ('validator', 'evaluator')
 		GROUP BY engagement_type
 		ORDER BY count DESC
 	`)
@@ -282,4 +293,219 @@ func (s *SQLiteStore) GetExpertGrowthByMonth(months int) ([]domain.GrowthStat, e
 	}
 	
 	return stats, nil
+}
+
+// GetExpertGrowthByYear retrieves statistics about expert growth by year
+func (s *SQLiteStore) GetExpertGrowthByYear(years int) ([]domain.GrowthStat, error) {
+	// Default to 5 years if not specified
+	if years <= 0 {
+		years = 5
+	}
+	
+	// Query to analyze the yearly growth pattern of experts
+	rows, err := s.db.Query(`
+		SELECT 
+			strftime('%Y', created_at) as year,
+			COUNT(*) as count
+		FROM experts
+		WHERE created_at >= date('now', '-' || ? || ' years')
+		GROUP BY year
+		ORDER BY year
+	`, years)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query expert yearly growth: %w", err)
+	}
+	defer rows.Close()
+	
+	// Initialize stats as empty slice to prevent null in JSON
+	stats := []domain.GrowthStat{}
+	var prevCount int
+	
+	// Process each year
+	for rows.Next() {
+		var stat domain.GrowthStat
+		var yearStr string
+		var count int
+		if err := rows.Scan(&yearStr, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan yearly growth stats row: %w", err)
+		}
+		
+		stat.Period = yearStr
+		stat.Count = count
+		
+		// Calculate growth rate (except for first year)
+		if len(stats) > 0 && prevCount > 0 {
+			stat.GrowthRate = (float64(count) - float64(prevCount)) / float64(prevCount) * 100
+		}
+		
+		prevCount = count
+		stats = append(stats, stat)
+	}
+	
+	// If no data for some years in the range, fill with zeroes for continuity
+	if len(stats) < years {
+		// Generate a complete list of years
+		currentYear := time.Now().Year()
+		startYear := currentYear - years + 1
+		
+		filledStats := make([]domain.GrowthStat, 0, years)
+		
+		// Create a map of existing stats for lookup
+		existingStats := make(map[string]domain.GrowthStat)
+		for _, stat := range stats {
+			existingStats[stat.Period] = stat
+		}
+		
+		// Fill in all years
+		for y := 0; y < years; y++ {
+			yearStr := fmt.Sprintf("%04d", startYear + y)
+			
+			if stat, exists := existingStats[yearStr]; exists {
+				filledStats = append(filledStats, stat)
+			} else {
+				// Add empty stat
+				filledStats = append(filledStats, domain.GrowthStat{
+					Period: yearStr,
+					Count:  0,
+				})
+			}
+		}
+		
+		// Recalculate growth rates with filled data
+		for i := 1; i < len(filledStats); i++ {
+			prevCount := filledStats[i-1].Count
+			if prevCount > 0 {
+				filledStats[i].GrowthRate = (float64(filledStats[i].Count) - float64(prevCount)) / float64(prevCount) * 100
+			}
+		}
+		
+		stats = filledStats
+	}
+	
+	return stats, nil
+}
+
+// GetPublishedExpertStats retrieves the count and percentage of published experts
+func (s *SQLiteStore) GetPublishedExpertStats() (int, float64, error) {
+	// Get published experts count
+	var publishedCount int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM experts WHERE is_published = 1").Scan(&publishedCount)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to count published experts: %w", err)
+	}
+	
+	// Get total experts count for calculating ratio
+	var totalExperts int
+	err = s.db.QueryRow("SELECT COUNT(*) FROM experts").Scan(&totalExperts)
+	if err != nil {
+		return publishedCount, 0, fmt.Errorf("failed to count total experts: %w", err)
+	}
+	
+	// Calculate published ratio, avoid division by zero
+	var publishedRatio float64
+	if totalExperts > 0 {
+		publishedRatio = float64(publishedCount) / float64(totalExperts) * 100
+	}
+	
+	return publishedCount, publishedRatio, nil
+}
+
+// GetAreaStatistics returns statistics for general areas and specialized areas
+func (s *SQLiteStore) GetAreaStatistics() (map[string][]domain.AreaStat, error) {
+	result := make(map[string][]domain.AreaStat)
+	
+	// Get total experts count for percentage calculations
+	var totalExperts int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM experts").Scan(&totalExperts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count total experts: %w", err)
+	}
+	
+	// Get general area statistics
+	generalRows, err := s.db.Query(`
+		SELECT ea.name as area_name, COUNT(*) as count
+		FROM experts e
+		JOIN expert_areas ea ON e.general_area = ea.id
+		GROUP BY e.general_area
+		ORDER BY count DESC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query general area statistics: %w", err)
+	}
+	defer generalRows.Close()
+	
+	generalStats := []domain.AreaStat{}
+	for generalRows.Next() {
+		var stat domain.AreaStat
+		var count int
+		if err := generalRows.Scan(&stat.Name, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan general area row: %w", err)
+		}
+		stat.Count = count
+		if totalExperts > 0 {
+			stat.Percentage = float64(count) / float64(totalExperts) * 100
+		}
+		generalStats = append(generalStats, stat)
+	}
+	result["generalAreas"] = generalStats
+	
+	// Get specialized area statistics - top 5
+	specializedRows, err := s.db.Query(`
+		SELECT specialized_area as area_name, COUNT(*) as count
+		FROM experts
+		WHERE specialized_area != ''
+		GROUP BY specialized_area
+		ORDER BY count DESC
+		LIMIT 5
+	`)
+	if err != nil {
+		return result, fmt.Errorf("failed to query top specialized areas: %w", err)
+	}
+	defer specializedRows.Close()
+	
+	topSpecializedStats := []domain.AreaStat{}
+	for specializedRows.Next() {
+		var stat domain.AreaStat
+		var count int
+		if err := specializedRows.Scan(&stat.Name, &count); err != nil {
+			return result, fmt.Errorf("failed to scan specialized area row: %w", err)
+		}
+		stat.Count = count
+		if totalExperts > 0 {
+			stat.Percentage = float64(count) / float64(totalExperts) * 100
+		}
+		topSpecializedStats = append(topSpecializedStats, stat)
+	}
+	result["topSpecializedAreas"] = topSpecializedStats
+	
+	// Get specialized area statistics - bottom 5
+	bottomSpecializedRows, err := s.db.Query(`
+		SELECT specialized_area as area_name, COUNT(*) as count
+		FROM experts
+		WHERE specialized_area != ''
+		GROUP BY specialized_area
+		ORDER BY count ASC
+		LIMIT 5
+	`)
+	if err != nil {
+		return result, fmt.Errorf("failed to query bottom specialized areas: %w", err)
+	}
+	defer bottomSpecializedRows.Close()
+	
+	bottomSpecializedStats := []domain.AreaStat{}
+	for bottomSpecializedRows.Next() {
+		var stat domain.AreaStat
+		var count int
+		if err := bottomSpecializedRows.Scan(&stat.Name, &count); err != nil {
+			return result, fmt.Errorf("failed to scan bottom specialized area row: %w", err)
+		}
+		stat.Count = count
+		if totalExperts > 0 {
+			stat.Percentage = float64(count) / float64(totalExperts) * 100
+		}
+		bottomSpecializedStats = append(bottomSpecializedStats, stat)
+	}
+	result["bottomSpecializedAreas"] = bottomSpecializedStats
+	
+	return result, nil
 }

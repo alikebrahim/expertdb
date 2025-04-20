@@ -43,11 +43,33 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) e
 		return domain.ErrValidation
 	}
 	
-	// Validate and normalize role
-	if req.Role != auth.RoleUser && req.Role != auth.RoleAdmin {
+	// Validate role against allowed values
+	validRoles := []string{auth.RoleSuperUser, auth.RoleAdmin, auth.RoleScheduler, auth.RoleUser}
+	isValidRole := false
+	for _, role := range validRoles {
+		if req.Role == role {
+			isValidRole = true
+			break
+		}
+	}
+	
+	if !isValidRole {
 		// Default to regular user role for security
 		log.Debug("Invalid role specified (%s), defaulting to user role", req.Role)
 		req.Role = auth.RoleUser
+	}
+	
+	// Get creator's role from context
+	creatorRole, ok := auth.GetUserRoleFromContext(r.Context())
+	if !ok {
+		log.Error("Failed to get creator role from context")
+		return fmt.Errorf("authentication error: missing user role")
+	}
+	
+	// Check if creator can create a user with the requested role
+	if !auth.CanManageRole(creatorRole, req.Role) {
+		log.Warn("User with role %s attempted to create user with role %s", creatorRole, req.Role)
+		return fmt.Errorf("insufficient privileges to create user with role '%s'", req.Role)
 	}
 	
 	// Validate email format
@@ -73,12 +95,16 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) e
 		CreatedAt:    time.Now(),
 	}
 	
-	// Attempt to create user in database
-	id, err := h.store.CreateUser(user)
+	// Attempt to create user in database with role check
+	id, err := h.store.CreateUserWithRoleCheck(user, creatorRole)
 	if err != nil {
 		if strings.Contains(err.Error(), "already exists") {
 			log.Info("User creation failed - duplicate email: %s", req.Email)
 			return fmt.Errorf("email already exists")
+		}
+		if strings.Contains(err.Error(), "cannot create") {
+			log.Warn("Role-based access control prevented user creation: %v", err)
+			return fmt.Errorf("insufficient privileges: %s", err.Error())
 		}
 		log.Error("Failed to create user: %v", err)
 		return fmt.Errorf("failed to create user: %w", err)

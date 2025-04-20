@@ -107,10 +107,96 @@ func NewDatabaseError(err error, operation string) *DatabaseError {
 			dbErr.Code = "foreign_key"
 		} else if strings.Contains(errMsg, "no such table") {
 			dbErr.Code = "missing_table"
+		} else if strings.Contains(errMsg, "NOT NULL constraint failed") {
+			dbErr.Code = "required_field"
+			// Extract field name from error message
+			parts := strings.Split(errMsg, "NOT NULL constraint failed: ")
+			if len(parts) > 1 {
+				fieldParts := strings.Split(parts[1], ".")
+				if len(fieldParts) > 1 {
+					dbErr.Field = fieldParts[1]
+				}
+			}
 		}
 	}
 
 	return dbErr
+}
+
+// ParseSQLiteError parses a SQLite error into a user-friendly message
+// This function is designed to be used by all handlers that interact with the database
+func ParseSQLiteError(err error, entityName string) error {
+	if err == nil {
+		return nil
+	}
+
+	errMsg := err.Error()
+	
+	// Handle UNIQUE constraint violations
+	if strings.Contains(errMsg, "UNIQUE constraint failed") {
+		// Extract the field name from the error message
+		field := extractConstraintField(errMsg, "UNIQUE constraint failed")
+		fieldName := formatFieldName(field)
+		
+		// Check for specific field handling
+		switch fieldName {
+		case "expert_id":
+			return fmt.Errorf("%s ID already exists: use a different ID or let the system generate one", entityName)
+		case "email":
+			return fmt.Errorf("email already exists: an %s with this email is already registered", entityName)
+		default:
+			return fmt.Errorf("unique constraint violation on %s: duplicate value not allowed", fieldName)
+		}
+	}
+	
+	// Handle FOREIGN KEY constraint violations
+	if strings.Contains(errMsg, "FOREIGN KEY constraint failed") {
+		// Special case for general_area (common foreign key)
+		if strings.Contains(errMsg, "general_area") {
+			return fmt.Errorf("invalid general area ID: this area does not exist in the system")
+		}
+		
+		return fmt.Errorf("referenced resource does not exist: %v", err)
+	}
+	
+	// Handle NOT NULL constraint violations
+	if strings.Contains(errMsg, "NOT NULL constraint failed") {
+		field := extractConstraintField(errMsg, "NOT NULL constraint failed")
+		return fmt.Errorf("required field missing: %s cannot be empty", formatFieldName(field))
+	}
+	
+	// Handle CHECK constraint violations
+	if strings.Contains(errMsg, "CHECK constraint failed") {
+		field := extractConstraintField(errMsg, "CHECK constraint failed")
+		return fmt.Errorf("invalid value for %s: value does not meet requirements", formatFieldName(field))
+	}
+	
+	// Default error handling for other database errors
+	return fmt.Errorf("database error: %v", err)
+}
+
+// Helper function to extract the field name from a constraint error message
+func extractConstraintField(errMsg string, constraintType string) string {
+	parts := strings.Split(errMsg, constraintType+": ")
+	if len(parts) < 2 {
+		return "unknown field"
+	}
+	
+	fieldPart := strings.TrimSpace(parts[1])
+	fieldParts := strings.Split(fieldPart, ".")
+	if len(fieldParts) < 2 {
+		return fieldPart
+	}
+	
+	return fieldParts[1]
+}
+
+// Helper function to format a field name for user-friendly messages
+// Converts snake_case to space-separated words
+func formatFieldName(field string) string {
+	// Replace underscores with spaces
+	formatted := strings.ReplaceAll(field, "_", " ")
+	return formatted
 }
 
 // Error implements the error interface

@@ -6,12 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 	
 	"expertdb/internal/api"
 	"expertdb/internal/auth"
 	"expertdb/internal/config"
-	"expertdb/internal/domain"
 	"expertdb/internal/documents"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage/sqlite"
@@ -92,36 +90,21 @@ func main() {
 		l.Fatal("Failed to create API server: %v", err)
 	}
 	
-	// Create admin user if it doesn't exist
-	l.Info("Checking for admin user with email: %s", cfg.AdminEmail)
-	_, err = store.GetUserByEmail(cfg.AdminEmail)
+	// Create super user if it doesn't exist
+	l.Info("Checking for super user with email: %s", cfg.AdminEmail)
+	
+	// Create super user password hash
+	passwordHash, err := auth.GeneratePasswordHash(cfg.AdminPassword)
 	if err != nil {
-		l.Info("Admin user not found, creating...")
-		
-		// Create admin user
-		passwordHash, err := auth.GeneratePasswordHash(cfg.AdminPassword)
-		if err != nil {
-			l.Fatal("Failed to hash admin password: %v", err)
-		}
-		
-		admin := &domain.User{
-			Name:         cfg.AdminName,
-			Email:        cfg.AdminEmail,
-			PasswordHash: passwordHash,
-			Role:         auth.RoleAdmin,
-			IsActive:     true,
-			CreatedAt:    time.Now(),
-			LastLogin:    time.Now(),
-		}
-		
-		if _, err := store.CreateUser(admin); err != nil {
-			l.Fatal("Failed to create admin user: %v", err)
-		}
-		
-		l.Info("Created default admin user with email: %s", cfg.AdminEmail)
-	} else {
-		l.Info("Admin user already exists, skipping creation")
+		l.Fatal("Failed to hash super user password: %v", err)
 	}
+	
+	// Use EnsureSuperUserExists to create super user if it doesn't exist
+	if err := store.EnsureSuperUserExists(cfg.AdminEmail, cfg.AdminName, passwordHash); err != nil {
+		l.Fatal("Failed to ensure super user exists: %v", err)
+	}
+	
+	l.Info("Ensured super user exists with email: %s", cfg.AdminEmail)
 	
 	l.Info("Starting ExpertDB with configuration:")
 	l.Info("- Port: %s", cfg.Port)

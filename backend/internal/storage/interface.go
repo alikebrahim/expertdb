@@ -24,19 +24,24 @@ type Storage interface {
 	CreateExpertRequest(req *domain.ExpertRequest) (int64, error)
 	UpdateExpertRequestStatus(id int64, status, rejectionReason string, reviewedBy int64) error
 	UpdateExpertRequest(req *domain.ExpertRequest) error
+	BatchApproveExpertRequests(requestIDs []int64, approvalDocumentPath string, reviewedBy int64) ([]int64, map[int64]error)
 	
 	// User methods
 	GetUser(id int64) (*domain.User, error)
 	GetUserByEmail(email string) (*domain.User, error)
 	CreateUser(user *domain.User) (int64, error)
+	CreateUserWithRoleCheck(user *domain.User, creatorRole string) (int64, error)
 	UpdateUser(user *domain.User) error
+	DeleteUser(id int64) error
 	ListUsers(limit, offset int) ([]*domain.User, error)
 	UpdateUserLastLogin(id int64) error
-	EnsureAdminExists(adminEmail, adminName, adminPasswordHash string) error
+	EnsureSuperUserExists(email, name, passwordHash string) error
 	
 	// Area methods
 	ListAreas() ([]*domain.Area, error)
 	GetArea(id int64) (*domain.Area, error)
+	CreateArea(name string) (int64, error)
+	UpdateArea(id int64, name string) error
 	
 	// Document methods
 	ListDocuments(expertID int64) ([]*domain.Document, error)
@@ -45,11 +50,12 @@ type Storage interface {
 	DeleteDocument(id int64) error
 	
 	// Engagement methods
-	ListEngagements(expertID int64) ([]*domain.Engagement, error)
+	ListEngagements(expertID int64, engagementType string, limit, offset int) ([]*domain.Engagement, error)
 	GetEngagement(id int64) (*domain.Engagement, error)
 	CreateEngagement(engagement *domain.Engagement) (int64, error)
 	UpdateEngagement(engagement *domain.Engagement) error
 	DeleteEngagement(id int64) error
+	ImportEngagements(engagements []*domain.Engagement) (int, map[int]error)
 	
 	// Statistics methods
 	GetStatistics() (*domain.Statistics, error)
@@ -57,6 +63,25 @@ type Storage interface {
 	GetExpertsByNationality() (int, int, error)
 	GetEngagementStatistics() ([]domain.AreaStat, error)
 	GetExpertGrowthByMonth(months int) ([]domain.GrowthStat, error)
+	GetExpertGrowthByYear(years int) ([]domain.GrowthStat, error)
+	GetPublishedExpertStats() (int, float64, error)
+	GetAreaStatistics() (map[string][]domain.AreaStat, error)
+	
+	// Phase planning methods
+	ListPhases(status string, schedulerID int64, limit, offset int) ([]*domain.Phase, error)
+	GetPhase(id int64) (*domain.Phase, error)
+	GetPhaseByPhaseID(phaseID string) (*domain.Phase, error)
+	CreatePhase(phase *domain.Phase) (int64, error)
+	UpdatePhase(phase *domain.Phase) error
+	GenerateUniquePhaseID() (string, error)
+	
+	// Phase application methods
+	GetPhaseApplication(id int64) (*domain.PhaseApplication, error)
+	CreatePhaseApplication(app *domain.PhaseApplication) (int64, error)
+	UpdatePhaseApplication(app *domain.PhaseApplication) error
+	ListPhaseApplications(phaseID int64) ([]*domain.PhaseApplication, error)
+	UpdatePhaseApplicationExperts(id int64, expert1ID, expert2ID int64) error
+	UpdatePhaseApplicationStatus(id int64, status, rejectionNotes string) error
 	
 	// General database methods
 	InitDB() error

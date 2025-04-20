@@ -63,10 +63,22 @@ func GetUserRoleFromContext(ctx context.Context) (string, bool) {
 	return role, ok
 }
 
-// IsAdmin checks if the user in the context is an admin
+// IsAdmin checks if the user in the context is an admin or higher
 func IsAdmin(ctx context.Context) bool {
 	role, ok := GetUserRoleFromContext(ctx)
-	return ok && role == RoleAdmin
+	return ok && (role == RoleAdmin || role == RoleSuperUser)
+}
+
+// IsSuperUser checks if the user in the context is a super user
+func IsSuperUser(ctx context.Context) bool {
+	role, ok := GetUserRoleFromContext(ctx)
+	return ok && role == RoleSuperUser
+}
+
+// IsScheduler checks if the user in the context is a scheduler or higher
+func IsScheduler(ctx context.Context) bool {
+	role, ok := GetUserRoleFromContext(ctx)
+	return ok && HasRole(role, RoleScheduler)
 }
 
 // SetUserClaimsInContext adds user claims to the request context
@@ -141,12 +153,84 @@ func RequireAdmin(next HandlerFunc) HandlerFunc {
 			return domain.ErrUnauthorized
 		}
 		
-		// Check if the user has admin role
+		// Check if the user has admin role or higher
 		role, ok := claims["role"].(string)
-		if !ok || role != RoleAdmin {
-			// User is authenticated but not an admin
-			log.Info("Forbidden access attempt by non-admin user (ID: %v) to %s", 
-				claims["sub"], r.URL.Path)
+		if !ok || !HasRole(role, RoleAdmin) {
+			// User is authenticated but doesn't have admin privileges
+			log.Info("Forbidden access attempt by user with insufficient privileges (ID: %v, Role: %v) to %s", 
+				claims["sub"], role, r.URL.Path)
+			return domain.ErrForbidden
+		}
+		
+		// Add user claims to request context for downstream handlers
+		ctx := SetUserClaimsInContext(r.Context(), claims)
+		
+		// Pass control to the next handler with the updated context
+		return next(w, r.WithContext(ctx))
+	}
+}
+
+// RequireSuperUser is middleware that ensures only super users can access protected endpoints
+func RequireSuperUser(next HandlerFunc) HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		log := logger.Get()
+		
+		// Extract the token from the Authorization header
+		token, err := ExtractTokenFromHeader(r)
+		if err != nil {
+			log.Debug("Super user check failed - missing token: %v", err)
+			return domain.ErrUnauthorized
+		}
+		
+		// Verify the token and extract claims
+		_, claims, err := VerifyJWT(token)
+		if err != nil {
+			log.Debug("Super user check failed - invalid token: %v", err)
+			return domain.ErrUnauthorized
+		}
+		
+		// Check if the user has super_user role
+		role, ok := claims["role"].(string)
+		if !ok || role != RoleSuperUser {
+			// User is authenticated but not a super user
+			log.Info("Forbidden access attempt by non-super user (ID: %v, Role: %v) to %s", 
+				claims["sub"], role, r.URL.Path)
+			return domain.ErrForbidden
+		}
+		
+		// Add user claims to request context for downstream handlers
+		ctx := SetUserClaimsInContext(r.Context(), claims)
+		
+		// Pass control to the next handler with the updated context
+		return next(w, r.WithContext(ctx))
+	}
+}
+
+// RequireRole is a more flexible middleware that ensures users have at least the specified role
+func RequireRole(minRole string, next HandlerFunc) HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		log := logger.Get()
+		
+		// Extract the token from the Authorization header
+		token, err := ExtractTokenFromHeader(r)
+		if err != nil {
+			log.Debug("Role check failed - missing token: %v", err)
+			return domain.ErrUnauthorized
+		}
+		
+		// Verify the token and extract claims
+		_, claims, err := VerifyJWT(token)
+		if err != nil {
+			log.Debug("Role check failed - invalid token: %v", err)
+			return domain.ErrUnauthorized
+		}
+		
+		// Check if the user has the required role or higher
+		role, ok := claims["role"].(string)
+		if !ok || !HasRole(role, minRole) {
+			// User is authenticated but doesn't have sufficient privileges
+			log.Info("Forbidden access attempt by user with insufficient privileges (ID: %v, Role: %v, Required: %v) to %s", 
+				claims["sub"], role, minRole, r.URL.Path)
 			return domain.ErrForbidden
 		}
 		

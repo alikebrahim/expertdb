@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS "expert_requests" (
     specialized_area TEXT,
     is_trained BOOLEAN,
     cv_path TEXT,            -- Path to the CV file
+    approval_document_path TEXT, -- Path to the approval document
     phone TEXT,
     email TEXT,
     is_published BOOLEAN,
@@ -23,7 +24,10 @@ CREATE TABLE IF NOT EXISTS "expert_requests" (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     reviewed_at TIMESTAMP,
     reviewed_by INTEGER,     -- References users(id)
-    created_by INTEGER       -- References users(id)
+    created_by INTEGER,      -- References users(id)
+    FOREIGN KEY (general_area) REFERENCES expert_areas(id),
+    FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Create indexes for tracking

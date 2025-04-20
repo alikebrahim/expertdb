@@ -161,64 +161,47 @@ func (h *Handler) HandleGetGrowthStats(w http.ResponseWriter, r *http.Request) e
 	log := logger.Get()
 	log.Debug("Processing GET /api/statistics/growth request")
 
-	// Parse and validate months parameter
-	months := 12 // Default to 12 months if not specified
+	// Parse and validate years parameter (changed from months)
+	years := 5 // Default to 5 years if not specified
 
-	monthsParam := r.URL.Query().Get("months")
-	if monthsParam != "" {
-		parsedMonths, err := strconv.Atoi(monthsParam)
-		if err == nil && parsedMonths > 0 {
-			months = parsedMonths
-			log.Debug("Using custom months parameter: %d", months)
+	yearsParam := r.URL.Query().Get("years")
+	if yearsParam != "" {
+		parsedYears, err := strconv.Atoi(yearsParam)
+		if err == nil && parsedYears > 0 {
+			years = parsedYears
+			log.Debug("Using custom years parameter: %d", years)
 		} else {
-			log.Warn("Invalid months parameter provided: %s, using default (12)", monthsParam)
+			log.Warn("Invalid years parameter provided: %s, using default (5)", yearsParam)
 		}
 	}
 
-	// Get all experts with their creation dates
-	experts, err := h.store.ListExperts(map[string]interface{}{}, 1000, 0)
+	// Get yearly growth statistics using the repository method
+	stats, err := h.store.GetExpertGrowthByYear(years)
 	if err != nil {
-		log.Error("Failed to retrieve experts: %v", err)
+		log.Error("Failed to retrieve growth statistics: %v", err)
 		return fmt.Errorf("failed to retrieve growth statistics: %w", err)
-	}
-
-	// This is a simplistic implementation - in a real scenario, you'd use SQL's date functions
-	// to aggregate by month directly in the database query
-	
-	// Map to store counts by month
-	monthCounts := make(map[string]int)
-	
-	// Process each expert
-	for _, expert := range experts {
-		// Format the month as YYYY-MM
-		month := expert.CreatedAt.Format("2006-01")
-		monthCounts[month]++
-	}
-	
-	// Convert to GrowthStat format and calculate growth rates
-	var stats []domain.GrowthStat
-	var prevCount int
-	
-	// Sort by month and limit to the specified number of months
-	// In a real implementation, you would sort the months here
-	
-	for month, count := range monthCounts {
-		growthRate := 0.0
-		if prevCount > 0 {
-			growthRate = (float64(count) - float64(prevCount)) / float64(prevCount) * 100
-		}
-		
-		stats = append(stats, domain.GrowthStat{
-			Period:     month,
-			Count:      count,
-			GrowthRate: growthRate,
-		})
-		
-		prevCount = count
 	}
 	
 	// Return statistics as JSON response
-	log.Debug("Successfully retrieved growth statistics for %d months", months)
+	log.Debug("Successfully retrieved growth statistics for %d years", years)
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(stats)
+}
+
+// HandleGetAreaStats handles GET /api/statistics/areas requests
+func (h *Handler) HandleGetAreaStats(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing GET /api/statistics/areas request")
+
+	// Retrieve area statistics from repository
+	areaStats, err := h.store.GetAreaStatistics()
+	if err != nil {
+		log.Error("Failed to retrieve area statistics: %v", err)
+		return fmt.Errorf("failed to retrieve area statistics: %w", err)
+	}
+	
+	// Return statistics as JSON response
+	log.Debug("Successfully retrieved area statistics")
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(areaStats)
 }

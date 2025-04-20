@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	
 	_ "github.com/mattn/go-sqlite3"
+	"expertdb/internal/logger"
 	"expertdb/internal/storage"
 )
 
@@ -51,14 +52,20 @@ func (s *SQLiteStore) Close() error {
 	return s.db.Close()
 }
 
-// InitDB initializes the database schema if it doesn't exist
+// InitDB verifies that the database schema is properly initialized
+// Note: Migrations are handled manually using goose
 func (s *SQLiteStore) InitDB() error {
-	// Check if tables exist by querying a key table
+	log := logger.Get()
+	
+	// Check if essential tables exist - assume migrations were run manually with goose
 	var count int
 	err := s.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='experts'").Scan(&count)
 	if err != nil || count == 0 {
-		return fmt.Errorf("database schema not initialized: %w", err)
+		return fmt.Errorf("database schema not properly initialized. Please run migrations with goose: %w", err)
 	}
 	
+	log.Info("Database schema verified successfully")
 	return nil
 }
+
+// No migration methods here anymore - using goose for database migrations

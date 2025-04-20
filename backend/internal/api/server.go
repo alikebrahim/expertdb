@@ -7,11 +7,14 @@ import (
 	"net/http"
 	
 	"expertdb/internal/api/handlers"
+	"expertdb/internal/api/handlers/backup"
 	"expertdb/internal/api/handlers/documents"
 	"expertdb/internal/api/handlers/engagements"
+	"expertdb/internal/api/handlers/phase"
 	"expertdb/internal/api/handlers/statistics"
+	"expertdb/internal/auth"
 	"expertdb/internal/config"
-	"expertdb/internal/documents"
+	docsvc "expertdb/internal/documents"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -21,7 +24,7 @@ import (
 type Server struct {
 	listenAddr      string
 	store           storage.Storage
-	documentService *documents.Service
+	documentService *docsvc.Service
 	config          *config.Configuration
 	mux             *http.ServeMux
 }
@@ -73,7 +76,7 @@ func handleError(w http.ResponseWriter, err error) {
 }
 
 // NewServer creates a new API server
-func NewServer(listenAddr string, store storage.Storage, docService *documents.Service, cfg *config.Configuration) (*Server, error) {
+func NewServer(listenAddr string, store storage.Storage, docService *docsvc.Service, cfg *config.Configuration) (*Server, error) {
 	server := &Server{
 		listenAddr:      listenAddr,
 		store:           store,
@@ -112,141 +115,260 @@ func (s *Server) registerRoutes() {
 	}
 	
 	// Register routes with middleware
-	// Health check endpoint
-	s.mux.Handle("GET /api/health", corsAndLogMiddleware(http.HandlerFunc(s.handleHealth)))
-	
 	// Create handlers
-	userHandler := handlers.NewUserHandler(s.store)
 	expertHandler := handlers.NewExpertHandler(s.store)
 	expertRequestHandler := handlers.NewExpertRequestHandler(s.store, s.documentService)
 	documentHandler := documents.NewHandler(s.store, s.documentService)
 	engagementHandler := engagements.NewHandler(s.store)
 	statisticsHandler := statistics.NewHandler(s.store)
+	backupHandler := backup.NewHandler(s.store)
+	userHandler := handlers.NewUserHandler(s.store)
+	authHandler := handlers.NewAuthHandler(s.store)
+	phaseHandler := phase.NewHandler(s.store)
 	
-	// Expert endpoints
-	s.mux.Handle("GET /api/experts", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := expertHandler.HandleGetExperts(w, r); err != nil {
-			handleError(w, err)
+	// Define a generic error handler wrapper for converting HandlerFunc to http.HandlerFunc
+	errorHandler := func(h auth.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if err := h(w, r); err != nil {
+				handleError(w, err)
+			}
 		}
-	})))
-	s.mux.Handle("POST /api/experts", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := expertHandler.HandleCreateExpert(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("GET /api/experts/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := expertHandler.HandleGetExpert(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("PUT /api/experts/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := expertHandler.HandleUpdateExpert(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("DELETE /api/experts/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := expertHandler.HandleDeleteExpert(w, r); err != nil {
-			handleError(w, err)
-		}
+	}
+	
+	//
+	// PUBLIC ENDPOINTS (No auth required)
+	//
+	
+	// Health check endpoint - public access
+	s.mux.Handle("GET /api/health", corsAndLogMiddleware(http.HandlerFunc(s.handleHealth)))
+	
+	// User authentication endpoints
+	s.mux.Handle("POST /api/auth/login", corsAndLogMiddleware(errorHandler(func(w http.ResponseWriter, r *http.Request) error {
+		return authHandler.HandleLogin(w, r)
 	})))
 	
-	// Expert request endpoints
-	s.mux.Handle("POST /api/expert-requests", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := expertRequestHandler.HandleCreateExpertRequest(w, r); err != nil {
-			handleError(w, err)
+	// Get expert areas - authenticated user access (Phase 8A: Area Access Extension)
+	s.mux.Handle("GET /api/expert/areas", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		return expertHandler.HandleGetExpertAreas(w, r)
+	}))))
+	
+	// Create expert area - admin access (Phase 8B: Area Creation)
+	s.mux.Handle("POST /api/expert/areas", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return expertHandler.HandleCreateArea(w, r)
+	}))))
+	
+	// Update expert area - admin access (Phase 8C: Area Renaming)
+	s.mux.Handle("PUT /api/expert/areas/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return expertHandler.HandleUpdateArea(w, r)
+	}))))
+	
+	//
+	// USER ACCESS (All authenticated users)
+	//
+	
+	// Read-only expert endpoints
+	s.mux.Handle("GET /api/experts", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		return expertHandler.HandleGetExperts(w, r)
+	}))))
+	
+	s.mux.Handle("GET /api/experts/{id}", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		return expertHandler.HandleGetExpert(w, r)
+	}))))
+	
+	// Read-only document endpoints
+	s.mux.Handle("GET /api/documents/{id}", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		return documentHandler.HandleGetDocument(w, r)
+	}))))
+	
+	s.mux.Handle("GET /api/experts/{id}/documents", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		return documentHandler.HandleGetExpertDocuments(w, r)
+	}))))
+	
+	// Read-only engagement endpoints
+	s.mux.Handle("GET /api/engagements/{id}", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		return engagementHandler.HandleGetEngagement(w, r)
+	}))))
+	
+	// Phase 11A: Global engagement listing with filtering capability
+	s.mux.Handle("GET /api/engagements", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		return engagementHandler.HandleListEngagements(w, r)
+	}))))
+	
+	s.mux.Handle("GET /api/experts/{id}/engagements", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		return engagementHandler.HandleGetExpertEngagements(w, r)
+	}))))
+	
+	//
+	// SCHEDULER ACCESS
+	//
+	
+	// Engagement management endpoints (create, update, delete)
+	s.mux.Handle("POST /api/engagements", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleScheduler, func(w http.ResponseWriter, r *http.Request) error {
+		return engagementHandler.HandleCreateEngagement(w, r)
+	}))))
+	
+	s.mux.Handle("PUT /api/engagements/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleScheduler, func(w http.ResponseWriter, r *http.Request) error {
+		return engagementHandler.HandleUpdateEngagement(w, r)
+	}))))
+	
+	s.mux.Handle("DELETE /api/engagements/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleScheduler, func(w http.ResponseWriter, r *http.Request) error {
+		return engagementHandler.HandleDeleteEngagement(w, r)
+	}))))
+	
+	// Phase 11C: Engagement import endpoint - restricted to admin/developer role
+	s.mux.Handle("POST /api/engagements/import", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return engagementHandler.HandleImportEngagements(w, r)
+	}))))
+	
+	//
+	// ADMIN ACCESS
+	//
+	
+	// Expert management (create, update, delete)
+	s.mux.Handle("POST /api/experts", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return expertHandler.HandleCreateExpert(w, r)
+	}))))
+	
+	s.mux.Handle("PUT /api/experts/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return expertHandler.HandleUpdateExpert(w, r)
+	}))))
+	
+	s.mux.Handle("DELETE /api/experts/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return expertHandler.HandleDeleteExpert(w, r)
+	}))))
+	
+	// Expert request management
+	s.mux.Handle("POST /api/expert-requests", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		return expertRequestHandler.HandleCreateExpertRequest(w, r)
+	}))))
+	
+	s.mux.Handle("GET /api/expert-requests", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return expertRequestHandler.HandleGetExpertRequests(w, r)
+	}))))
+	
+	s.mux.Handle("GET /api/expert-requests/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return expertRequestHandler.HandleGetExpertRequest(w, r)
+	}))))
+	
+	s.mux.Handle("PUT /api/expert-requests/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return expertRequestHandler.HandleUpdateExpertRequest(w, r)
+	}))))
+	
+	// Batch approval endpoint for multiple expert requests
+	s.mux.Handle("POST /api/expert-requests/batch-approve", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return expertRequestHandler.HandleBatchApproveExpertRequests(w, r)
+	}))))
+	
+	// Document management (upload, delete)
+	s.mux.Handle("POST /api/documents", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return documentHandler.HandleUploadDocument(w, r)
+	}))))
+	
+	s.mux.Handle("DELETE /api/documents/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return documentHandler.HandleDeleteDocument(w, r)
+	}))))
+	
+	//
+	// SUPER USER ACCESS
+	//
+	
+	// Statistics endpoints (restricted to super users)
+	s.mux.Handle("GET /api/statistics", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleSuperUser, func(w http.ResponseWriter, r *http.Request) error {
+		return statisticsHandler.HandleGetStatistics(w, r)
+	}))))
+	
+	s.mux.Handle("GET /api/statistics/nationality", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleSuperUser, func(w http.ResponseWriter, r *http.Request) error {
+		return statisticsHandler.HandleGetNationalityStats(w, r)
+	}))))
+	
+	s.mux.Handle("GET /api/statistics/engagements", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleSuperUser, func(w http.ResponseWriter, r *http.Request) error {
+		return statisticsHandler.HandleGetEngagementStats(w, r)
+	}))))
+	
+	s.mux.Handle("GET /api/statistics/growth", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleSuperUser, func(w http.ResponseWriter, r *http.Request) error {
+		return statisticsHandler.HandleGetGrowthStats(w, r)
+	}))))
+	
+	s.mux.Handle("GET /api/statistics/areas", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleSuperUser, func(w http.ResponseWriter, r *http.Request) error {
+		return statisticsHandler.HandleGetAreaStats(w, r)
+	}))))
+	
+	// Backup endpoints (restricted to admins)
+	s.mux.Handle("GET /api/backup", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return backupHandler.HandleBackupCSV(w, r)
+	}))))
+	
+	// Phase planning endpoints
+	// Phase listing - admin access
+	s.mux.Handle("GET /api/phases", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return phaseHandler.HandleListPhases(w, r)
+	}))))
+	
+	// Get specific phase - admin access
+	s.mux.Handle("GET /api/phases/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return phaseHandler.HandleGetPhase(w, r)
+	}))))
+	
+	// Create phase - admin access
+	s.mux.Handle("POST /api/phases", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return phaseHandler.HandleCreatePhase(w, r)
+	}))))
+	
+	// Update phase - admin access
+	s.mux.Handle("PUT /api/phases/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return phaseHandler.HandleUpdatePhase(w, r)
+	}))))
+	
+	// Update application experts - scheduler access
+	s.mux.Handle("PUT /api/phases/{id}/applications/{app_id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleScheduler, func(w http.ResponseWriter, r *http.Request) error {
+		return phaseHandler.HandleUpdateApplicationExperts(w, r)
+	}))))
+	
+	// Review application - admin access
+	s.mux.Handle("PUT /api/phases/{id}/applications/{app_id}/review", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return phaseHandler.HandleReviewApplication(w, r)
+	}))))
+	
+	// User management endpoints (most restricted to super_user)
+	// Get own user profile - any authenticated user can access their own profile
+	s.mux.Handle("GET /api/users/me", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		// Get user ID from context
+		userID, ok := auth.GetUserIDFromContext(r.Context())
+		if !ok {
+			return domain.ErrUnauthorized
 		}
-	})))
-	s.mux.Handle("GET /api/expert-requests", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := expertRequestHandler.HandleGetExpertRequests(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("GET /api/expert-requests/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := expertRequestHandler.HandleGetExpertRequest(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("PUT /api/expert-requests/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := expertRequestHandler.HandleUpdateExpertRequest(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("GET /api/expert/areas", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := expertHandler.HandleGetExpertAreas(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-
-	// Document endpoints
-	s.mux.Handle("POST /api/documents", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := documentHandler.HandleUploadDocument(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("GET /api/documents/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := documentHandler.HandleGetDocument(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("DELETE /api/documents/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := documentHandler.HandleDeleteDocument(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("GET /api/experts/{id}/documents", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := documentHandler.HandleGetExpertDocuments(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-
-	// Engagement endpoints
-	s.mux.Handle("POST /api/engagements", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := engagementHandler.HandleCreateEngagement(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("GET /api/engagements/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := engagementHandler.HandleGetEngagement(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("PUT /api/engagements/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := engagementHandler.HandleUpdateEngagement(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("DELETE /api/engagements/{id}", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := engagementHandler.HandleDeleteEngagement(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("GET /api/experts/{id}/engagements", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := engagementHandler.HandleGetExpertEngagements(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-
-	// Statistics endpoints
-	s.mux.Handle("GET /api/statistics", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := statisticsHandler.HandleGetStatistics(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("GET /api/statistics/nationality", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := statisticsHandler.HandleGetNationalityStats(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("GET /api/statistics/engagements", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := statisticsHandler.HandleGetEngagementStats(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
-	s.mux.Handle("GET /api/statistics/growth", corsAndLogMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := statisticsHandler.HandleGetGrowthStats(w, r); err != nil {
-			handleError(w, err)
-		}
-	})))
+		
+		// Set the ID in the URL path
+		r = r.WithContext(r.Context())
+		r.URL.Path = fmt.Sprintf("/api/users/%d", userID)
+		
+		return userHandler.HandleGetUser(w, r)
+	}))))
+	
+	// User list - admin access
+	s.mux.Handle("GET /api/users", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return userHandler.HandleGetUsers(w, r)
+	}))))
+	
+	// Get specific user - admin access
+	s.mux.Handle("GET /api/users/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return userHandler.HandleGetUser(w, r)
+	}))))
+	
+	// Create user - super user access
+	s.mux.Handle("POST /api/users", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return userHandler.HandleCreateUser(w, r)
+	}))))
+	
+	// Update user - admin access with role-based restrictions
+	s.mux.Handle("PUT /api/users/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		return userHandler.HandleUpdateUser(w, r)
+	}))))
+	
+	// Delete user - super user access
+	s.mux.Handle("DELETE /api/users/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleSuperUser, func(w http.ResponseWriter, r *http.Request) error {
+		return userHandler.HandleDeleteUser(w, r)
+	}))))
 }
 
 // Run starts the HTTP server

@@ -3,7 +3,6 @@ package sqlite
 import (
 	"fmt"
 	"time"
-	"strings"
 	"database/sql"
 	
 	"expertdb/internal/domain"
@@ -15,9 +14,9 @@ func (s *SQLiteStore) CreateExpertRequest(req *domain.ExpertRequest) (int64, err
 		INSERT INTO expert_requests (
 			name, designation, institution, is_bahraini, is_available,
 			rating, role, employment_type, general_area, specialized_area,
-			is_trained, cv_path, phone, email, is_published, biography,
+			is_trained, cv_path, approval_document_path, phone, email, is_published, biography,
 			status, created_at, created_by
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	
 	// Set default values if not provided
@@ -57,6 +56,12 @@ func (s *SQLiteStore) CreateExpertRequest(req *domain.ExpertRequest) (int64, err
 		cvPath = req.CVPath
 	}
 	
+	// Approval document path can be NULL
+	var approvalDocPath interface{} = nil
+	if req.ApprovalDocumentPath != "" {
+		approvalDocPath = req.ApprovalDocumentPath
+	}
+	
 	// Biography can be NULL
 	var biography interface{} = nil
 	if req.Biography != "" {
@@ -69,7 +74,7 @@ func (s *SQLiteStore) CreateExpertRequest(req *domain.ExpertRequest) (int64, err
 		req.IsBahraini, req.IsAvailable, rating,
 		req.Role, req.EmploymentType, req.GeneralArea,
 		specializedArea, req.IsTrained, cvPath,
-		req.Phone, req.Email, req.IsPublished, biography,
+		approvalDocPath, req.Phone, req.Email, req.IsPublished, biography,
 		req.Status, req.CreatedAt, req.CreatedBy,
 	)
 	
@@ -94,7 +99,7 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) 
 		SELECT 
 			id, expert_id, name, designation, institution, is_bahraini, 
 			is_available, rating, role, employment_type, general_area, 
-			specialized_area, is_trained, cv_path, phone, email, 
+			specialized_area, is_trained, cv_path, approval_document_path, phone, email, 
 			is_published, biography, status, rejection_reason, 
 			created_at, reviewed_at, reviewed_by, created_by
 		FROM expert_requests
@@ -111,7 +116,7 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) 
 		&req.ID, &expertID, &req.Name, &req.Designation, &req.Institution, 
 		&req.IsBahraini, &req.IsAvailable, &req.Rating, &req.Role, 
 		&req.EmploymentType, &req.GeneralArea, &req.SpecializedArea, 
-		&req.IsTrained, &req.CVPath, &req.Phone, &req.Email, 
+		&req.IsTrained, &req.CVPath, &req.ApprovalDocumentPath, &req.Phone, &req.Email, 
 		&req.IsPublished, &req.Biography, &req.Status, &req.RejectionReason, 
 		&req.CreatedAt, &reviewedAt, &reviewedBy, &createdBy,
 	)
@@ -152,12 +157,12 @@ func (s *SQLiteStore) ListExpertRequests(status string, limit, offset int) ([]*d
 	var query string
 	var args []interface{}
 	
-	if status != "" {
+	if status != "" && status != "all" {
 		query = `
 			SELECT 
 				id, expert_id, name, designation, institution, is_bahraini, 
 				is_available, rating, role, employment_type, general_area, 
-				specialized_area, is_trained, cv_path, phone, email, 
+				specialized_area, is_trained, cv_path, approval_document_path, phone, email, 
 				is_published, biography, status, rejection_reason, 
 				created_at, reviewed_at, reviewed_by, created_by
 			FROM expert_requests
@@ -167,11 +172,12 @@ func (s *SQLiteStore) ListExpertRequests(status string, limit, offset int) ([]*d
 		`
 		args = []interface{}{status, limit, offset}
 	} else {
+		// status is empty or "all" - return all requests
 		query = `
 			SELECT 
 				id, expert_id, name, designation, institution, is_bahraini, 
 				is_available, rating, role, employment_type, general_area, 
-				specialized_area, is_trained, cv_path, phone, email, 
+				specialized_area, is_trained, cv_path, approval_document_path, phone, email, 
 				is_published, biography, status, rejection_reason, 
 				created_at, reviewed_at, reviewed_by, created_by
 			FROM expert_requests
@@ -199,7 +205,7 @@ func (s *SQLiteStore) ListExpertRequests(status string, limit, offset int) ([]*d
 			&req.ID, &expertID, &req.Name, &req.Designation, &req.Institution, 
 			&req.IsBahraini, &req.IsAvailable, &req.Rating, &req.Role, 
 			&req.EmploymentType, &req.GeneralArea, &req.SpecializedArea, 
-			&req.IsTrained, &req.CVPath, &req.Phone, &req.Email, 
+			&req.IsTrained, &req.CVPath, &req.ApprovalDocumentPath, &req.Phone, &req.Email, 
 			&req.IsPublished, &req.Biography, &req.Status, &req.RejectionReason, 
 			&req.CreatedAt, &reviewedAt, &reviewedBy, &createdBy,
 		)
@@ -271,31 +277,45 @@ func (s *SQLiteStore) UpdateExpertRequestStatus(id int64, status, rejectionReaso
 		
 		// Create expert
 		expert := &domain.Expert{
-			ExpertID:          req.ExpertID,
-			Name:              req.Name,
-			Email:             req.Email,
-			Phone:             req.Phone,
-			Biography:         req.Biography,
-			CVPath:            req.CVPath,
-			Designation:       req.Designation,
-			Institution:       req.Institution,
-			IsBahraini:        req.IsBahraini,
-			IsAvailable:       req.IsAvailable,
-			Rating:            req.Rating,
-			Role:              req.Role,
-			EmploymentType:    req.EmploymentType,
-			GeneralArea:       req.GeneralArea,
-			SpecializedArea:   req.SpecializedArea,
-			IsPublished:       req.IsPublished,
-			IsTrained:         req.IsTrained,
-			CreatedAt:         now,
-			UpdatedAt:         now,
-			OriginalRequestID: id, // Set the reference to the original request
+			// Don't set ExpertID - let the CreateExpert function generate it using GenerateUniqueExpertID
+			Name:                req.Name,
+			Email:               req.Email,
+			Phone:               req.Phone,
+			Biography:           req.Biography,
+			CVPath:              req.CVPath,
+			ApprovalDocumentPath: req.ApprovalDocumentPath,
+			Designation:         req.Designation,
+			Institution:         req.Institution,
+			IsBahraini:          req.IsBahraini,
+			IsAvailable:         req.IsAvailable,
+			Rating:              req.Rating,
+			Role:                req.Role,
+			EmploymentType:      req.EmploymentType,
+			GeneralArea:         req.GeneralArea,
+			SpecializedArea:     req.SpecializedArea,
+			IsPublished:         req.IsPublished,
+			IsTrained:           req.IsTrained,
+			CreatedAt:           now,
+			UpdatedAt:           now,
+			OriginalRequestID:   id, // Set the reference to the original request
 		}
 		
-		_, err = s.CreateExpert(expert)
+		// Create the expert using the sequential ID generator
+		expertID, err := s.CreateExpert(expert)
 		if err != nil {
 			return fmt.Errorf("failed to create expert on approval: %w", err)
+		}
+		
+		// Update the request with the generated expert ID
+		createdExpert, err := s.GetExpert(expertID)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve created expert: %w", err)
+		}
+		
+		// Set the expert_id in the request record
+		_, err = s.db.Exec("UPDATE expert_requests SET expert_id = ? WHERE id = ?", createdExpert.ExpertID, id)
+		if err != nil {
+			return fmt.Errorf("failed to update expert request with expert_id: %w", err)
 		}
 	}
 	
@@ -309,14 +329,14 @@ func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
 		SET name = ?, designation = ?, institution = ?, is_bahraini = ?,
 			is_available = ?, rating = ?, role = ?, employment_type = ?,
 			general_area = ?, specialized_area = ?, is_trained = ?,
-			cv_path = ?, phone = ?, email = ?, is_published = ?,
+			cv_path = ?, approval_document_path = ?, phone = ?, email = ?, is_published = ?,
 			biography = ?, status = ?, rejection_reason = ?,
 			expert_id = ?, reviewed_at = ?, reviewed_by = ?, created_by = ?
 		WHERE id = ?
 	`
 	
 	// Handle nullable fields
-	var rating, specializedArea, cvPath, biography, rejectionReason, expertID interface{} = nil, nil, nil, nil, nil, nil
+	var rating, specializedArea, cvPath, approvalDocPath, biography, rejectionReason, expertID interface{} = nil, nil, nil, nil, nil, nil, nil
 	
 	if req.Rating != "" {
 		rating = req.Rating
@@ -326,6 +346,9 @@ func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
 	}
 	if req.CVPath != "" {
 		cvPath = req.CVPath
+	}
+	if req.ApprovalDocumentPath != "" {
+		approvalDocPath = req.ApprovalDocumentPath
 	}
 	if req.Biography != "" {
 		biography = req.Biography
@@ -358,7 +381,7 @@ func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
 		req.Name, req.Designation, req.Institution, req.IsBahraini,
 		req.IsAvailable, rating, req.Role, req.EmploymentType,
 		req.GeneralArea, specializedArea, req.IsTrained,
-		cvPath, req.Phone, req.Email, req.IsPublished,
+		cvPath, approvalDocPath, req.Phone, req.Email, req.IsPublished,
 		biography, req.Status, rejectionReason,
 		expertID, reviewedAt, reviewedBy, createdBy,
 		req.ID,
@@ -379,4 +402,208 @@ func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
 	}
 	
 	return nil
+}
+
+// BatchApproveExpertRequests approves multiple expert requests in a single transaction
+// Returns a list of successfully approved request IDs and a map of errors for failed approvals
+func (s *SQLiteStore) BatchApproveExpertRequests(requestIDs []int64, approvalDocumentPath string, reviewedBy int64) ([]int64, map[int64]error) {
+	successIDs := []int64{}
+	errors := make(map[int64]error)
+	
+	// Begin transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		// If we can't even start a transaction, return error for all IDs
+		for _, id := range requestIDs {
+			errors[id] = fmt.Errorf("failed to begin transaction: %w", err)
+		}
+		return successIDs, errors
+	}
+	
+	// Defer rollback in case of error - this will be a no-op if we commit
+	defer tx.Rollback()
+	
+	// Prepare update statement
+	now := time.Now().UTC()
+	updateStmt, err := tx.Prepare(`
+		UPDATE expert_requests
+		SET status = ?, rejection_reason = ?, reviewed_at = ?, reviewed_by = ?, approval_document_path = ?
+		WHERE id = ? AND status = 'pending'
+	`)
+	if err != nil {
+		for _, id := range requestIDs {
+			errors[id] = fmt.Errorf("failed to prepare statement: %w", err)
+		}
+		return successIDs, errors
+	}
+	defer updateStmt.Close()
+	
+	// Process each request
+	for _, id := range requestIDs {
+		// Update the status
+		result, err := updateStmt.Exec("approved", "", now, reviewedBy, approvalDocumentPath, id)
+		if err != nil {
+			errors[id] = fmt.Errorf("failed to update request status: %w", err)
+			continue
+		}
+		
+		// Check if a row was affected
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			errors[id] = fmt.Errorf("failed to get rows affected: %w", err)
+			continue
+		}
+		
+		if rowsAffected == 0 {
+			// This could be because the request doesn't exist or was not in pending status
+			// Get the request to find out
+			var status string
+			err := tx.QueryRow("SELECT status FROM expert_requests WHERE id = ?", id).Scan(&status)
+			
+			if err != nil {
+				if err == sql.ErrNoRows {
+					errors[id] = domain.ErrNotFound
+				} else {
+					errors[id] = fmt.Errorf("failed to check request status: %w", err)
+				}
+				continue
+			}
+			
+			if status != "pending" {
+				errors[id] = fmt.Errorf("request is not in pending status (current: %s)", status)
+				continue
+			}
+			
+			errors[id] = fmt.Errorf("request not updated for unknown reason")
+			continue
+		}
+		
+		// Get the request data for expert creation
+		var req domain.ExpertRequest
+		query := `
+			SELECT 
+				id, expert_id, name, designation, institution, is_bahraini, 
+				is_available, rating, role, employment_type, general_area, 
+				specialized_area, is_trained, cv_path, phone, email, 
+				is_published, biography, status, created_by
+			FROM expert_requests
+			WHERE id = ?
+		`
+		
+		err = tx.QueryRow(query, id).Scan(
+			&req.ID, &req.ExpertID, &req.Name, &req.Designation, &req.Institution, 
+			&req.IsBahraini, &req.IsAvailable, &req.Rating, &req.Role, 
+			&req.EmploymentType, &req.GeneralArea, &req.SpecializedArea, 
+			&req.IsTrained, &req.CVPath, &req.Phone, &req.Email, 
+			&req.IsPublished, &req.Biography, &req.Status, &req.CreatedBy,
+		)
+		
+		if err != nil {
+			errors[id] = fmt.Errorf("failed to retrieve request data: %w", err)
+			continue
+		}
+		
+		// Create expert
+		expert := &domain.Expert{
+			// Don't set ExpertID - will be generated by CreateExpert
+			Name:                req.Name,
+			Email:               req.Email,
+			Phone:               req.Phone,
+			Biography:           req.Biography,
+			CVPath:              req.CVPath,
+			ApprovalDocumentPath: approvalDocumentPath,
+			Designation:         req.Designation,
+			Institution:         req.Institution,
+			IsBahraini:          req.IsBahraini,
+			IsAvailable:         req.IsAvailable,
+			Rating:              req.Rating,
+			Role:                req.Role,
+			EmploymentType:      req.EmploymentType,
+			GeneralArea:         req.GeneralArea,
+			SpecializedArea:     req.SpecializedArea,
+			IsPublished:         req.IsPublished,
+			IsTrained:           req.IsTrained,
+			CreatedAt:           now,
+			UpdatedAt:           now,
+			OriginalRequestID:   id,
+		}
+		
+		// Generate unique expert ID
+		expertIDStmt, err := tx.Prepare(`
+			SELECT COALESCE(MAX(CAST(SUBSTR(expert_id, 5) AS INTEGER)), 0) + 1
+			FROM experts
+			WHERE expert_id LIKE 'EXP-%'
+		`)
+		if err != nil {
+			errors[id] = fmt.Errorf("failed to prepare expert ID statement: %w", err)
+			continue
+		}
+		
+		var nextID int
+		err = expertIDStmt.QueryRow().Scan(&nextID)
+		expertIDStmt.Close()
+		
+		if err != nil {
+			errors[id] = fmt.Errorf("failed to generate expert ID: %w", err)
+			continue
+		}
+		
+		expertID := fmt.Sprintf("EXP-%04d", nextID)
+		expert.ExpertID = expertID
+		
+		// Insert the expert
+		expertStmt, err := tx.Prepare(`
+			INSERT INTO experts (
+				expert_id, name, designation, institution, is_bahraini, is_available,
+				rating, role, employment_type, general_area, specialized_area,
+				is_trained, cv_path, approval_document_path, phone, email, is_published, biography,
+				created_at, updated_at, original_request_id
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`)
+		if err != nil {
+			errors[id] = fmt.Errorf("failed to prepare expert insert statement: %w", err)
+			continue
+		}
+		
+		result, err = expertStmt.Exec(
+			expert.ExpertID, expert.Name, expert.Designation, expert.Institution,
+			expert.IsBahraini, expert.IsAvailable, expert.Rating, expert.Role,
+			expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
+			expert.IsTrained, expert.CVPath, expert.ApprovalDocumentPath,
+			expert.Phone, expert.Email, expert.IsPublished, expert.Biography,
+			expert.CreatedAt, expert.UpdatedAt, expert.OriginalRequestID,
+		)
+		expertStmt.Close()
+		
+		if err != nil {
+			errors[id] = fmt.Errorf("failed to insert expert: %w", err)
+			continue
+		}
+		
+		// Update the request with the expert ID
+		_, err = tx.Exec("UPDATE expert_requests SET expert_id = ? WHERE id = ?", expertID, id)
+		if err != nil {
+			errors[id] = fmt.Errorf("failed to update request with expert ID: %w", err)
+			continue
+		}
+		
+		// This request was successful
+		successIDs = append(successIDs, id)
+	}
+	
+	// If we have at least one success, commit the transaction
+	if len(successIDs) > 0 {
+		if err := tx.Commit(); err != nil {
+			// If commit fails, all operations fail
+			for _, id := range successIDs {
+				errors[id] = fmt.Errorf("failed to commit transaction: %w", err)
+			}
+			return []int64{}, errors
+		}
+	} else {
+		// No successful operations, so return all errors
+		return []int64{}, errors
+	}
+	
+	return successIDs, errors
 }

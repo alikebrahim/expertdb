@@ -25,8 +25,12 @@ const (
 	jwtExpiration = time.Hour * 24
 	
 	// User role definitions for access control
-	RoleAdmin = "admin" // Admin role has full system access
-	RoleUser  = "user"  // User role has limited, read-mostly access
+	// Role hierarchy (from highest to lowest privileges):
+	// super_user > admin > scheduler > user
+	RoleSuperUser = "super_user" // Super user role has complete system access, can create admins
+	RoleAdmin = "admin"          // Admin role has full system access, can create regular users and schedulers
+	RoleScheduler = "scheduler"  // Scheduler role can assign experts to applications
+	RoleUser  = "user"           // User role has limited, read-only access
 )
 
 // JWTSecretKey is the key used to sign and verify JWT tokens
@@ -120,4 +124,43 @@ func VerifyJWT(tokenString string) (*jwt.Token, jwt.MapClaims, error) {
 	}
 	
 	return token, claims, nil
+}
+
+// HasRole checks if a user's role is at least the specified minimum role in the hierarchy
+func HasRole(userRole, minRequiredRole string) bool {
+	// Define role weights (higher number = higher privilege)
+	roleWeights := map[string]int{
+		RoleSuperUser: 40,
+		RoleAdmin:     30,
+		RoleScheduler: 20,
+		RoleUser:      10,
+		"":            0, // Default for unknown roles
+	}
+	
+	// Get the weights for comparison
+	userRoleWeight := roleWeights[userRole]
+	minRequiredWeight := roleWeights[minRequiredRole]
+	
+	// User's role must be at least as powerful as the required role
+	return userRoleWeight >= minRequiredWeight
+}
+
+// CanManageRole checks if a user with the specified role can manage (create/edit/delete) users with the target role
+func CanManageRole(managerRole, targetRole string) bool {
+	// Role management rules:
+	// - super_user can manage admin, scheduler, and user
+	// - admin can manage scheduler and user
+	// - No one else can manage roles
+	
+	switch managerRole {
+	case RoleSuperUser:
+		// Super user can manage any role except another super user
+		return targetRole != RoleSuperUser
+	case RoleAdmin:
+		// Admin can manage scheduler and user roles
+		return targetRole == RoleScheduler || targetRole == RoleUser
+	default:
+		// No other roles can manage users
+		return false
+	}
 }

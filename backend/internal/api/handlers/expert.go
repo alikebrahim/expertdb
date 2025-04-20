@@ -60,19 +60,85 @@ func (h *ExpertHandler) HandleGetExperts(w http.ResponseWriter, r *http.Request)
 			filters["generalArea"] = area
 		}
 	}
+	
+	// Phase 3A: Additional Expert Filtering
+	
+	// Filter by nationality (Bahraini/non-Bahraini)
+	if nationality := queryParams.Get("by_nationality"); nationality != "" {
+		filters["by_nationality"] = nationality
+	}
+	
+	// Filter by general area
+	if generalArea := queryParams.Get("by_general_area"); generalArea != "" {
+		if area, err := strconv.ParseInt(generalArea, 10, 64); err == nil {
+			filters["by_general_area"] = area
+		}
+	}
+	
+	// Filter by specialized area
+	if specializedArea := queryParams.Get("by_specialized_area"); specializedArea != "" {
+		filters["by_specialized_area"] = specializedArea
+	}
+	
+	// Filter by employment type
+	if employmentType := queryParams.Get("by_employment_type"); employmentType != "" {
+		filters["by_employment_type"] = employmentType
+	}
+	
+	// Filter by role
+	if role := queryParams.Get("by_role"); role != "" {
+		filters["by_role"] = role
+	}
 
 	// Process sorting parameters
 	sortBy := "name"   // Default sort field
 	sortOrder := "asc" // Default sort order
 
 	if sortParam := queryParams.Get("sort_by"); sortParam != "" {
-		// Validate sort field against allowed fields
+		// Enhanced sort field validation - more options as per Phase 3B
 		allowedSortFields := map[string]bool{
-			"name": true, "institution": true, "role": true,
-			"created_at": true, "rating": true, "general_area": true,
+			"name": true, 
+			"institution": true, 
+			"role": true,
+			"created_at": true, 
+			"updated_at": true,
+			"rating": true, 
+			"general_area": true,
+			"expert_id": true,  // Add ability to sort by expert ID
+			"designation": true, // Add ability to sort by designation
+			"employment_type": true, // Add ability to sort by employment type
+			"nationality": true, // Add ability to sort by nationality
+			"specialized_area": true, // Add ability to sort by specialized area
+			"is_bahraini": true, // Add ability to sort by Bahraini status
+			"is_available": true, // Add ability to sort by availability
+			"is_published": true, // Add ability to sort by published status
 		}
-		if allowedSortFields[sortParam] {
-			sortBy = sortParam
+		// Convert to database column name format if needed (e.g., camelCase to snake_case)
+		dbFieldName := sortParam
+		if sortParam == "expertId" {
+			dbFieldName = "expert_id"
+		} else if sortParam == "specializedArea" {
+			dbFieldName = "specialized_area"
+		} else if sortParam == "employmentType" {
+			dbFieldName = "employment_type"
+		} else if sortParam == "generalArea" {
+			dbFieldName = "general_area"
+		} else if sortParam == "isBahraini" {
+			dbFieldName = "is_bahraini"
+		} else if sortParam == "isAvailable" {
+			dbFieldName = "is_available"
+		} else if sortParam == "isPublished" {
+			dbFieldName = "is_published"
+		} else if sortParam == "createdAt" {
+			dbFieldName = "created_at"
+		} else if sortParam == "updatedAt" {
+			dbFieldName = "updated_at"
+		}
+		
+		if allowedSortFields[dbFieldName] {
+			sortBy = dbFieldName // Use the validated field name
+		} else {
+			log.Warn("Invalid sort field requested: %s. Using default: name", sortParam)
 		}
 	}
 
@@ -119,14 +185,42 @@ func (h *ExpertHandler) HandleGetExperts(w http.ResponseWriter, r *http.Request)
 		return fmt.Errorf("failed to retrieve experts: %w", err)
 	}
 
-	// Set total count header for pagination
+	// Enhanced pagination metadata for Phase 3B
+	// Calculate pagination information
+	totalPages := (totalCount + limit - 1) / limit // Ceiling division
+	currentPage := (offset / limit) + 1
+	hasMore := offset+len(experts) < totalCount
+	hasNext := currentPage < totalPages
+	hasPrev := currentPage > 1
+	
+	// Set pagination headers for client convenience
 	w.Header().Set("X-Total-Count", fmt.Sprintf("%d", totalCount))
+	w.Header().Set("X-Total-Pages", fmt.Sprintf("%d", totalPages))
+	w.Header().Set("X-Current-Page", fmt.Sprintf("%d", currentPage))
+	w.Header().Set("X-Page-Size", fmt.Sprintf("%d", limit))
+	w.Header().Set("X-Has-Next-Page", fmt.Sprintf("%t", hasNext))
+	w.Header().Set("X-Has-Prev-Page", fmt.Sprintf("%t", hasPrev))
+	
+	// Create a response object that includes both experts and metadata
+	response := map[string]interface{}{
+		"experts": experts,
+		"pagination": map[string]interface{}{
+			"totalCount": totalCount,
+			"totalPages": totalPages,
+			"currentPage": currentPage,
+			"pageSize": limit,
+			"hasNextPage": hasNext,
+			"hasPrevPage": hasPrev,
+			"hasMore": hasMore,
+		},
+	}
 
 	// Return results
-	log.Debug("Returning %d experts", len(experts))
+	log.Debug("Returning %d experts (page %d/%d, total count: %d)", 
+		len(experts), currentPage, totalPages, totalCount)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(experts)
+	return json.NewEncoder(w).Encode(response)
 }
 
 // HandleGetExpert handles GET /api/experts/{id} requests
@@ -173,24 +267,66 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 	var expert domain.Expert
 	if err := json.NewDecoder(r.Body).Decode(&expert); err != nil {
 		log.Warn("Failed to parse expert creation request: %v", err)
-		return writeJSON(w, http.StatusBadRequest, map[string]string{
-			"error": fmt.Sprintf("Invalid JSON format: %v", err),
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "Invalid JSON format",
+			"details": err.Error(),
+			"suggestion": "Check the request syntax and ensure all fields have proper types",
 		})
 	}
 
-	// Validate required fields
+	// Validate required fields - collect all validation errors
 	errors := []string{}
+	
+	// The following fields are required per SRS
 	if expert.Name == "" {
 		errors = append(errors, "name is required")
+	}
+	
+	if expert.Institution == "" {
+		errors = append(errors, "institution is required")
+	}
+	
+	if expert.Designation == "" {
+		errors = append(errors, "designation is required")
+	}
+	
+	if expert.Role == "" {
+		errors = append(errors, "role is required")
+	} else {
+		// Validate role values
+		validRoles := []string{"evaluator", "validator", "expert", "trainer", "consultant"}
+		if !containsString(validRoles, strings.ToLower(expert.Role)) {
+			errors = append(errors, "role must be one of: evaluator, validator, expert, trainer, consultant")
+		}
+	}
+	
+	if expert.EmploymentType == "" {
+		errors = append(errors, "employmentType is required")
+	} else {
+		// Validate employment type values
+		validEmploymentTypes := []string{"academic", "employer", "freelance", "government", "other"}
+		if !containsString(validEmploymentTypes, strings.ToLower(expert.EmploymentType)) {
+			errors = append(errors, "employmentType must be one of: academic, employer, freelance, government, other")
+		}
 	}
 	
 	if expert.GeneralArea <= 0 {
 		errors = append(errors, "generalArea must be a positive number")
 	}
 	
-	if expert.Email != "" && !isValidEmail(expert.Email) {
-		errors = append(errors, fmt.Sprintf("invalid email format: %s", expert.Email))
+	if expert.SpecializedArea == "" {
+		errors = append(errors, "specializedArea is required")
 	}
+	
+	if expert.Phone == "" {
+		errors = append(errors, "phone is required")
+	}
+	
+	if expert.Biography == "" {
+		errors = append(errors, "biography is required")
+	}
+	
+	// Skip email validation per SRS requirement - no validation for emails
 	
 	if len(errors) > 0 {
 		log.Warn("Expert validation failed: %v", errors)
@@ -200,10 +336,15 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 		})
 	}
 
-	// Set creation time if not provided
+	// Set creation time and default values if not provided
 	if expert.CreatedAt.IsZero() {
 		expert.CreatedAt = time.Now()
 		expert.UpdatedAt = expert.CreatedAt
+	}
+	
+	// Default values
+	if !expert.IsPublished {
+		expert.IsPublished = false // Explicitly set to false if not provided
 	}
 
 	// Create expert in database
@@ -212,23 +353,39 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		log.Error("Failed to create expert in database: %v", err)
 
-		// Check specifically for UNIQUE constraint violations on expert_id
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") &&
-			strings.Contains(err.Error(), "expert_id") {
-			return writeJSON(w, http.StatusConflict, map[string]string{
-				"error": fmt.Sprintf("Expert ID %s already exists", expert.ExpertID),
+		// Check for different types of errors and return appropriate status codes
+		if strings.Contains(err.Error(), "expert ID already exists") {
+			return writeJSON(w, http.StatusConflict, map[string]interface{}{
+				"error": err.Error(),
+				"suggestion": "Let the system generate a unique ID automatically by omitting the expertId field",
 			})
 		}
 		
-		// Check for foreign key constraint violations
-		if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
-			return writeJSON(w, http.StatusBadRequest, map[string]string{
-				"error": "Referenced resource does not exist (likely invalid generalArea)",
+		if strings.Contains(err.Error(), "email already exists") {
+			return writeJSON(w, http.StatusConflict, map[string]interface{}{
+				"error": err.Error(),
+				"suggestion": "Either use a different email or update the existing expert record",
 			})
 		}
-
-		return writeJSON(w, http.StatusInternalServerError, map[string]string{
-			"error": fmt.Sprintf("Database error creating expert: %v", err),
+		
+		if strings.Contains(err.Error(), "invalid general area") || 
+		   strings.Contains(err.Error(), "referenced resource does not exist") {
+			return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+				"error": err.Error(),
+				"suggestion": "Use GET /api/expert/areas to see the list of valid general areas",
+			})
+		}
+		
+		if strings.Contains(err.Error(), "required field") {
+			return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+		
+		// Generic database error
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "Database error creating expert",
+			"details": err.Error(),
 		})
 	}
 
@@ -236,6 +393,7 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 	log.Info("Expert created successfully with ID: %d", id)
 	return writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"id":      id,
+		"expertId": expert.ExpertID,
 		"success": true,
 		"message": "Expert created successfully",
 	})
@@ -252,6 +410,16 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}) error {
 func isValidEmail(email string) bool {
 	re := regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 	return re.MatchString(email)
+}
+
+// Helper function to check if a string is in a slice
+func containsString(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
 }
 
 // HandleUpdateExpert handles PUT /api/experts/{id} requests
@@ -405,4 +573,129 @@ func (h *ExpertHandler) HandleGetExpertAreas(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	return json.NewEncoder(w).Encode(areas)
+}
+
+// AreaRequest represents a request to create or update an area
+type AreaRequest struct {
+	Name string `json:"name"`
+}
+
+// HandleCreateArea handles POST /api/expert/areas requests
+func (h *ExpertHandler) HandleCreateArea(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing POST /api/expert/areas request")
+
+	// Parse the request body
+	var req AreaRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Warn("Failed to parse area creation request: %v", err)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "Invalid JSON format",
+			"details": err.Error(),
+		})
+	}
+
+	// Validate area name
+	if strings.TrimSpace(req.Name) == "" {
+		log.Warn("Area name validation failed: empty name")
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "Validation failed",
+			"details": "Area name cannot be empty",
+		})
+	}
+
+	// Create area in database
+	id, err := h.store.CreateArea(req.Name)
+	if err != nil {
+		log.Error("Failed to create area: %v", err)
+		
+		// Check for duplicate name error
+		if strings.Contains(err.Error(), "already exists") {
+			return writeJSON(w, http.StatusConflict, map[string]interface{}{
+				"error": err.Error(),
+				"suggestion": "Use a different area name",
+			})
+		}
+		
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "Failed to create area",
+			"details": err.Error(),
+		})
+	}
+
+	// Return success response
+	log.Info("Area created successfully with ID: %d", id)
+	return writeJSON(w, http.StatusCreated, map[string]interface{}{
+		"id": id,
+		"name": req.Name,
+		"success": true,
+		"message": "Area created successfully",
+	})
+}
+
+// HandleUpdateArea handles PUT /api/expert/areas/{id} requests
+func (h *ExpertHandler) HandleUpdateArea(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate area ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid area ID provided: %s", idStr)
+		return fmt.Errorf("invalid area ID: %w", err)
+	}
+	
+	// Parse the request body
+	var req AreaRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Warn("Failed to parse area update request: %v", err)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "Invalid JSON format",
+			"details": err.Error(),
+		})
+	}
+	
+	// Validate area name
+	if strings.TrimSpace(req.Name) == "" {
+		log.Warn("Area name validation failed: empty name")
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": "Validation failed",
+			"details": "Area name cannot be empty",
+		})
+	}
+	
+	// Update area in database
+	err = h.store.UpdateArea(id, req.Name)
+	if err != nil {
+		log.Error("Failed to update area: %v", err)
+		
+		// Check for specific errors
+		if err == domain.ErrNotFound {
+			return writeJSON(w, http.StatusNotFound, map[string]interface{}{
+				"error": "Area not found",
+				"details": fmt.Sprintf("No area exists with ID: %d", id),
+			})
+		}
+		
+		if strings.Contains(err.Error(), "already exists") {
+			return writeJSON(w, http.StatusConflict, map[string]interface{}{
+				"error": err.Error(),
+				"suggestion": "Use a different area name",
+			})
+		}
+		
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "Failed to update area",
+			"details": err.Error(),
+		})
+	}
+	
+	// Return success response
+	log.Info("Area updated successfully: ID: %d", id)
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
+		"id": id,
+		"name": req.Name,
+		"success": true,
+		"message": "Area updated successfully",
+	})
 }

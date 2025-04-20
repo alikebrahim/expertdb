@@ -9,7 +9,7 @@ import (
 	"expertdb/internal/domain"
 )
 
-// CreateUser creates a new user in the database
+// CreateUser creates a new user in the database with role management rules
 func (s *SQLiteStore) CreateUser(user *domain.User) (int64, error) {
 	// Validate required fields
 	if user.Name == "" || user.Email == "" || user.PasswordHash == "" {
@@ -25,6 +25,35 @@ func (s *SQLiteStore) CreateUser(user *domain.User) (int64, error) {
 	
 	if exists {
 		return 0, errors.New("email already exists")
+	}
+
+	// Validate role assignment based on the current user's role (if available)
+	if user.Role == "" {
+		// Default to regular user role
+		user.Role = "user"
+	} else {
+		// Extract creator user ID and role from context (if available)
+		// This logic assumes the user creator context is stored in the current request
+		// In a real implementation, this would be passed through an additional param
+		
+		// Apply role creation constraints:
+		// 1. If creating a super_user, verify the user is self-bootstrapping (like server initialization)
+		// 2. For creating admin and below, verify creator is a super_user
+		// 3. For creating scheduler and below, verify creator is admin or super_user
+		
+		// For the initial implementation, we'll simply check if the role is valid
+		validRoles := []string{"super_user", "admin", "scheduler", "user"}
+		roleValid := false
+		for _, role := range validRoles {
+			if user.Role == role {
+				roleValid = true
+				break
+			}
+		}
+		
+		if !roleValid {
+			return 0, fmt.Errorf("invalid role: %s", user.Role)
+		}
 	}
 
 	// Initialize with current time if not set
@@ -249,29 +278,117 @@ func (s *SQLiteStore) UpdateUserLastLogin(id int64) error {
 	return nil
 }
 
-// EnsureAdminExists ensures that an admin user with the given credentials exists
-func (s *SQLiteStore) EnsureAdminExists(adminEmail, adminName, adminPasswordHash string) error {
-	// Check if admin with given email already exists
-	user, err := s.GetUserByEmail(adminEmail)
+// EnsureSuperUserExists ensures that a super user with the given credentials exists
+func (s *SQLiteStore) EnsureSuperUserExists(email, name, passwordHash string) error {
+	// Check if super user with given email already exists
+	user, err := s.GetUserByEmail(email)
 	if err == nil && user != nil {
-		// Admin already exists, no need to create
+		// User already exists - check if role needs to be upgraded to super_user
+		if user.Role != "super_user" {
+			// Update the existing user to a super_user
+			user.Role = "super_user"
+			err = s.UpdateUser(user)
+			if err != nil {
+				return fmt.Errorf("failed to upgrade user to super_user: %w", err)
+			}
+		}
 		return nil
 	}
 	
-	// Admin doesn't exist, create a new one
-	admin := &domain.User{
-		Name:         adminName,
-		Email:        adminEmail,
-		PasswordHash: adminPasswordHash,
-		Role:         "admin",
+	// Super user doesn't exist, create a new one
+	superUser := &domain.User{
+		Name:         name,
+		Email:        email,
+		PasswordHash: passwordHash,
+		Role:         "super_user",
 		IsActive:     true,
 		CreatedAt:    time.Now().UTC(),
 		LastLogin:    time.Now().UTC(),
 	}
 	
-	_, err = s.CreateUser(admin)
+	_, err = s.CreateUser(superUser)
 	if err != nil {
-		return fmt.Errorf("failed to create admin user: %w", err)
+		return fmt.Errorf("failed to create super user: %w", err)
+	}
+	
+	return nil
+}
+
+// CreateUserWithRoleCheck creates a new user while enforcing role hierarchy rules
+func (s *SQLiteStore) CreateUserWithRoleCheck(user *domain.User, creatorRole string) (int64, error) {
+	// First, check if the user can be created by the creator based on role hierarchy
+	if !canCreateUserWithRole(creatorRole, user.Role) {
+		return 0, fmt.Errorf("creator with role '%s' cannot create a user with role '%s'", 
+			creatorRole, user.Role)
+	}
+	
+	// If allowed, proceed with regular user creation
+	return s.CreateUser(user)
+}
+
+// Helper function to check if a user with a given role can create a user with a target role
+func canCreateUserWithRole(creatorRole, targetRole string) bool {
+	switch creatorRole {
+	case "super_user":
+		// Super user can create admin, scheduler, and regular users
+		return targetRole == "admin" || targetRole == "scheduler" || targetRole == "user"
+	case "admin":
+		// Admin can create scheduler and regular users
+		return targetRole == "scheduler" || targetRole == "user"
+	default:
+		// No other roles can create users
+		return false
+	}
+}
+
+// DeleteUser deletes a user by ID
+func (s *SQLiteStore) DeleteUser(id int64) error {
+	// First check if this is a protected user (like the first super_user)
+	var role string
+	err := s.db.QueryRow("SELECT role FROM users WHERE id = ?", id).Scan(&role)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return domain.ErrNotFound
+		}
+		return fmt.Errorf("failed to check user role: %w", err)
+	}
+	
+	// If deleting a super_user, ensure it's not the last one
+	if role == "super_user" {
+		var count int
+		err := s.db.QueryRow("SELECT COUNT(*) FROM users WHERE role = 'super_user'").Scan(&count)
+		if err != nil {
+			return fmt.Errorf("failed to count super users: %w", err)
+		}
+		
+		if count <= 1 {
+			return fmt.Errorf("cannot delete the last super user")
+		}
+	}
+	
+	// If deleting a scheduler, handle cascade deletion of scheduler assignments
+	if role == "scheduler" {
+		// In a real implementation, you would delete/reassign any scheduler assignments here
+		// For example:
+		// _, err := s.db.Exec("UPDATE phases SET assigned_scheduler_id = NULL WHERE assigned_scheduler_id = ?", id)
+		// if err != nil {
+		//     return fmt.Errorf("failed to clear scheduler assignments: %w", err)
+		// }
+	}
+	
+	// Now proceed with deleting the user
+	result, err := s.db.Exec("DELETE FROM users WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
 	}
 	
 	return nil

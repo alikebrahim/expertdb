@@ -44,6 +44,19 @@ func New(store storage.Storage, uploadDir string) (*Service, error) {
 
 // CreateDocument handles file upload and database registration
 func (s *Service) CreateDocument(expertID int64, file multipart.File, header *multipart.FileHeader, docType string) (*domain.Document, error) {
+	// Validate document type
+	validTypes := map[string]bool{
+		"cv":       true,
+		"approval": true,
+		"certificate": true,
+		"publication": true,
+		"other":    true,
+	}
+	
+	if !validTypes[docType] {
+		return nil, fmt.Errorf("document type '%s' is not allowed; must be one of: cv, approval, certificate, publication, other", docType)
+	}
+	
 	// Validate file size
 	if header.Size > s.maxSize {
 		return nil, fmt.Errorf("file size exceeds maximum allowed size of %d bytes", s.maxSize)

@@ -2,10 +2,13 @@
 package engagements
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"expertdb/internal/domain"
@@ -218,9 +221,25 @@ func (h *Handler) HandleGetExpertEngagements(w http.ResponseWriter, r *http.Requ
 		return fmt.Errorf("invalid expert ID: %w", err)
 	}
 
-	// Retrieve the expert's engagements from database
-	log.Debug("Retrieving engagements for expert with ID: %d", id)
-	engagements, err := h.store.ListEngagements(id)
+	// Extract query parameters for filtering
+	engagementType := r.URL.Query().Get("type")
+	
+	// Parse pagination parameters
+	limit, offset := 50, 0 // Default values
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	// Retrieve the expert's engagements from database with filters
+	log.Debug("Retrieving engagements for expert with ID: %d, type: %s", id, engagementType)
+	engagements, err := h.store.ListEngagements(id, engagementType, limit, offset)
 	if err != nil {
 		log.Error("Failed to retrieve engagements for expert %d: %v", id, err)
 		return fmt.Errorf("failed to retrieve engagements: %w", err)
@@ -230,4 +249,239 @@ func (h *Handler) HandleGetExpertEngagements(w http.ResponseWriter, r *http.Requ
 	log.Debug("Returning %d engagements for expert ID: %d", len(engagements), id)
 	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(engagements)
+}
+
+// HandleListEngagements handles GET /api/engagements requests with filtering capabilities
+func (h *Handler) HandleListEngagements(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing GET /api/engagements request")
+
+	// Extract query parameters for filtering
+	expertIDStr := r.URL.Query().Get("expert_id")
+	engagementType := r.URL.Query().Get("type")
+
+	// Parse expert_id if provided
+	var expertID int64 = 0 // Default to 0 (all experts)
+	if expertIDStr != "" {
+		if parsed, err := strconv.ParseInt(expertIDStr, 10, 64); err == nil && parsed > 0 {
+			expertID = parsed
+		} else {
+			log.Warn("Invalid expert_id parameter: %s", expertIDStr)
+			return fmt.Errorf("invalid expert_id parameter")
+		}
+	}
+
+	// Parse pagination parameters
+	limit, offset := 50, 0 // Default values
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	// Validate engagement type if provided (Phase 11B)
+	if engagementType != "" && engagementType != "validator" && engagementType != "evaluator" {
+		log.Warn("Invalid engagement type parameter: %s", engagementType)
+		return fmt.Errorf("engagement type must be 'validator' or 'evaluator'")
+	}
+
+	// Retrieve engagements with filters
+	log.Debug("Retrieving engagements with filters - expert_id: %d, type: %s", expertID, engagementType)
+	engagements, err := h.store.ListEngagements(expertID, engagementType, limit, offset)
+	if err != nil {
+		log.Error("Failed to retrieve engagements: %v", err)
+		return fmt.Errorf("failed to retrieve engagements: %w", err)
+	}
+
+	// Return engagements
+	log.Debug("Returning %d engagements", len(engagements))
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(engagements)
+}
+
+// HandleImportEngagements handles POST /api/engagements/import requests
+func (h *Handler) HandleImportEngagements(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	log.Debug("Processing POST /api/engagements/import request")
+
+	// Determine content type
+	contentType := r.Header.Get("Content-Type")
+	isJSON := strings.Contains(contentType, "application/json")
+
+	// Prepare for engagement parsing
+	var engagements []*domain.Engagement
+	var err error
+
+	if isJSON {
+		// Parse JSON payload
+		err = json.NewDecoder(r.Body).Decode(&engagements)
+		if err != nil {
+			log.Warn("Failed to parse JSON engagement import: %v", err)
+			return fmt.Errorf("invalid JSON format: %w", err)
+		}
+	} else if strings.Contains(contentType, "multipart/form-data") {
+		// Parse multipart form data (CSV upload)
+		err = r.ParseMultipartForm(10 << 20) // 10 MB max
+		if err != nil {
+			log.Warn("Failed to parse multipart form: %v", err)
+			return fmt.Errorf("invalid form data: %w", err)
+		}
+
+		// Get the file from the form data
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			log.Warn("Failed to get file from form: %v", err)
+			return fmt.Errorf("no file uploaded: %w", err)
+		}
+		defer file.Close()
+
+		// Read and parse CSV
+		engagements, err = parseCSVEngagements(file)
+		if err != nil {
+			log.Warn("Failed to parse CSV data: %v", err)
+			return fmt.Errorf("failed to parse CSV: %w", err)
+		}
+	} else {
+		log.Warn("Unsupported content type for import: %s", contentType)
+		return fmt.Errorf("unsupported content type: expected application/json or multipart/form-data (CSV)")
+	}
+
+	// Validate engagements list
+	if len(engagements) == 0 {
+		log.Warn("Empty engagement list in import request")
+		return fmt.Errorf("no engagements provided for import")
+	}
+
+	// Import engagements
+	log.Debug("Importing %d engagements", len(engagements))
+	successCount, errors := h.store.ImportEngagements(engagements)
+
+	// Prepare response
+	type ImportResponse struct {
+		Success        bool              `json:"success"`
+		SuccessCount   int               `json:"successCount"`
+		FailureCount   int               `json:"failureCount"`
+		TotalCount     int               `json:"totalCount"`
+		Errors         map[string]string `json:"errors,omitempty"` // Index-error mapping for failed imports
+	}
+
+	// Convert error map to string map for JSON
+	errorMap := make(map[string]string)
+	for index, err := range errors {
+		errorMap[fmt.Sprintf("%d", index)] = err.Error()
+	}
+
+	response := ImportResponse{
+		Success:      successCount > 0,
+		SuccessCount: successCount,
+		FailureCount: len(errors),
+		TotalCount:   len(engagements),
+		Errors:       errorMap,
+	}
+
+	// Return response
+	log.Info("Engagement import completed: %d successful, %d failed", successCount, len(errors))
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(response)
+}
+
+// parseCSVEngagements parses CSV data into engagement records
+func parseCSVEngagements(file io.Reader) ([]*domain.Engagement, error) {
+	// Create a new CSV reader
+	reader := csv.NewReader(file)
+	reader.TrimLeadingSpace = true
+
+	// Read header row
+	header, err := reader.Read()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CSV header: %w", err)
+	}
+
+	// Create header index map
+	headerIndex := make(map[string]int)
+	for i, col := range header {
+		headerIndex[strings.ToLower(strings.TrimSpace(col))] = i
+	}
+
+	// Verify required columns
+	requiredColumns := []string{"expert_id", "engagement_type", "start_date"}
+	for _, col := range requiredColumns {
+		if _, ok := headerIndex[col]; !ok {
+			return nil, fmt.Errorf("missing required column: %s", col)
+		}
+	}
+
+	// Read and parse engagement rows
+	var engagements []*domain.Engagement
+	for {
+		row, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error reading CSV row: %w", err)
+		}
+
+		// Parse expert ID
+		expertID, err := strconv.ParseInt(row[headerIndex["expert_id"]], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid expert_id in row: %w", err)
+		}
+
+		// Parse engagement type
+		engagementType := strings.TrimSpace(row[headerIndex["engagement_type"]])
+		if engagementType != "validator" && engagementType != "evaluator" {
+			return nil, fmt.Errorf("invalid engagement_type '%s': must be 'validator' or 'evaluator'", engagementType)
+		}
+
+		// Parse start date
+		startDate, err := time.Parse("2006-01-02", strings.TrimSpace(row[headerIndex["start_date"]]))
+		if err != nil {
+			return nil, fmt.Errorf("invalid start_date format (expected YYYY-MM-DD): %w", err)
+		}
+
+		// Create engagement object
+		engagement := &domain.Engagement{
+			ExpertID:       expertID,
+			EngagementType: engagementType,
+			StartDate:      startDate,
+			Status:         "active", // Default status for imports
+			CreatedAt:      time.Now().UTC(),
+		}
+
+		// Optional fields
+		if idx, ok := headerIndex["end_date"]; ok && idx < len(row) && row[idx] != "" {
+			endDate, err := time.Parse("2006-01-02", strings.TrimSpace(row[idx]))
+			if err == nil {
+				engagement.EndDate = endDate
+			}
+		}
+
+		if idx, ok := headerIndex["project_name"]; ok && idx < len(row) {
+			engagement.ProjectName = strings.TrimSpace(row[idx])
+		}
+
+		if idx, ok := headerIndex["status"]; ok && idx < len(row) && row[idx] != "" {
+			engagement.Status = strings.TrimSpace(row[idx])
+		}
+
+		if idx, ok := headerIndex["feedback_score"]; ok && idx < len(row) && row[idx] != "" {
+			if score, err := strconv.Atoi(row[idx]); err == nil {
+				engagement.FeedbackScore = score
+			}
+		}
+
+		if idx, ok := headerIndex["notes"]; ok && idx < len(row) {
+			engagement.Notes = strings.TrimSpace(row[idx])
+		}
+
+		engagements = append(engagements, engagement)
+	}
+
+	return engagements, nil
 }

@@ -42,31 +42,32 @@ type CreateExpertResponse struct {
 
 // Expert represents a domain expert in the system
 type Expert struct {
-	ID                int64     `json:"id"`              // Primary key identifier
-	ExpertID          string    `json:"expertId,omitempty"` // Business identifier
-	Name              string    `json:"name"`            // Full name of the expert
-	Designation       string    `json:"designation"`     // Professional title or position
-	Institution       string    `json:"institution"`     // Organization or institution affiliation
-	IsBahraini        bool      `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
-	Nationality       string    `json:"nationality"`     // Expert's nationality 
-	IsAvailable       bool      `json:"isAvailable"`     // Current availability status for assignments
-	Rating            string    `json:"rating"`          // Performance rating (if provided)
-	Role              string    `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
-	EmploymentType    string    `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
-	GeneralArea       int64     `json:"generalArea"`     // ID referencing expert_areas table 
-	GeneralAreaName   string    `json:"generalAreaName"` // Name of the general area (from expert_areas table)
-	SpecializedArea   string    `json:"specializedArea"` // Specific field of specialization
-	IsTrained         bool      `json:"isTrained"`       // Indicates if expert has completed required training
-	CVPath            string    `json:"cvPath"`          // Path to the expert's CV file
-	Phone             string    `json:"phone"`           // Contact phone number
-	Email             string    `json:"email"`           // Contact email address
-	IsPublished       bool      `json:"isPublished"`     // Indicates if expert profile should be publicly visible
-	Biography         string    `json:"biography"`       // Professional summary or background
-	Documents         []Document `json:"documents,omitempty"` // Associated documents
-	Engagements       []Engagement `json:"engagements,omitempty"` // Associated engagements
-	CreatedAt         time.Time `json:"createdAt"`       // Timestamp when expert was created
-	UpdatedAt         time.Time `json:"updatedAt"`       // Timestamp when expert was last updated
-	OriginalRequestID int64     `json:"originalRequestId,omitempty"` // Reference to the request that created this expert
+	ID                  int64     `json:"id"`              // Primary key identifier
+	ExpertID            string    `json:"expertId,omitempty"` // Business identifier
+	Name                string    `json:"name"`            // Full name of the expert
+	Designation         string    `json:"designation"`     // Professional title or position
+	Institution         string    `json:"institution"`     // Organization or institution affiliation
+	IsBahraini          bool      `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
+	Nationality         string    `json:"nationality"`     // Expert's nationality 
+	IsAvailable         bool      `json:"isAvailable"`     // Current availability status for assignments
+	Rating              string    `json:"rating"`          // Performance rating (if provided)
+	Role                string    `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
+	EmploymentType      string    `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
+	GeneralArea         int64     `json:"generalArea"`     // ID referencing expert_areas table 
+	GeneralAreaName     string    `json:"generalAreaName"` // Name of the general area (from expert_areas table)
+	SpecializedArea     string    `json:"specializedArea"` // Specific field of specialization
+	IsTrained           bool      `json:"isTrained"`       // Indicates if expert has completed required training
+	CVPath              string    `json:"cvPath"`          // Path to the expert's CV file
+	ApprovalDocumentPath string    `json:"approvalDocumentPath,omitempty"` // Path to the approval document
+	Phone               string    `json:"phone"`           // Contact phone number
+	Email               string    `json:"email"`           // Contact email address
+	IsPublished         bool      `json:"isPublished"`     // Indicates if expert profile should be publicly visible
+	Biography           string    `json:"biography"`       // Professional summary or background
+	Documents           []Document `json:"documents,omitempty"` // Associated documents
+	Engagements         []Engagement `json:"engagements,omitempty"` // Associated engagements
+	CreatedAt           time.Time `json:"createdAt"`       // Timestamp when expert was created
+	UpdatedAt           time.Time `json:"updatedAt"`       // Timestamp when expert was last updated
+	OriginalRequestID   int64     `json:"originalRequestId,omitempty"` // Reference to the request that created this expert
 }
 
 // Area represents an expert specialization area
@@ -77,30 +78,31 @@ type Area struct {
 
 // ExpertRequest represents a request to add a new expert
 type ExpertRequest struct {
-	ID              int64     `json:"id"`              // Primary key identifier
-	ExpertID        string    `json:"expertId,omitempty"` // Business identifier (assigned after approval)
-	Name            string    `json:"name"`            // Full name of the expert
-	Designation     string    `json:"designation"`     // Professional title or position
-	Institution     string    `json:"institution"`     // Organization or institution affiliation
-	IsBahraini      bool      `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
-	IsAvailable     bool      `json:"isAvailable"`     // Current availability status for assignments
-	Rating          string    `json:"rating"`          // Performance rating (if provided)
-	Role            string    `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
-	EmploymentType  string    `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
-	GeneralArea     int64     `json:"generalArea"`     // ID referencing expert_areas table
-	SpecializedArea string    `json:"specializedArea"` // Specific field of specialization
-	IsTrained       bool      `json:"isTrained"`       // Indicates if expert has completed required training
-	CVPath          string    `json:"cvPath"`          // Path to the expert's CV file
-	Phone           string    `json:"phone"`           // Contact phone number
-	Email           string    `json:"email"`           // Contact email address
-	IsPublished     bool      `json:"isPublished"`     // Indicates if expert profile should be publicly visible
-	Status          string    `json:"status"`          // Request status: "pending", "approved", "rejected"
-	RejectionReason string    `json:"rejectionReason,omitempty"` // Reason for rejection if status is "rejected"
-	Biography       string    `json:"biography"`       // Professional summary or background
-	CreatedAt       time.Time `json:"createdAt"`       // Timestamp when request was submitted
-	ReviewedAt      time.Time `json:"reviewedAt,omitempty"` // Timestamp when request was reviewed
-	ReviewedBy      int64     `json:"reviewedBy,omitempty"` // ID of admin who reviewed the request
-	CreatedBy       int64     `json:"createdBy,omitempty"` // ID of user who created the request
+	ID                 int64     `json:"id"`              // Primary key identifier
+	ExpertID           string    `json:"expertId,omitempty"` // Business identifier (assigned after approval)
+	Name               string    `json:"name"`            // Full name of the expert
+	Designation        string    `json:"designation"`     // Professional title or position
+	Institution        string    `json:"institution"`     // Organization or institution affiliation
+	IsBahraini         bool      `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
+	IsAvailable        bool      `json:"isAvailable"`     // Current availability status for assignments
+	Rating             string    `json:"rating"`          // Performance rating (if provided)
+	Role               string    `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
+	EmploymentType     string    `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
+	GeneralArea        int64     `json:"generalArea"`     // ID referencing expert_areas table
+	SpecializedArea    string    `json:"specializedArea"` // Specific field of specialization
+	IsTrained          bool      `json:"isTrained"`       // Indicates if expert has completed required training
+	CVPath             string    `json:"cvPath"`          // Path to the expert's CV file
+	ApprovalDocumentPath string    `json:"approvalDocumentPath,omitempty"` // Path to the approval document
+	Phone              string    `json:"phone"`           // Contact phone number
+	Email              string    `json:"email"`           // Contact email address
+	IsPublished        bool      `json:"isPublished"`     // Indicates if expert profile should be publicly visible
+	Status             string    `json:"status"`          // Request status: "pending", "approved", "rejected"
+	RejectionReason    string    `json:"rejectionReason,omitempty"` // Reason for rejection if status is "rejected"
+	Biography          string    `json:"biography"`       // Professional summary or background
+	CreatedAt          time.Time `json:"createdAt"`       // Timestamp when request was submitted
+	ReviewedAt         time.Time `json:"reviewedAt,omitempty"` // Timestamp when request was reviewed
+	ReviewedBy         int64     `json:"reviewedBy,omitempty"` // ID of admin who reviewed the request
+	CreatedBy          int64     `json:"createdBy,omitempty"` // ID of user who created the request
 }
 
 // User represents a system user
@@ -109,7 +111,7 @@ type User struct {
 	Name         string    `json:"name"`         // Full name of the user
 	Email        string    `json:"email"`        // Email address (used for login)
 	PasswordHash string    `json:"-"`            // Hashed password (never exposed in JSON)
-	Role         string    `json:"role"`         // User role: "admin" or "user"
+	Role         string    `json:"role"`         // User role: "super_user", "admin", "scheduler", or "user"
 	IsActive     bool      `json:"isActive"`     // Account status (active/inactive)
 	CreatedAt    time.Time `json:"createdAt"`    // Timestamp when user was created
 	LastLogin    time.Time `json:"lastLogin,omitempty"` // Timestamp of last successful login
@@ -148,9 +150,11 @@ type Statistics struct {
 	TotalExperts         int          `json:"totalExperts"`         // Total number of experts in the system
 	ActiveCount          int          `json:"activeCount"`          // Number of experts marked as available
 	BahrainiPercentage   float64      `json:"bahrainiPercentage"`   // Percentage of experts who are Bahraini nationals
+	PublishedCount       int          `json:"publishedCount"`        // Number of experts marked as published
+	PublishedRatio       float64      `json:"publishedRatio"`        // Percentage of experts who are published
 	TopAreas             []AreaStat   `json:"topAreas"`             // Most common expertise areas
 	EngagementsByType    []AreaStat   `json:"engagementsByType"`    // Distribution of engagements by type
-	MonthlyGrowth        []GrowthStat `json:"monthlyGrowth"`        // Monthly growth in expert count
+	YearlyGrowth         []GrowthStat `json:"yearlyGrowth"`         // Yearly growth in expert count
 	MostRequestedExperts []ExpertStat `json:"mostRequestedExperts"` // Most frequently requested experts
 	LastUpdated          time.Time    `json:"lastUpdated"`          // Timestamp when statistics were last calculated
 }
@@ -182,6 +186,36 @@ type DocumentUploadRequest struct {
 	DocumentType string `json:"documentType"` // Type of document: "cv", "certificate", "publication", etc.
 }
 
+// Phase represents a collection of qualification applications to be processed
+type Phase struct {
+	ID                int64             `json:"id"`                // Primary key identifier
+	PhaseID           string            `json:"phaseId"`           // Business identifier (e.g., "PH-2025-001")
+	Title             string            `json:"title"`             // Title/name of the phase
+	AssignedSchedulerID int64           `json:"assignedSchedulerId"` // ID of scheduler user assigned to this phase
+	SchedulerName     string            `json:"schedulerName,omitempty"` // Name of assigned scheduler (not stored in DB)
+	Status            string            `json:"status"`            // Status: "draft", "in_progress", "completed", "cancelled"
+	Applications      []PhaseApplication `json:"applications,omitempty"` // List of applications in this phase
+	CreatedAt         time.Time         `json:"createdAt"`         // When the phase was created
+	UpdatedAt         time.Time         `json:"updatedAt"`         // When the phase was last updated
+}
+
+// PhaseApplication represents an application for a qualification requiring expert review
+type PhaseApplication struct {
+	ID              int64     `json:"id"`              // Primary key identifier
+	PhaseID         int64     `json:"phaseId"`         // Foreign key reference to phases table
+	Type            string    `json:"type"`            // Type: "validation" or "evaluation"
+	InstitutionName string    `json:"institutionName"` // Name of the institution
+	QualificationName string  `json:"qualificationName"` // Name of the qualification being reviewed
+	Expert1         int64     `json:"expert1"`         // First expert ID
+	Expert1Name     string    `json:"expert1Name,omitempty"` // First expert name (not stored in DB)
+	Expert2         int64     `json:"expert2"`         // Second expert ID
+	Expert2Name     string    `json:"expert2Name,omitempty"` // Second expert name (not stored in DB)
+	Status          string    `json:"status"`          // Status: "pending", "assigned", "approved", "rejected"
+	RejectionNotes  string    `json:"rejectionNotes,omitempty"` // Notes for rejection (if status is "rejected")
+	CreatedAt       time.Time `json:"createdAt"`       // When the application was created
+	UpdatedAt       time.Time `json:"updatedAt"`       // When the application was last updated
+}
+
 
 // Authentication types
 
@@ -202,7 +236,7 @@ type CreateUserRequest struct {
 	Name     string `json:"name"`     // Full name of the user
 	Email    string `json:"email"`    // Email address (used for login)
 	Password string `json:"password"` // Initial password (plaintext in request only)
-	Role     string `json:"role"`     // User role: "admin" or "user"
+	Role     string `json:"role"`     // User role: "super_user", "admin", "scheduler", or "user"
 	IsActive bool   `json:"isActive"` // Initial account status
 }
 
