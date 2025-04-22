@@ -2,11 +2,11 @@
 package statistics
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 
+	"expertdb/internal/api/response"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -37,10 +37,9 @@ func (h *Handler) HandleGetStatistics(w http.ResponseWriter, r *http.Request) er
 		return fmt.Errorf("failed to retrieve statistics: %w", err)
 	}
 
-	// Return statistics as JSON response
+	// Return statistics with standardized response
 	log.Debug("Successfully retrieved system statistics")
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(stats)
+	return response.Success(w, http.StatusOK, "", stats)
 }
 
 // HandleGetNationalityStats handles GET /api/statistics/nationality requests
@@ -86,9 +85,8 @@ func (h *Handler) HandleGetNationalityStats(w http.ResponseWriter, r *http.Reque
 		"stats": stats,
 	}
 
-	// Return statistics as JSON response
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(result)
+	// Return statistics with standardized response
+	return response.Success(w, http.StatusOK, "", result)
 }
 
 // HandleGetEngagementStats handles GET /api/statistics/engagements requests
@@ -161,10 +159,9 @@ func (h *Handler) HandleGetEngagementStats(w http.ResponseWriter, r *http.Reques
 		"byStatus": statusStats,
 	}
 
-	// Return statistics as JSON response
+	// Return statistics with standardized response
 	log.Debug("Successfully retrieved engagement statistics")
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(result)
+	return response.Success(w, http.StatusOK, "", result)
 }
 
 // HandleGetGrowthStats handles GET /api/statistics/growth requests
@@ -193,10 +190,9 @@ func (h *Handler) HandleGetGrowthStats(w http.ResponseWriter, r *http.Request) e
 		return fmt.Errorf("failed to retrieve growth statistics: %w", err)
 	}
 	
-	// Return statistics as JSON response
+	// Return statistics with standardized response
 	log.Debug("Successfully retrieved growth statistics for %d years", years)
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(stats)
+	return response.Success(w, http.StatusOK, "", stats)
 }
 
 // HandleGetAreaStats handles GET /api/statistics/areas requests
@@ -211,8 +207,7 @@ func (h *Handler) HandleGetAreaStats(w http.ResponseWriter, r *http.Request) err
 		return fmt.Errorf("failed to retrieve area statistics: %w", err)
 	}
 	
-	// Return statistics as JSON response
+	// Return statistics with standardized response
 	log.Debug("Successfully retrieved area statistics")
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(areaStats)
+	return response.Success(w, http.StatusOK, "", areaStats)
 }

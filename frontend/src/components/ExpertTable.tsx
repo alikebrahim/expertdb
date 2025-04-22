@@ -71,9 +71,9 @@ const ExpertTable = ({ experts, isLoading, error, pagination, onEdit, onDelete }
               <TableCell>{expert.name}</TableCell>
               <TableCell>{expert.role}</TableCell>
               <TableCell>{expert.employmentType}</TableCell>
-              <TableCell>{expert.affiliation}</TableCell>
-              <TableCell>{expert.primaryContact}</TableCell>
-              <TableCell>{expert.rating}/5</TableCell>
+              <TableCell>{expert.institution}</TableCell>
+              <TableCell>{expert.phone}</TableCell>
+              <TableCell>{expert.rating}</TableCell>
               <TableCell>
                 <div className="flex space-x-2">
                   <Button 
@@ -154,13 +154,13 @@ const ExpertTable = ({ experts, isLoading, error, pagination, onEdit, onDelete }
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Affiliation</h3>
-                  <p className="mt-1">{selectedExpert.affiliation}</p>
+                  <h3 className="text-sm font-medium text-neutral-500">Institution</h3>
+                  <p className="mt-1">{selectedExpert.institution}</p>
                 </div>
                 
                 <div>
                   <h3 className="text-sm font-medium text-neutral-500">Contact</h3>
-                  <p className="mt-1">{selectedExpert.primaryContact} ({selectedExpert.contactType})</p>
+                  <p className="mt-1">{selectedExpert.phone} ({selectedExpert.email})</p>
                 </div>
                 
                 <div>
@@ -186,13 +186,11 @@ const ExpertTable = ({ experts, isLoading, error, pagination, onEdit, onDelete }
                   <h3 className="text-sm font-medium text-neutral-500">Availability</h3>
                   <p className="mt-1">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      selectedExpert.availability === 'Available' 
+                      selectedExpert.isAvailable
                         ? 'bg-green-100 text-green-800'
-                        : selectedExpert.availability === 'Limited'
-                        ? 'bg-yellow-100 text-yellow-800'
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {selectedExpert.availability}
+                      {selectedExpert.isAvailable ? 'Available' : 'Unavailable'}
                     </span>
                   </p>
                 </div>
@@ -213,8 +211,8 @@ const ExpertTable = ({ experts, isLoading, error, pagination, onEdit, onDelete }
               )}
               
               <div className="mt-4 text-sm text-neutral-500">
-                <p>Created: {new Date(selectedExpert.created_at).toLocaleDateString()}</p>
-                <p>Last updated: {new Date(selectedExpert.updated_at).toLocaleDateString()}</p>
+                <p>Created: {new Date(selectedExpert.createdAt).toLocaleDateString()}</p>
+                <p>Last updated: {new Date(selectedExpert.updatedAt).toLocaleDateString()}</p>
               </div>
               
               <div className="mt-6 flex justify-end space-x-3">

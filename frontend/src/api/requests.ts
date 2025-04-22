@@ -1,8 +1,8 @@
 import { request } from './client';
-import { ExpertRequest } from '../types';
+import { ExpertRequest, RequestListResponse, BatchApproveResponse } from '../types';
 
 export const getExpertRequests = (limit: number = 10, offset: number = 0, params?: Record<string, string | boolean>) => 
-  request<ExpertRequest[]>({
+  request<RequestListResponse>({
     url: '/expert-requests',
     method: 'GET',
     params: {
@@ -29,10 +29,7 @@ export const createExpertRequest = (data: FormData) =>
   });
 
 export const updateExpertRequest = (id: string, data: FormData) => 
-  request<{
-    success: boolean;
-    message: string;
-  }>({
+  request<null>({
     url: `/expert-requests/${id}`,
     method: 'PUT',
     data,
@@ -42,10 +39,7 @@ export const updateExpertRequest = (id: string, data: FormData) =>
   });
   
 export const editExpertRequest = (id: string, data: FormData) => 
-  request<{
-    success: boolean;
-    message: string;
-  }>({
+  request<null>({
     url: `/expert-requests/${id}/edit`,
     method: 'PUT',
     data,
@@ -55,15 +49,7 @@ export const editExpertRequest = (id: string, data: FormData) =>
   });
   
 export const batchApprove = (data: FormData) => 
-  request<{
-    success: boolean;
-    message: string;
-    results: Array<{
-      id: number;
-      status: 'success' | 'failed';
-      error?: string;
-    }>;
-  }>({
+  request<BatchApproveResponse>({
     url: '/expert-requests/batch-approve',
     method: 'POST',
     data,

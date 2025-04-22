@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"expertdb/internal/api/response"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -203,7 +202,7 @@ func (h *ExpertHandler) HandleGetExperts(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("X-Has-Prev-Page", fmt.Sprintf("%t", hasPrev))
 	
 	// Create a response object that includes both experts and metadata
-	responseData := map[string]interface{}{
+	response := map[string]interface{}{
 		"experts": experts,
 		"pagination": map[string]interface{}{
 			"totalCount": totalCount,
@@ -221,7 +220,7 @@ func (h *ExpertHandler) HandleGetExperts(w http.ResponseWriter, r *http.Request)
 		len(experts), currentPage, totalPages, totalCount)
 	
 	// Use the standardized response format
-	return response.Success(w, http.StatusOK, "", responseData)
+	return response.Success(w, http.StatusOK, "", response)
 }
 
 // HandleGetExpert handles GET /api/experts/{id} requests
@@ -331,7 +330,10 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 	
 	if len(errors) > 0 {
 		log.Warn("Expert validation failed: %v", errors)
-		return response.ValidationError(w, errors)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error":  "Validation failed",
+			"errors": errors,
+		})
 	}
 
 	// Set creation time and default values if not provided
@@ -389,40 +391,19 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 
 	// Return success response
 	log.Info("Expert created successfully with ID: %d", id)
-	return response.Success(w, http.StatusCreated, "Expert created successfully", map[string]interface{}{
+	return writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"id":      id,
 		"expertId": expert.ExpertID,
+		"success": true,
+		"message": "Expert created successfully",
 	})
 }
 
 // Helper function to write JSON responses
 func writeJSON(w http.ResponseWriter, status int, data interface{}) error {
-	// Use the standardized response format
-	if resp, ok := data.(map[string]interface{}); ok {
-		// If data already has success and message fields, use response.JSON directly
-		if _, hasSuccess := resp["success"]; hasSuccess {
-			return response.JSON(w, status, resp)
-		}
-		
-		// If it's an error response
-		if errMsg, hasError := resp["error"]; hasError && status >= 400 {
-			errorResp := response.ErrorResponse{
-				Error: errMsg.(string),
-			}
-			
-			// Include errors array if present
-			if errDetails, hasErrors := resp["errors"]; hasErrors {
-				if errMap, isMap := errDetails.(map[string]string); isMap {
-					errorResp.Errors = errMap
-				}
-			}
-			
-			return response.JSON(w, status, errorResp)
-		}
-	}
-	
-	// Otherwise, use Success with default parameters
-	return response.Success(w, status, "", data)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	return json.NewEncoder(w).Encode(data)
 }
 
 // Helper function to validate email format
@@ -529,9 +510,14 @@ func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Reques
 
 	// Return success response
 	log.Info("Expert updated successfully: ID: %d", id)
-	return response.Success(w, http.StatusOK, "Expert updated successfully", map[string]interface{}{
-		"id": id,
-	})
+	resp := map[string]interface{}{
+		"success": true,
+		"message": "Expert updated successfully",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(resp)
 }
 
 // HandleDeleteExpert handles DELETE /api/experts/{id} requests
@@ -560,7 +546,14 @@ func (h *ExpertHandler) HandleDeleteExpert(w http.ResponseWriter, r *http.Reques
 
 	// Return success response
 	log.Info("Expert deleted successfully: ID: %d", id)
-	return response.Success(w, http.StatusOK, "Expert deleted successfully", nil)
+	resp := map[string]interface{}{
+		"success": true,
+		"message": "Expert deleted successfully",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	return json.NewEncoder(w).Encode(resp)
 }
 
 // HandleGetExpertAreas handles GET /api/expert/areas requests
@@ -632,9 +625,11 @@ func (h *ExpertHandler) HandleCreateArea(w http.ResponseWriter, r *http.Request)
 
 	// Return success response
 	log.Info("Area created successfully with ID: %d", id)
-	return response.Success(w, http.StatusCreated, "Area created successfully", map[string]interface{}{
+	return writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"id": id,
 		"name": req.Name,
+		"success": true,
+		"message": "Area created successfully",
 	})
 }
 
@@ -676,7 +671,10 @@ func (h *ExpertHandler) HandleUpdateArea(w http.ResponseWriter, r *http.Request)
 		
 		// Check for specific errors
 		if err == domain.ErrNotFound {
-			return response.NotFound(w, fmt.Sprintf("No area exists with ID: %d", id))
+			return writeJSON(w, http.StatusNotFound, map[string]interface{}{
+				"error": "Area not found",
+				"details": fmt.Sprintf("No area exists with ID: %d", id),
+			})
 		}
 		
 		if strings.Contains(err.Error(), "already exists") {
@@ -694,8 +692,10 @@ func (h *ExpertHandler) HandleUpdateArea(w http.ResponseWriter, r *http.Request)
 	
 	// Return success response
 	log.Info("Area updated successfully: ID: %d", id)
-	return response.Success(w, http.StatusOK, "Area updated successfully", map[string]interface{}{
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
 		"id": id,
 		"name": req.Name,
+		"success": true,
+		"message": "Area updated successfully",
 	})
 }

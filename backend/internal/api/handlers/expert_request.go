@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	
+	"expertdb/internal/api/response"
 	"expertdb/internal/auth"
 	"expertdb/internal/documents"
 	"expertdb/internal/domain"
@@ -121,10 +122,7 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 	
 	if len(errors) > 0 {
 		log.Warn("Expert request validation failed: %v", errors)
-		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"error":  "Validation failed",
-			"errors": errors,
-		})
+		return response.ValidationError(w, errors)
 	}
 
 	// Handle CV file - required
@@ -208,10 +206,10 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 
 	// Return success response
 	log.Info("Expert request created successfully with ID: %d", id)
-	resp := map[string]interface{}{
+	responseData := map[string]interface{}{
 		"id": id,
 	}
-	return writeJSON(w, http.StatusCreated, resp)
+	return response.Success(w, http.StatusCreated, "Expert request created successfully", responseData)
 }
 
 // HandleGetExpertRequests handles GET /api/expert-requests requests
@@ -252,9 +250,18 @@ func (h *ExpertRequestHandler) HandleGetExpertRequests(w http.ResponseWriter, r 
 	
 	// Return requests as JSON
 	log.Debug("Returning %d expert requests", len(requests))
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(requests)
+	
+	// Create response with pagination metadata
+	responseData := map[string]interface{}{
+		"requests": requests,
+		"pagination": map[string]interface{}{
+			"limit": limit,
+			"offset": offset,
+			"count": len(requests),
+		},
+	}
+	
+	return response.Success(w, http.StatusOK, "", responseData)
 }
 
 // HandleGetExpertRequest handles GET /api/expert-requests/{id} requests
@@ -284,9 +291,7 @@ func (h *ExpertRequestHandler) HandleGetExpertRequest(w http.ResponseWriter, r *
 	
 	// Return expert request data
 	log.Debug("Successfully retrieved expert request: ID: %d, Name: %s", request.ID, request.Name)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(request)
+	return response.Success(w, http.StatusOK, "", request)
 }
 
 // HandleUpdateExpertRequest handles PUT /api/expert-requests/{id} requests
@@ -501,10 +506,7 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 	
 	// Return success response
 	log.Info("Expert request updated successfully: ID: %d, Status: %s", id, updateRequest.Status)
-	return writeJSON(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "Expert request updated successfully",
-	})
+	return response.Success(w, http.StatusOK, "Expert request updated successfully", nil)
 }
 
 // BatchApprovalRequest represents a request to approve multiple expert requests at once
@@ -590,9 +592,8 @@ func (h *ExpertRequestHandler) HandleBatchApproveExpertRequests(w http.ResponseW
 	log.Debug("Batch approving %d expert requests", len(batchRequest.RequestIDs))
 	approved, errors := h.store.BatchApproveExpertRequests(batchRequest.RequestIDs, approvalDoc.FilePath, userID)
 	
-	// Prepare response
-	response := map[string]interface{}{
-		"success": len(approved) > 0,
+	// Prepare response data
+	responseData := map[string]interface{}{
 		"totalRequests": len(batchRequest.RequestIDs),
 		"approvedCount": len(approved),
 		"approvedIds": approved,
@@ -603,11 +604,11 @@ func (h *ExpertRequestHandler) HandleBatchApproveExpertRequests(w http.ResponseW
 		for id, err := range errors {
 			errorMessages[id] = err.Error()
 		}
-		response["errors"] = errorMessages
-		response["errorCount"] = len(errors)
+		responseData["errors"] = errorMessages
+		responseData["errorCount"] = len(errors)
 	}
 	
-	return writeJSON(w, http.StatusOK, response)
+	return response.Success(w, http.StatusOK, fmt.Sprintf("Approved %d of %d requests", len(approved), len(batchRequest.RequestIDs)), responseData)
 }
 
 // Use containsString from expert.go

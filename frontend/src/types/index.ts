@@ -20,36 +20,52 @@ export interface AuthState {
 // Expert Types
 export interface Expert {
   id: number;
+  expertId: string;
   name: string;
-  affiliation: string;
-  primaryContact: string;
-  contactType: string;
-  skills: string[];
+  designation: string;
+  institution: string;
+  isBahraini: boolean;
+  isAvailable: boolean;
+  rating: string;
   role: string;
   employmentType: string;
   generalArea: number;
+  generalAreaName: string;
+  specializedArea: string;
+  isTrained: boolean;
   cvPath: string;
+  phone: string;
+  email: string;
+  isPublished: boolean;
   biography: string;
-  isBahraini: boolean;
-  availability: string;
-  rating: number;
-  created_at: string;
-  updated_at: string;
+  approvalDocumentPath: string;
+  skills: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Expert Request Types
 export interface ExpertRequest {
   id: number;
-  requestorId: number;
-  requestorName: string;
-  requestorEmail: string;
-  organizationName: string;
-  projectName: string;
-  projectDescription: string;
-  expertiseRequired: string;
-  timeframe: string;
+  name: string;
   status: string;
-  notes: string;
+  cvPath: string;
+  approvalDocumentPath: string;
+  designation: string;
+  institution: string;
+  isBahraini: boolean;
+  isAvailable: boolean;
+  rating: string;
+  role: string;
+  employmentType: string;
+  generalArea: number;
+  specializedArea: string;
+  isTrained: boolean;
+  phone: string;
+  email: string;
+  biography: string;
+  skills: string[];
+  isPublished: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -58,58 +74,158 @@ export interface ExpertRequest {
 export interface Document {
   id: number;
   expertId: number;
-  filename: string;
-  originalFilename: string;
   documentType: string;
-  contentType: string;
-  size: number;
-  uploadedBy: number;
-  uploadedAt: string;
+  filePath: string;
+  createdAt: string;
 }
 
 // Statistics Types
-export interface NationalityStats {
-  bahraini: number;
-  international: number;
+export interface StatItem {
+  name: string;
+  count: number;
   percentage: number;
 }
 
+export interface NationalityStats {
+  total: number;
+  stats: StatItem[];
+}
+
 export interface GrowthStats {
-  month: string;
-  newExperts: number;
+  period: string;
+  count: number;
+  growthRate: number;
+}
+
+export interface AreaStats {
+  generalAreas: StatItem[];
+  topSpecializedAreas: StatItem[];
+  bottomSpecializedAreas: StatItem[];
+}
+
+export interface EngagementStats {
+  total: number;
+  byType: StatItem[];
+  byStatus: StatItem[];
+}
+
+export interface ExpertStats {
   totalExperts: number;
+  activeCount: number;
+  bahrainiPercentage: number;
+  publishedCount: number;
+  publishedRatio: number;
+  topAreas: StatItem[];
+  engagementsByType: StatItem[];
+  yearlyGrowth: GrowthStats[];
+  mostRequestedExperts: {
+    expertId: string;
+    name: string;
+    count: number;
+  }[];
+  lastUpdated: string;
+}
+
+// Phase Types
+export interface PhaseApplication {
+  id: number;
+  phaseId: number;
+  type: string;
+  institutionName: string;
+  qualificationName: string;
+  expert1: number;
+  expert1Name: string;
+  expert2: number;
+  expert2Name: string;
+  status: string;
+  rejectionNotes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Phase {
+  id: number;
+  phaseId: string;
+  title: string;
+  assignedSchedulerId: number;
+  schedulerName: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  applications: PhaseApplication[];
 }
 
 // Engagement Types
 export interface Engagement {
   id: number;
   expertId: number;
-  requestId: number | null;
-  title: string;
-  description: string;
+  expertName: string;
   engagementType: string;
-  status: string;
   startDate: string;
-  endDate: string;
-  contactPerson: string;
-  contactEmail: string;
-  organizationName: string;
+  projectName: string;
+  status: string;
   notes: string;
   createdAt: string;
-  updatedAt: string;
 }
 
 // API Response Types
 export interface ApiResponse<T> {
-  data: T;
-  message: string;
   success: boolean;
+  message: string;
+  data: T;
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
+export interface PaginationInfo {
+  totalCount: number;
   totalPages: number;
+  currentPage: number;
+  pageSize: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  hasMore?: boolean;
+}
+
+// Standard paginated responses for different entity types
+export interface ExpertListResponse {
+  experts: Expert[];
+  pagination: PaginationInfo;
+}
+
+export interface RequestListResponse {
+  requests: ExpertRequest[];
+  pagination: PaginationInfo;
+}
+
+export interface EngagementListResponse {
+  engagements: Engagement[];
+  pagination: PaginationInfo;
+  filters: {
+    expertId?: number;
+    type?: string;
+  };
+}
+
+export interface PhaseListResponse {
+  phases: Phase[];
+  pagination: PaginationInfo;
+  filters: {
+    status?: string;
+    schedulerId?: number;
+  };
+}
+
+export interface DocumentListResponse {
+  expertId: number;
+  count: number;
+  documents: Document[];
+}
+
+export interface BatchApproveResponse {
+  results: {
+    id: number;
+    status: 'success' | 'failed';
+    error?: string;
+  }[];
+  approvedIds: number[];
+  errorCount: number;
 }

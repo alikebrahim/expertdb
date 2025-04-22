@@ -2,6 +2,7 @@ package phase
 
 import (
 	"encoding/json"
+	"expertdb/internal/api/response"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -68,10 +69,20 @@ func (h *Handler) HandleListPhases(w http.ResponseWriter, r *http.Request) error
 		return fmt.Errorf("failed to list phases: %w", err)
 	}
 	
-	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(phases)
+	// Write standardized response
+	responseData := map[string]interface{}{
+		"phases": phases,
+		"pagination": map[string]interface{}{
+			"limit":  limit,
+			"offset": offset,
+			"count":  len(phases),
+		},
+		"filters": map[string]interface{}{
+			"status":    status,
+			"plannerId": plannerID,
+		},
+	}
+	return response.Success(w, http.StatusOK, "", responseData)
 }
 
 // HandleGetPhase handles GET /api/phases/{id} requests
@@ -96,10 +107,8 @@ func (h *Handler) HandleGetPhase(w http.ResponseWriter, r *http.Request) error {
 			return fmt.Errorf("failed to get phase: %w", err)
 		}
 		
-		// Write response
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		return json.NewEncoder(w).Encode(phase)
+		// Write standardized response
+		return response.Success(w, http.StatusOK, "", phase)
 	}
 	
 	// It's a numeric ID
@@ -119,10 +128,8 @@ func (h *Handler) HandleGetPhase(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("failed to get phase: %w", err)
 	}
 	
-	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(phase)
+	// Write standardized response
+	return response.Success(w, http.StatusOK, "", phase)
 }
 
 // createPhaseRequest represents the request to create a new phase
@@ -324,10 +331,8 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 		return fmt.Errorf("failed to get created phase: %w", err)
 	}
 	
-	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	return json.NewEncoder(w).Encode(createdPhase)
+	// Write standardized response
+	return response.Success(w, http.StatusCreated, "Phase created successfully", createdPhase)
 }
 
 // updatePhaseRequest represents the request to update a phase
@@ -438,10 +443,8 @@ func (h *Handler) HandleUpdatePhase(w http.ResponseWriter, r *http.Request) erro
 		return fmt.Errorf("failed to get updated phase: %w", err)
 	}
 	
-	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(updatedPhase)
+	// Write standardized response
+	return response.Success(w, http.StatusOK, "Phase updated successfully", updatedPhase)
 }
 
 // updateExpertsRequest represents the request to update the experts assigned to an application
@@ -563,10 +566,8 @@ func (h *Handler) HandleUpdateApplicationExperts(w http.ResponseWriter, r *http.
 		return fmt.Errorf("failed to get updated application: %w", err)
 	}
 	
-	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(updatedApp)
+	// Write standardized response
+	return response.Success(w, http.StatusOK, "Application experts updated successfully", updatedApp)
 }
 
 // applicationReviewRequest represents the request to review an application
@@ -687,10 +688,9 @@ func (h *Handler) HandleReviewApplication(w http.ResponseWriter, r *http.Request
 		return fmt.Errorf("failed to get updated application: %w", err)
 	}
 	
-	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(updatedApp)
+	// Write standardized response with dynamic message
+	message := "Application " + req.Action + "ed successfully"
+	return response.Success(w, http.StatusOK, message, updatedApp)
 }
 
 // Helper function to check if an expert exists
@@ -707,12 +707,5 @@ func expertExists(store storage.Storage, expertID int64) (bool, error) {
 
 // Helper function to respond with validation errors
 func respondWithValidationErrors(w http.ResponseWriter, errors []string) error {
-	response := map[string]interface{}{
-		"success": false,
-		"errors":  errors,
-	}
-	
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusBadRequest)
-	return json.NewEncoder(w).Encode(response)
+	return response.ValidationError(w, errors)
 }

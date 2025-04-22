@@ -2,8 +2,8 @@ import { request } from './client';
 import { User } from '../types';
 
 interface LoginResponse {
-  token: string;
   user: User;
+  token: string;
 }
 
 export const login = async (email: string, password: string) => {
@@ -22,7 +22,7 @@ export const login = async (email: string, password: string) => {
     return {
       success: false,
       message: 'Failed to connect to authentication service',
-      data: null,
+      data: null as any,
     };
   }
 };
@@ -48,14 +48,14 @@ export const refreshToken = async () => {
     return {
       success: false,
       message: 'Failed to refresh token',
-      data: null,
+      data: null as any,
     };
   } catch (error) {
     console.error('Token refresh error:', error);
     return {
       success: false,
       message: 'Failed to refresh authentication token',
-      data: null,
+      data: null as any,
     };
   }
 };

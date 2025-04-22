@@ -1,8 +1,8 @@
 import { request } from './client';
-import { Engagement } from '../types';
+import { EngagementListResponse } from '../types';
 
 export const getEngagements = (limit: number = 10, offset: number = 0, params?: Record<string, string | boolean>) => 
-  request<Engagement[]>({
+  request<EngagementListResponse>({
     url: '/expert-engagements',
     method: 'GET',
     params: {
@@ -14,10 +14,13 @@ export const getEngagements = (limit: number = 10, offset: number = 0, params?: 
 
 export const importEngagements = (data: FormData) => 
   request<{
-    success: boolean;
-    message: string;
     imported: number;
     failed: number;
+    details: Array<{
+      expertId: number;
+      status: 'success' | 'failed';
+      error?: string;
+    }>;
   }>({
     url: '/engagements/import',
     method: 'POST',

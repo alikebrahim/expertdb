@@ -2,11 +2,11 @@
 package documents
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	
+	"expertdb/internal/api/response"
 	"expertdb/internal/documents"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -75,11 +75,9 @@ func (h *Handler) HandleUploadDocument(w http.ResponseWriter, r *http.Request) e
 		return fmt.Errorf("failed to upload document: %w", err)
 	}
 	
-	// Return document information
+	// Return document information with standardized response
 	log.Info("Document uploaded successfully: ID: %d, Type: %s, Expert: %d", doc.ID, doc.Type, doc.ExpertID)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	return json.NewEncoder(w).Encode(doc)
+	return response.Success(w, http.StatusCreated, "Document uploaded successfully", doc)
 }
 
 // HandleGetDocument handles GET /api/documents/{id} requests
@@ -102,10 +100,9 @@ func (h *Handler) HandleGetDocument(w http.ResponseWriter, r *http.Request) erro
 		return fmt.Errorf("document not found: %w", err)
 	}
 	
-	// Return document information
+	// Return document information with standardized response
 	log.Debug("Returning document: ID: %d, Type: %s, Expert: %d", doc.ID, doc.Type, doc.ExpertID)
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(doc)
+	return response.Success(w, http.StatusOK, "", doc)
 }
 
 // HandleDeleteDocument handles DELETE /api/documents/{id} requests
@@ -129,11 +126,7 @@ func (h *Handler) HandleDeleteDocument(w http.ResponseWriter, r *http.Request) e
 	
 	// Return success response
 	log.Info("Document deleted successfully: ID: %d", id)
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": "Document deleted successfully",
-	})
+	return response.Success(w, http.StatusOK, "Document deleted successfully", nil)
 }
 
 // HandleGetExpertDocuments handles GET /api/experts/{id}/documents requests
@@ -156,8 +149,12 @@ func (h *Handler) HandleGetExpertDocuments(w http.ResponseWriter, r *http.Reques
 		return fmt.Errorf("failed to retrieve documents: %w", err)
 	}
 	
-	// Return documents
+	// Return documents with standardized response
 	log.Debug("Returning %d documents for expert ID: %d", len(docs), id)
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(docs)
+	responseData := map[string]interface{}{
+		"documents": docs,
+		"count":     len(docs),
+		"expertId":  id,
+	}
+	return response.Success(w, http.StatusOK, "", responseData)
 }

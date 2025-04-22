@@ -1,0 +1,1 @@
+Browse to localhost:5173 and login to the page with user_email: a@db.com user_pass: password. take screenshots of the page and log the console log to ./frontend_debugging/. IMPORTANT that you ensure console log shows full api response structures i.e. expand response.

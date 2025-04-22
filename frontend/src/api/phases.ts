@@ -1,5 +1,5 @@
 import { request } from './client';
-import { Phase } from '../types';
+import { PhaseListResponse } from '../types';
 
 export const createPhase = (data: {
   title: string;
@@ -16,8 +16,6 @@ export const createPhase = (data: {
 }) => 
   request<{
     id: number;
-    success: boolean;
-    message: string;
   }>({
     url: '/phases',
     method: 'POST',
@@ -25,7 +23,7 @@ export const createPhase = (data: {
   });
 
 export const getPhases = (limit: number = 10, offset: number = 0, params?: Record<string, string | number>) => 
-  request<Phase[]>({
+  request<PhaseListResponse>({
     url: '/phases',
     method: 'GET',
     params: {
@@ -36,20 +34,14 @@ export const getPhases = (limit: number = 10, offset: number = 0, params?: Recor
   });
 
 export const proposeExperts = (phaseId: number, applicationId: number, data: { expert1: number; expert2: number }) => 
-  request<{
-    success: boolean;
-    message: string;
-  }>({
+  request<null>({
     url: `/phases/${phaseId}/applications/${applicationId}`,
     method: 'PUT',
     data,
   });
 
 export const reviewApplication = (phaseId: number, applicationId: number, data: { status: string; rejectionNotes?: string }) => 
-  request<{
-    success: boolean;
-    message: string;
-  }>({
+  request<null>({
     url: `/phases/${phaseId}/applications/${applicationId}/review`,
     method: 'PUT',
     data,

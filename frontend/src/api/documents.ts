@@ -1,11 +1,9 @@
 import { request } from './client';
-import { Document } from '../types';
+import { Document, DocumentListResponse } from '../types';
 
 export const uploadDocument = (data: FormData) => 
   request<{
     id: number;
-    success: boolean;
-    message: string;
   }>({
     url: '/documents',
     method: 'POST',
@@ -22,16 +20,13 @@ export const getDocument = (id: number) =>
   });
 
 export const deleteDocument = (id: number) => 
-  request<{
-    success: boolean;
-    message: string;
-  }>({
+  request<null>({
     url: `/documents/${id}`,
     method: 'DELETE',
   });
 
 export const getExpertDocuments = (expertId: number) => 
-  request<Document[]>({
+  request<DocumentListResponse>({
     url: `/experts/${expertId}/documents`,
     method: 'GET',
   });

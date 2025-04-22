@@ -1,7 +1,7 @@
 # ExpertDB API Endpoints Documentation
 
-**Date**: April 20, 2025\
-**Version**: 1.1\
+**Date**: April 22, 2025\
+**Version**: 1.2\
 **Context**:\
 ExpertDB is a lightweight internal tool for managing a database of experts, designed for a department with 10-12 users and a maximum of 1200 database entries over 5 years. The tool operates on an intranet, with security handled organizationally, prioritizing simplicity, maintainability, and clear error messaging over complex scalability or security measures. The backend is built in Go, uses SQLite as the database, and provides a RESTful API with JSON payloads, JWT authentication, and permissive CORS settings (`*`).
 
@@ -86,6 +86,14 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 - **Logging**: Logs to `./logs` with HTTP status, headers, and payloads.
 - **Testing**: `test_api.sh` validates endpoints, covering new features and edge cases.
 - **Payload Validation**: Enforces required fields, applies defaults (e.g., `pending` status).
+- **Standard Response Structure**: Most endpoints use a standard response structure:
+  ```json
+  {
+    "success": boolean,    // true for successful requests
+    "message": "string",   // optional success message
+    "data": <object>       // optional response data
+  }
+  ```
 - **HTTP Status Codes**:
   - `200 OK`: Successful GET, PUT, DELETE.
   - `201 Created`: Successful POST.
@@ -116,16 +124,19 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "user": {
-        "id": int,           // e.g., 1
-        "name": "string",    // e.g., "Admin User"
-        "email": "string",   // e.g., "admin@expertdb.com"
-        "role": "string",    // e.g., "super_user"
-        "isActive": boolean, // e.g., true
-        "createdAt": "string", // e.g., "2025-04-10T10:04:59Z"
-        "lastLogin": "string"  // e.g., "2025-04-20T10:13:09Z"
-      },
-      "token": "string"      // JWT token
+      "success": true,
+      "data": {
+        "user": {
+          "id": int,           // e.g., 1
+          "name": "string",    // e.g., "Admin User"
+          "email": "string",   // e.g., "admin@expertdb.com"
+          "role": "string",    // e.g., "super_user"
+          "isActive": boolean, // e.g., true
+          "createdAt": "string", // e.g., "2025-04-10T10:04:59Z"
+          "lastLogin": "string"  // e.g., "2025-04-20T10:13:09Z"
+        },
+        "token": "string"      // JWT token
+      }
     }
     ```
   - **Error (400 Bad Request)**:
@@ -318,40 +329,43 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "experts": [
-        {
-          "id": int,
-          "expertId": "string",
-          "name": "string",
-          "designation": "string",
-          "institution": "string",
-          "isBahraini": boolean,
-          "isAvailable": boolean,
-          "rating": "string",
-          "role": "string",
-          "employmentType": "string",
-          "generalArea": int,
-          "generalAreaName": "string",
-          "specializedArea": "string",
-          "isTrained": boolean,
-          "cvPath": "string",
-          "phone": "string",
-          "email": "string",
-          "isPublished": boolean,
-          "biography": "string",
-          "approvalDocumentPath": "string",
-          "createdAt": "string",
-          "updatedAt": "string"
+      "success": true,
+      "data": {
+        "experts": [
+          {
+            "id": int,
+            "expertId": "string",
+            "name": "string",
+            "designation": "string",
+            "institution": "string",
+            "isBahraini": boolean,
+            "isAvailable": boolean,
+            "rating": "string",
+            "role": "string",
+            "employmentType": "string",
+            "generalArea": int,
+            "generalAreaName": "string",
+            "specializedArea": "string",
+            "isTrained": boolean,
+            "cvPath": "string",
+            "phone": "string",
+            "email": "string",
+            "isPublished": boolean,
+            "biography": "string",
+            "approvalDocumentPath": "string",
+            "createdAt": "string",
+            "updatedAt": "string"
+          }
+        ],
+        "pagination": {
+          "totalCount": int,
+          "totalPages": int,
+          "currentPage": int,
+          "pageSize": int,
+          "hasNextPage": boolean,
+          "hasPrevPage": boolean,
+          "hasMore": boolean
         }
-      ],
-      "pagination": {
-        "totalCount": int,
-        "totalPages": int,
-        "currentPage": int,
-        "pageSize": int,
-        "hasNextPage": boolean,
-        "hasPrevPage": boolean,
-        "hasMore": boolean
       }
     }
     ```
@@ -369,7 +383,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
 ### GET /api/experts/{id}
 
-- **Purpose**: Retrieves a specific expert’s details.
+- **Purpose**: Retrieves a specific expert's details.
 - **Method**: GET
 - **Path**: `/api/experts/{id}`
 - **Request Headers**:
@@ -379,28 +393,31 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "id": int,
-      "expertId": "string",
-      "name": "string",
-      "designation": "string",
-      "institution": "string",
-      "isBahraini": boolean,
-      "isAvailable": boolean,
-      "rating": "string",
-      "role": "string",
-      "employmentType": "string",
-      "generalArea": int,
-      "generalAreaName": "string",
-      "specializedArea": "string",
-      "isTrained": boolean,
-      "cvPath": "string",
-      "phone": "string",
-      "email": "string",
-      "isPublished": boolean,
-      "biography": "string",
-      "approvalDocumentPath": "string",
-      "createdAt": "string",
-      "updatedAt": "string"
+      "success": true,
+      "data": {
+        "id": int,
+        "expertId": "string",
+        "name": "string",
+        "designation": "string",
+        "institution": "string",
+        "isBahraini": boolean,
+        "isAvailable": boolean,
+        "rating": "string",
+        "role": "string",
+        "employmentType": "string",
+        "generalArea": int,
+        "generalAreaName": "string",
+        "specializedArea": "string",
+        "isTrained": boolean,
+        "cvPath": "string",
+        "phone": "string",
+        "email": "string",
+        "isPublished": boolean,
+        "biography": "string",
+        "approvalDocumentPath": "string",
+        "createdAt": "string",
+        "updatedAt": "string"
+      }
     }
     ```
   - **Error (404 Not Found)**:
@@ -503,9 +520,12 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - **Success (200 OK)**:
 
     ```json
-    [
-      { "id": int, "name": "string" }
-    ]
+    {
+      "success": true,
+      "data": [
+        { "id": int, "name": "string" }
+      ]
+    }
     ```
   - **Error (401 Unauthorized)**:
 
@@ -629,11 +649,30 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "id": int,
-      "name": "string",
-      "status": "pending",
-      "cvPath": "string",
-      ...
+      "success": true,
+      "data": {
+        "id": int,
+        "name": "string",
+        "status": "pending",
+        "cvPath": "string",
+        "designation": "string",
+        "institution": "string",
+        "isBahraini": boolean,
+        "isAvailable": boolean,
+        "rating": "string",
+        "role": "string",
+        "employmentType": "string",
+        "generalArea": int,
+        "specializedArea": "string",
+        "isTrained": boolean,
+        "phone": "string",
+        "email": "string",
+        "biography": "string", 
+        "skills": ["string"],
+        "isPublished": boolean,
+        "createdAt": "string",
+        "updatedAt": "string"
+      }
     }
     ```
   - **Error (400 Bad Request)**:
@@ -662,16 +701,45 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - **Success (200 OK)**:
 
     ```json
-    [
-      {
-        "id": int,
-        "name": "string",
-        "status": "string",
-        "cvPath": "string",
-        "approvalDocumentPath": "string",
-        ...
+    {
+      "success": true,
+      "data": {
+        "requests": [
+          {
+            "id": int,
+            "name": "string",
+            "status": "string",
+            "cvPath": "string",
+            "approvalDocumentPath": "string",
+            "designation": "string",
+            "institution": "string",
+            "isBahraini": boolean,
+            "isAvailable": boolean,
+            "rating": "string",
+            "role": "string",
+            "employmentType": "string",
+            "generalArea": int,
+            "specializedArea": "string",
+            "isTrained": boolean,
+            "phone": "string",
+            "email": "string",
+            "biography": "string",
+            "skills": ["string"],
+            "isPublished": boolean,
+            "createdAt": "string",
+            "updatedAt": "string"
+          }
+        ],
+        "pagination": {
+          "totalCount": int,
+          "totalPages": int,
+          "currentPage": int,
+          "pageSize": int,
+          "hasNextPage": boolean,
+          "hasPrevPage": boolean
+        }
       }
-    ]
+    }
     ```
   - **Error (400 Bad Request)**:
 
@@ -696,12 +764,31 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "id": int,
-      "name": "string",
-      "status": "string",
-      "cvPath": "string",
-      "approvalDocumentPath": "string",
-      ...
+      "success": true,
+      "data": {
+        "id": int,
+        "name": "string",
+        "status": "string",
+        "cvPath": "string",
+        "approvalDocumentPath": "string",
+        "designation": "string",
+        "institution": "string",
+        "isBahraini": boolean,
+        "isAvailable": boolean,
+        "rating": "string",
+        "role": "string",
+        "employmentType": "string",
+        "generalArea": int,
+        "specializedArea": "string",
+        "isTrained": boolean,
+        "phone": "string",
+        "email": "string",
+        "biography": "string",
+        "skills": ["string"],
+        "isPublished": boolean,
+        "createdAt": "string", 
+        "updatedAt": "string"
+      }
     }
     ```
   - **Error (404 Not Found)**:
@@ -805,9 +892,13 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
     {
       "success": true,
       "message": "Batch approval completed",
-      "results": [
-        { "id": int, "status": "success" | "failed", "error": "string" }
-      ]
+      "data": {
+        "results": [
+          { "id": int, "status": "success" | "failed", "error": "string" }
+        ],
+        "approvedIds": [int],
+        "errorCount": int
+      }
     }
     ```
   - **Error (400 Bad Request)**:
@@ -869,15 +960,22 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - **Success (200 OK)**:
 
     ```json
-    [
-      {
-        "id": int,
+    {
+      "success": true,
+      "data": {
         "expertId": int,
-        "documentType": "string",
-        "filePath": "string",
-        "createdAt": "string"
+        "count": int,
+        "documents": [
+          {
+            "id": int,
+            "expertId": int,
+            "documentType": "string",
+            "filePath": "string",
+            "createdAt": "string"
+          }
+        ]
       }
-    ]
+    }
     ```
   - **Error (404 Not Found)**:
 
@@ -902,11 +1000,14 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "id": int,
-      "expertId": int,
-      "documentType": "string",
-      "filePath": "string",
-      "createdAt": "string"
+      "success": true,
+      "data": {
+        "id": int,
+        "expertId": int,
+        "documentType": "string",
+        "filePath": "string",
+        "createdAt": "string"
+      }
     }
     ```
   - **Error (404 Not Found)**:
@@ -964,18 +1065,36 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - **Success (200 OK)**:
 
     ```json
-    [
-      {
-        "id": int,
-        "expertId": int,
-        "engagementType": "string",
-        "startDate": "string",
-        "projectName": "string",
-        "status": "string",
-        "notes": "string",
-        "createdAt": "string"
+    {
+      "success": true,
+      "data": {
+        "engagements": [
+          {
+            "id": int,
+            "expertId": int,
+            "expertName": "string",
+            "engagementType": "string",
+            "startDate": "string",
+            "projectName": "string",
+            "status": "string",
+            "notes": "string",
+            "createdAt": "string"
+          }
+        ],
+        "pagination": {
+          "totalCount": int,
+          "totalPages": int,
+          "currentPage": int,
+          "pageSize": int,
+          "hasNextPage": boolean,
+          "hasPrevPage": boolean
+        },
+        "filters": {
+          "expertId": int,
+          "type": "string"
+        }
       }
-    ]
+    }
     ```
   - **Error (400 Bad Request)**:
 
@@ -1026,8 +1145,17 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
     {
       "success": true,
       "message": "Engagements imported successfully",
-      "imported": int,
-      "failed": int
+      "data": {
+        "imported": int,
+        "failed": int,
+        "details": [
+          {
+            "expertId": int,
+            "status": "success" | "failed",
+            "error": "string"
+          }
+        ]
+      }
     }
     ```
   - **Error (400 Bad Request)**:
@@ -1105,34 +1233,52 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - **Success (200 OK)**:
 
     ```json
-    [
-      {
-        "id": int,
-        "phaseId": "string",
-        "title": "string",
-        "assignedSchedulerId": int,
-        "status": "string",
-        "createdAt": "string",
-        "updatedAt": "string",
-        "applications": [
+    {
+      "success": true,
+      "data": {
+        "phases": [
           {
             "id": int,
-            "phaseId": int,
-            "type": "string",
-            "institutionName": "string",
-            "qualificationName": "string",
-            "expert1": int,
-            "expert1Name": "string",
-            "expert2": int,
-            "expert2Name": "string",
+            "phaseId": "string",
+            "title": "string",
+            "assignedSchedulerId": int,
+            "schedulerName": "string",
             "status": "string",
-            "rejectionNotes": "string",
             "createdAt": "string",
-            "updatedAt": "string"
+            "updatedAt": "string",
+            "applications": [
+              {
+                "id": int,
+                "phaseId": int,
+                "type": "string",
+                "institutionName": "string",
+                "qualificationName": "string",
+                "expert1": int,
+                "expert1Name": "string",
+                "expert2": int,
+                "expert2Name": "string",
+                "status": "string",
+                "rejectionNotes": "string",
+                "createdAt": "string",
+                "updatedAt": "string"
+              }
+            ]
           }
-        ]
+        ],
+        "pagination": {
+          "totalCount": int,
+          "totalPages": int,
+          "currentPage": int,
+          "pageSize": int,
+          "hasNextPage": boolean,
+          "hasPrevPage": boolean
+        },
+        "filters": {
+          "status": "string",
+          "schedulerId": int
+        }
       }
-    ]
+    }
     ```
   - **Error (400 Bad Request)**:
 
@@ -1229,24 +1375,27 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "totalExperts": int,
-      "activeCount": int,
-      "bahrainiPercentage": float,
-      "publishedCount": int,
-      "publishedRatio": float,
-      "topAreas": [
-        { "name": "string", "count": int, "percentage": float }
-      ],
-      "engagementsByType": [
-        { "name": "string", "count": int, "percentage": float }
-      ],
-      "yearlyGrowth": [
-        { "period": "string", "count": int, "growthRate": float }
-      ],
-      "mostRequestedExperts": [
-        { "expertId": "string", "name": "string", "count": int }
-      ],
-      "lastUpdated": "string"
+      "success": true,
+      "data": {
+        "totalExperts": int,
+        "activeCount": int,
+        "bahrainiPercentage": float,
+        "publishedCount": int,
+        "publishedRatio": float,
+        "topAreas": [
+          { "name": "string", "count": int, "percentage": float }
+        ],
+        "engagementsByType": [
+          { "name": "string", "count": int, "percentage": float }
+        ],
+        "yearlyGrowth": [
+          { "period": "string", "count": int, "growthRate": float }
+        ],
+        "mostRequestedExperts": [
+          { "expertId": "string", "name": "string", "count": int }
+        ],
+        "lastUpdated": "string"
+      }
     }
     ```
   - **Error (500 Internal Server Error)**:
@@ -1273,9 +1422,12 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - **Success (200 OK)**:
 
     ```json
-    [
-      { "period": "string", "count": int, "growthRate": float }
-    ]
+    {
+      "success": true,
+      "data": [
+        { "period": "string", "count": int, "growthRate": float }
+      ]
+    }
     ```
   - **Error (400 Bad Request)**:
 
@@ -1300,10 +1452,13 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "stats": [
-        { "name": "string", "count": int, "percentage": float }
-      ],
-      "total": int
+      "success": true,
+      "data": {
+        "total": int,
+        "stats": [
+          { "name": "string", "count": int, "percentage": float }
+        ]
+      }
     }
     ```
   - **Error (500 Internal Server Error)**:
@@ -1327,9 +1482,18 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - **Success (200 OK)**:
 
     ```json
-    [
-      { "name": "string", "count": int, "percentage": float }
-    ]
+    {
+      "success": true,
+      "data": {
+        "total": int,
+        "byType": [
+          { "name": "string", "count": int, "percentage": float }
+        ],
+        "byStatus": [
+          { "name": "string", "count": int, "percentage": float }
+        ]
+      }
+    }
     ```
   - **Error (500 Internal Server Error)**:
 
@@ -1354,15 +1518,18 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "generalAreas": [
-        { "name": "string", "count": int, "percentage": float }
-      ],
-      "topSpecializedAreas": [
-        { "name": "string", "count": int, "percentage": float }
-      ],
-      "bottomSpecializedAreas": [
-        { "name": "string", "count": int, "percentage": float }
-      ]
+      "success": true,
+      "data": {
+        "generalAreas": [
+          { "name": "string", "count": int, "percentage": float }
+        ],
+        "topSpecializedAreas": [
+          { "name": "string", "count": int, "percentage": float }
+        ],
+        "bottomSpecializedAreas": [
+          { "name": "string", "count": int, "percentage": float }
+        ]
+      }
     }
     ```
   - **Error (500 Internal Server Error)**:
@@ -1403,4 +1570,4 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
 ## Conclusion
 
-This updated API reference reflects enhancements through Phase 12, including new endpoints for phase planning, engagement imports, area management, and backups. It supports the department’s needs with clear documentation, tested via `test_api.sh`, and aligns with `SRS.md` requirements. For further error handling improvements, refer to `ERRORS.md`.
+This updated API reference reflects enhancements through Phase 12, including new endpoints for phase planning, engagement imports, area management, and backups. It supports the department's needs with clear documentation, tested via `test_api.sh`, and aligns with `SRS.md` requirements. All endpoints follow a consistent response structure pattern with the `success`, `message`, and `data` fields included in the response payload. For further error handling improvements, refer to `ERRORS.md`.

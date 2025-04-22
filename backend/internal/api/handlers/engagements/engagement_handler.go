@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"expertdb/internal/api/response"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -73,14 +74,12 @@ func (h *Handler) HandleCreateEngagement(w http.ResponseWriter, r *http.Request)
 		return fmt.Errorf("failed to create engagement: %w", err)
 	}
 
-	// Set the ID in the response and return
+	// Set the ID in the response and return with standardized format
 	engagement.ID = id
 	log.Info("Engagement created successfully: ID: %d, Type: %s, Expert: %d",
 		id, engagement.EngagementType, engagement.ExpertID)
 	
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	return json.NewEncoder(w).Encode(engagement)
+	return response.Success(w, http.StatusCreated, "Engagement created successfully", engagement)
 }
 
 // HandleGetEngagement handles GET /api/engagements/{id} requests
@@ -103,10 +102,9 @@ func (h *Handler) HandleGetEngagement(w http.ResponseWriter, r *http.Request) er
 		return fmt.Errorf("engagement not found: %w", err)
 	}
 
-	// Return engagement data
+	// Return engagement data with standardized response
 	log.Debug("Successfully retrieved engagement: ID: %d, Type: %s", engagement.ID, engagement.EngagementType)
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(engagement)
+	return response.Success(w, http.StatusOK, "", engagement)
 }
 
 // HandleUpdateEngagement handles PUT /api/engagements/{id} requests
@@ -172,12 +170,10 @@ func (h *Handler) HandleUpdateEngagement(w http.ResponseWriter, r *http.Request)
 		return fmt.Errorf("failed to update engagement: %w", err)
 	}
 
-	// Return success response
+	// Return success response with standardized format
 	log.Info("Engagement updated successfully: ID: %d", id)
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": "Engagement updated successfully",
+	return response.Success(w, http.StatusOK, "Engagement updated successfully", map[string]interface{}{
+		"id": id,
 	})
 }
 
@@ -200,13 +196,9 @@ func (h *Handler) HandleDeleteEngagement(w http.ResponseWriter, r *http.Request)
 		return fmt.Errorf("failed to delete engagement: %w", err)
 	}
 
-	// Return success response
+	// Return success response with standardized format
 	log.Info("Engagement deleted successfully: ID: %d", id)
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": "Engagement deleted successfully",
-	})
+	return response.Success(w, http.StatusOK, "Engagement deleted successfully", nil)
 }
 
 // HandleGetExpertEngagements handles GET /api/experts/{id}/engagements requests
@@ -245,10 +237,18 @@ func (h *Handler) HandleGetExpertEngagements(w http.ResponseWriter, r *http.Requ
 		return fmt.Errorf("failed to retrieve engagements: %w", err)
 	}
 
-	// Return engagements
+	// Return engagements with standardized response and pagination metadata
 	log.Debug("Returning %d engagements for expert ID: %d", len(engagements), id)
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(engagements)
+	responseData := map[string]interface{}{
+		"engagements": engagements,
+		"pagination": map[string]interface{}{
+			"limit":  limit,
+			"offset": offset,
+			"count":  len(engagements),
+		},
+		"expertId": id,
+	}
+	return response.Success(w, http.StatusOK, "", responseData)
 }
 
 // HandleListEngagements handles GET /api/engagements requests with filtering capabilities
@@ -298,10 +298,21 @@ func (h *Handler) HandleListEngagements(w http.ResponseWriter, r *http.Request) 
 		return fmt.Errorf("failed to retrieve engagements: %w", err)
 	}
 
-	// Return engagements
+	// Return engagements with standardized response and pagination metadata
 	log.Debug("Returning %d engagements", len(engagements))
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(engagements)
+	responseData := map[string]interface{}{
+		"engagements": engagements,
+		"pagination": map[string]interface{}{
+			"limit":  limit,
+			"offset": offset,
+			"count":  len(engagements),
+		},
+		"filters": map[string]interface{}{
+			"expertId":       expertID,
+			"engagementType": engagementType,
+		},
+	}
+	return response.Success(w, http.StatusOK, "", responseData)
 }
 
 // HandleImportEngagements handles POST /api/engagements/import requests
@@ -384,10 +395,14 @@ func (h *Handler) HandleImportEngagements(w http.ResponseWriter, r *http.Request
 		Errors:       errorMap,
 	}
 
-	// Return response
+	// Return response with standardized format
 	log.Info("Engagement import completed: %d successful, %d failed", successCount, len(errors))
-	w.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(w).Encode(response)
+	
+	// Create a message based on the results
+	msg := fmt.Sprintf("Import completed: %d successful, %d failed out of %d total", 
+		successCount, len(errors), len(engagements))
+		
+	return response.Success(w, http.StatusOK, msg, response)
 }
 
 // parseCSVEngagements parses CSV data into engagement records

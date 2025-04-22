@@ -1,5 +1,11 @@
 import { request } from './client';
-import { NationalityStats, GrowthStats } from '../types';
+import { 
+  NationalityStats, 
+  GrowthStats, 
+  ExpertStats, 
+  EngagementStats, 
+  AreaStats 
+} from '../types';
 
 export const getNationalityStats = () => 
   request<NationalityStats>({
@@ -15,34 +21,19 @@ export const getGrowthStats = (years?: number) =>
   });
 
 export const getOverallStats = () => 
-  request<{
-    totalExperts: number;
-    activeCount: number;
-    bahrainiPercentage: number;
-    publishedCount: number;
-    publishedRatio: number;
-    topAreas: Array<{ name: string; count: number; percentage: number }>;
-    engagementsByType: Array<{ name: string; count: number; percentage: number }>;
-    yearlyGrowth: Array<{ period: string; count: number; growthRate: number }>;
-    mostRequestedExperts: Array<{ expertId: string; name: string; count: number }>;
-    lastUpdated: string;
-  }>({
+  request<ExpertStats>({
     url: '/statistics',
     method: 'GET',
   });
 
 export const getEngagementStats = () => 
-  request<Array<{ name: string; count: number; percentage: number }>>({
+  request<EngagementStats>({
     url: '/statistics/engagements',
     method: 'GET',
   });
   
 export const getAreaStats = () => 
-  request<{
-    generalAreas: Array<{ name: string; count: number; percentage: number }>;
-    topSpecializedAreas: Array<{ name: string; count: number; percentage: number }>;
-    bottomSpecializedAreas: Array<{ name: string; count: number; percentage: number }>;
-  }>({
+  request<AreaStats>({
     url: '/statistics/areas',
     method: 'GET',
   });

@@ -35,7 +35,7 @@ func LoadConfig() *Configuration {
 		config.Port = "8080"
 	}
 	if config.DBPath == "" {
-		config.DBPath = "./db/sqlite/expertdb.sqlite"
+		config.DBPath = "./db/sqlite/main.db"
 	}
 	if config.UploadPath == "" {
 		config.UploadPath = "./data/documents"

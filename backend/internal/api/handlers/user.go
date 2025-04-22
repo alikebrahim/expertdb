@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 	
+	"expertdb/internal/api/response"
 	"expertdb/internal/auth"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
@@ -110,20 +111,16 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) e
 		return fmt.Errorf("failed to create user: %w", err)
 	}
 	
-	// Prepare success response
-	resp := domain.CreateUserResponse{
-		ID:      id,
-		Success: true,
-		Message: "User created successfully",
+	// Prepare response data
+	responseData := map[string]interface{}{
+		"id": id,
 	}
 	
 	// Log successful user creation
 	log.Info("New user created: %s (ID: %d, Role: %s)", req.Email, id, req.Role)
 	
-	// Return success response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	return json.NewEncoder(w).Encode(resp)
+	// Return standardized success response
+	return response.Success(w, http.StatusCreated, "User created successfully", responseData)
 }
 
 // HandleGetUsers retrieves a paginated list of users (admin only)
@@ -158,10 +155,18 @@ func (h *UserHandler) HandleGetUsers(w http.ResponseWriter, r *http.Request) err
 	log.Debug("User list retrieved: %d users returned (limit: %d, offset: %d)", 
 		len(users), limit, offset)
 	
-	// Return user list as JSON response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(users)
+	// Create response with pagination metadata
+	responseData := map[string]interface{}{
+		"users": users,
+		"pagination": map[string]interface{}{
+			"limit":  limit,
+			"offset": offset,
+			"count":  len(users),
+		},
+	}
+	
+	// Return standardized success response
+	return response.Success(w, http.StatusOK, "", responseData)
 }
 
 // HandleGetUser retrieves details for a specific user
@@ -193,10 +198,8 @@ func (h *UserHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) erro
 	// Log user retrieval
 	log.Debug("User retrieved: ID %d", id)
 	
-	// Return user details as JSON response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(user)
+	// Return standardized success response with user data
+	return response.Success(w, http.StatusOK, "", user)
 }
 
 // HandleUpdateUser updates an existing user's information
@@ -280,19 +283,16 @@ func (h *UserHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) e
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 	
-	// Prepare and return success response
-	resp := domain.CreateUserResponse{
-		ID:      user.ID,
-		Success: true,
-		Message: "User updated successfully",
+	// Prepare response data
+	responseData := map[string]interface{}{
+		"id": user.ID,
 	}
 	
 	// Log successful update
 	log.Info("User updated successfully: ID %d, Email: %s, Role: %s", user.ID, user.Email, user.Role)
 	
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(resp)
+	// Return standardized success response
+	return response.Success(w, http.StatusOK, "User updated successfully", responseData)
 }
 
 // HandleDeleteUser permanently deletes a user account
@@ -346,16 +346,6 @@ func (h *UserHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) e
 	// Log successful deletion
 	log.Info("User deleted: ID %d, Email: %s, Role: %s", id, user.Email, user.Role)
 	
-	// Prepare and return success response
-	resp := struct {
-		Success bool   `json:"success"`
-		Message string `json:"message"`
-	}{
-		Success: true,
-		Message: "User deleted successfully",
-	}
-	
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(resp)
+	// Return standardized success response
+	return response.Success(w, http.StatusOK, "User deleted successfully", nil)
 }

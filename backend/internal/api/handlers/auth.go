@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	
+	"expertdb/internal/api/response"
 	"expertdb/internal/auth"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
@@ -75,17 +76,15 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) error 
 	
 	// Prepare response (mask password hash for security)
 	user.PasswordHash = ""
-	resp := domain.LoginResponse{
-		User:  *user,
-		Token: token,
+	responseData := map[string]interface{}{
+		"user":  user,
+		"token": token,
 	}
 	
 	// Log successful login
 	log.Info("User logged in successfully: %s (ID: %d, Role: %s)", 
 		user.Email, user.ID, user.Role)
 	
-	// Return success response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	return json.NewEncoder(w).Encode(resp)
+	// Return standardized success response
+	return response.Success(w, http.StatusOK, "Login successful", responseData)
 }

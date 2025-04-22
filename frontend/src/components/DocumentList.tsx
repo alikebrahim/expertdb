@@ -22,7 +22,7 @@ const DocumentList = ({ expertId, onRefreshNeeded }: DocumentListProps) => {
       const response = await documentApi.getExpertDocuments(expertId);
       
       if (response.success) {
-        setDocuments(response.data);
+        setDocuments(response.data.documents);
       } else {
         setError(response.message || 'Failed to load documents');
       }
@@ -155,18 +155,19 @@ const DocumentList = ({ expertId, onRefreshNeeded }: DocumentListProps) => {
               <tr key={doc.id}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                    <span className="text-xl mr-2">{getDocumentIcon(doc.contentType)}</span>
-                    <div className="truncate max-w-xs">{doc.originalFilename}</div>
+                    <span className="text-xl mr-2">📄</span>
+                    <div className="truncate max-w-xs">{doc.filePath.split('/').pop()}</div>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   {getDocumentTypeLabel(doc.documentType)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {formatFileSize(doc.size)}
+                  {/* Size not available in updated API */}
+                  N/A
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {formatDate(doc.uploadedAt)}
+                  {formatDate(doc.createdAt)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end space-x-2">
