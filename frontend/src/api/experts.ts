@@ -3,7 +3,7 @@ import { Expert, ExpertListResponse } from '../types';
 
 export const getExperts = (limit: number = 10, offset: number = 0, params?: Record<string, string | boolean | number>) => 
   request<ExpertListResponse>({
-    url: '/experts',
+    url: '/api/experts',
     method: 'GET',
     params: {
       ...params,
@@ -14,7 +14,7 @@ export const getExperts = (limit: number = 10, offset: number = 0, params?: Reco
 
 export const getExpertById = (id: string) => 
   request<Expert>({
-    url: `/experts/${id}`,
+    url: `/api/experts/${id}`,
     method: 'GET',
   });
 
@@ -22,7 +22,7 @@ export const createExpert = (data: FormData) =>
   request<{
     id: number;
   }>({
-    url: '/experts',
+    url: '/api/experts',
     method: 'POST',
     data,
     headers: {
@@ -32,7 +32,7 @@ export const createExpert = (data: FormData) =>
 
 export const updateExpert = (id: string, data: FormData) => 
   request<null>({
-    url: `/experts/${id}`,
+    url: `/api/experts/${id}`,
     method: 'PUT',
     data,
     headers: {
@@ -42,6 +42,6 @@ export const updateExpert = (id: string, data: FormData) =>
   
 export const deleteExpert = (id: string) => 
   request<null>({
-    url: `/experts/${id}`,
+    url: `/api/experts/${id}`,
     method: 'DELETE',
   });

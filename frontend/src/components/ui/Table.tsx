@@ -1,8 +1,15 @@
 import React, { ReactNode } from 'react';
 import { SkeletonTable } from './Skeleton';
+import { SortConfig } from '../tables/ExpertTable';
+
+export interface TableHeader {
+  label: string;
+  field?: string;
+  sortable?: boolean;
+}
 
 interface TableProps {
-  headers: string[];
+  headers: (string | TableHeader)[];
   children: ReactNode;
   className?: string;
   pagination?: {
@@ -14,6 +21,8 @@ interface TableProps {
   loadingRows?: number;
   emptyState?: ReactNode;
   isDataEmpty?: boolean;
+  sortConfig?: SortConfig;
+  onSort?: (field: string) => void;
 }
 
 export const Table: React.FC<TableProps> = ({ 
@@ -24,25 +33,79 @@ export const Table: React.FC<TableProps> = ({
   isLoading = false,
   loadingRows = 5,
   emptyState,
-  isDataEmpty = false
+  isDataEmpty = false,
+  sortConfig,
+  onSort
 }) => {
   if (isLoading) {
     return <SkeletonTable rows={loadingRows} columns={headers.length} className={className} />;
   }
+  
+  const renderSortIcon = (field: string) => {
+    if (!sortConfig || sortConfig.field !== field) {
+      // Neutral icon for unsorted column
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white opacity-50" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M10 3a1 1 0 01.707.293l3 3a1 1 0 01-1.414 1.414L10 5.414 7.707 7.707a1 1 0 01-1.414-1.414l3-3A1 1 0 0110 3zm-3.707 9.293a1 1 0 011.414 0L10 14.586l2.293-2.293a1 1 0 011.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      );
+    } else if (sortConfig.direction === 'asc') {
+      // Up arrow for ascending sort
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+        </svg>
+      );
+    } else {
+      // Down arrow for descending sort
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      );
+    }
+  };
   
   return (
     <div className={`overflow-x-auto ${className}`}>
       <table className="min-w-full bg-white border border-neutral-200 rounded-md overflow-hidden">
         <thead className="bg-primary text-white">
           <tr>
-            {headers.map((header, index) => (
-              <th
-                key={index}
-                className="py-3 px-4 text-left font-medium text-sm"
-              >
-                {header}
-              </th>
-            ))}
+            {headers.map((header, index) => {
+              // Handle string headers (legacy support)
+              if (typeof header === 'string') {
+                return (
+                  <th
+                    key={index}
+                    className="py-3 px-4 text-left font-medium text-sm"
+                  >
+                    {header}
+                  </th>
+                );
+              }
+              
+              // Handle object headers with sortable functionality
+              const { label, field, sortable } = header;
+              
+              return (
+                <th
+                  key={index}
+                  className={`py-3 px-4 text-left font-medium text-sm ${
+                    sortable && onSort ? 'cursor-pointer hover:bg-primary-dark' : ''
+                  }`}
+                  onClick={() => sortable && field && onSort && onSort(field)}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>{label}</span>
+                    {sortable && field && onSort && (
+                      <span className="inline-block ml-1">
+                        {renderSortIcon(field)}
+                      </span>
+                    )}
+                  </div>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-200">

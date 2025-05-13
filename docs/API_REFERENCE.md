@@ -1,7 +1,7 @@
 # ExpertDB API Endpoints Documentation
 
 **Date**: April 22, 2025\
-**Version**: 1.2\
+**Version**: 1.3\
 **Context**:\
 ExpertDB is a lightweight internal tool for managing a database of experts, designed for a department with 10-12 users and a maximum of 1200 database entries over 5 years. The tool operates on an intranet, with security handled organizationally, prioritizing simplicity, maintainability, and clear error messaging over complex scalability or security measures. The backend is built in Go, uses SQLite as the database, and provides a RESTful API with JSON payloads, JWT authentication, and permissive CORS settings (`*`).
 
@@ -39,7 +39,12 @@ This document provides an updated reference for all API endpoints, incorporating
     - GET /api/documents/{id}
     - DELETE /api/documents/{id}
  8. Engagement Management Endpoints
-    - GET /api/expert-engagements
+    - GET /api/engagements
+    - GET /api/experts/{id}/engagements
+    - GET /api/engagements/{id}
+    - POST /api/engagements
+    - PUT /api/engagements/{id}
+    - DELETE /api/engagements/{id}
     - POST /api/engagements/import
  9. Phase Planning Endpoints
     - POST /api/phases
@@ -61,7 +66,7 @@ The ExpertDB backend provides a RESTful API for managing expert profiles, reques
 
 Recent updates (Phases 2-12) include:
 
-- Enhanced user roles (`super_user`, `scheduler`).
+- Enhanced user roles (`super_user`, `planner`).
 - Approval document support and batch approvals.
 - Extended access for expert, document, and area endpoints.
 - Phase planning with application and engagement management.
@@ -74,19 +79,18 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
 ## General Notes
 
-- **Authentication**: All endpoints except `/api/auth/login` require a JWT token in the `Authorization: Bearer <token>` header. Role-based permissions (`super_user`, `admin`, `scheduler`, `regular`) are enforced.
+- **Authentication**: All endpoints except `/api/auth/login` require a JWT token in the `Authorization: Bearer <token>` header. Role-based permissions (`super_user`, `admin`, `planner`, `regular`) are enforced.
 - **Access Levels**:
   - **Super User**: Full access, including admin creation and deletion.
   - **Admin**: Manages users, experts, requests, documents, areas, phases, and backups.
-  - **Scheduler**: Submits requests, proposes experts for phase plans, views experts/documents.
+  - **Planner**: Submits requests, proposes experts for phase plans, views experts/documents.
   - **Regular**: Submits requests, views experts/documents.
 - **CORS**: Allows all origins (`*`), suitable for intranet use.
-- **Error Handling**: Returns JSON with specific `error` messages, improved per `ERRORS.md` recommendations (e.g., aggregated validation errors).
 - **Database**: SQLite with schema in `db/migrations/sqlite`. Indexes added for filters (`nationality`, `general_area`, etc.).
 - **Logging**: Logs to `./logs` with HTTP status, headers, and payloads.
 - **Testing**: `test_api.sh` validates endpoints, covering new features and edge cases.
 - **Payload Validation**: Enforces required fields, applies defaults (e.g., `pending` status).
-- **Standard Response Structure**: Most endpoints use a standard response structure:
+- **Standard Response Structure**: All endpoints use a standard response structure:
   ```json
   {
     "success": boolean,    // true for successful requests
@@ -153,7 +157,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - File: `internal/api/handlers/auth.go:HandleLogin`
   - Validates credentials, checks `users` table, uses `golang.org/x/crypto` for password verification, generates JWT via `internal/auth/jwt.go`.
 - **Notes**:
-  - Supports `super_user`, `admin`, `scheduler`, `regular` roles.
+  - Supports `super_user`, `admin`, `planner`, `regular` roles.
   - Logs successful logins.
 
 ## User Management Endpoints
@@ -172,7 +176,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
     "name": "string",     // Required: e.g., "Test User"
     "email": "string",    // Required: e.g., "test@example.com"
     "password": "string", // Required: e.g., "password123"
-    "role": "string",     // Required: e.g., "scheduler"
+    "role": "string",     // Required: e.g., "planner"
     "isActive": boolean   // Required: e.g., true
   }
   ```
@@ -181,9 +185,11 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "id": int,           // e.g., 18
       "success": true,
-      "message": "User created successfully"
+      "message": "User created successfully",
+      "data": {
+        "id": int           // e.g., 18
+      }
     }
     ```
   - **Error (400 Bad Request)**:
@@ -204,10 +210,10 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 - **Implementation**:
   - File: `internal/api/handlers/user.go`
   - Enforces role hierarchy via `internal/storage/sqlite/user.go:CreateUserWithRoleCheck`.
-  - Super users create admins; admins create schedulers/regular users.
+  - Super users create admins; admins create planners/regular users.
 - **Notes**:
   - Logs creation (e.g., "New user created: test@example.com").
-  - Updated in Phase 2 to support `super_user` and `scheduler` roles.
+  - Updated in Phase 2 to support `super_user` and `planner` roles.
 
 ### DELETE /api/users/{id}
 
@@ -238,8 +244,8 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
     ```
 - **Implementation**:
   - File: `internal/api/handlers/user.go`
-  - Super users delete admins; admins delete schedulers/regular users.
-  - Cascades deletion of scheduler assignments.
+  - Super users delete admins; admins delete planners/regular users.
+  - Cascades deletion of planner assignments.
 - **Notes**:
   - Logs deletion (e.g., "User deleted: ID 18").
   - Updated in Phase 2 for role-based deletion restrictions.
@@ -282,9 +288,12 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "id": int,
       "success": true,
-      "message": "Expert created successfully"
+      "message": "Expert created successfully",
+      "data": {
+        "id": int,
+        "expertId": "string"
+      }
     }
     ```
   - **Error (400 Bad Request)**:
@@ -299,7 +308,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
     ```
 - **Implementation**:
   - File: `internal/api/handlers/expert.go:HandleCreateExpert`
-  - Generates unique `expert_id` (e.g., `EXP-0001`) via `internal/storage/sqlite/expert.go`.
+  - Generates unique `expertId` (e.g., `EXP-0001`) via `internal/storage/sqlite/expert.go`.
   - Validates fields, stores in `experts` table.
 - **Notes**:
   - Updated in Phase 1 to fix `UNIQUE constraint` issue.
@@ -468,7 +477,10 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
     ```json
     {
       "success": true,
-      "message": "Expert updated successfully"
+      "message": "Expert updated successfully",
+      "data": {
+        "id": int
+      }
     }
     ```
   - **Error (400 Bad Request)**:
@@ -555,9 +567,12 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "id": int,
       "success": true,
-      "message": "Area created successfully"
+      "message": "Area created successfully",
+      "data": {
+        "id": int,
+        "name": "string"
+      }
     }
     ```
   - **Error (400 Bad Request)**:
@@ -594,7 +609,11 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
     ```json
     {
       "success": true,
-      "message": "Area updated successfully"
+      "message": "Area updated successfully",
+      "data": {
+        "id": int,
+        "name": "string"
+      }
     }
     ```
   - **Error (400 Bad Request)**:
@@ -622,7 +641,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 - **Method**: POST
 - **Path**: `/api/expert-requests`
 - **Request Headers**:
-  - `Authorization: Bearer <scheduler_token|regular_token>`
+  - `Authorization: Bearer <planner_token|regular_token>`
 - **Request Payload**: Form-data
 
   ```text
@@ -650,28 +669,9 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
     ```json
     {
       "success": true,
+      "message": "Expert request created successfully",
       "data": {
-        "id": int,
-        "name": "string",
-        "status": "pending",
-        "cvPath": "string",
-        "designation": "string",
-        "institution": "string",
-        "isBahraini": boolean,
-        "isAvailable": boolean,
-        "rating": "string",
-        "role": "string",
-        "employmentType": "string",
-        "generalArea": int,
-        "specializedArea": "string",
-        "isTrained": boolean,
-        "phone": "string",
-        "email": "string",
-        "biography": "string", 
-        "skills": ["string"],
-        "isPublished": boolean,
-        "createdAt": "string",
-        "updatedAt": "string"
+        "id": int
       }
     }
     ```
@@ -731,12 +731,9 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
           }
         ],
         "pagination": {
-          "totalCount": int,
-          "totalPages": int,
-          "currentPage": int,
-          "pageSize": int,
-          "hasNextPage": boolean,
-          "hasPrevPage": boolean
+          "limit": int,
+          "offset": int,
+          "count": int
         }
       }
     }
@@ -882,7 +879,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 - **Request Payload**: Form-data
 
   ```text
-  requestIds: string     // JSON array of IDs
+  data: string           // JSON array of request IDs
   approvalDocument: file // Required
   ```
 - **Response Payload**:
@@ -891,12 +888,12 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
     ```json
     {
       "success": true,
-      "message": "Batch approval completed",
+      "message": "Approved X of Y requests",
       "data": {
-        "results": [
-          { "id": int, "status": "success" | "failed", "error": "string" }
-        ],
+        "totalRequests": int,
+        "approvedCount": int,
         "approvedIds": [int],
+        "errors": { "id": "error message" },
         "errorCount": int
       }
     }
@@ -933,9 +930,11 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "id": int,
       "success": true,
-      "message": "Document uploaded successfully"
+      "message": "Document uploaded successfully",
+      "data": {
+        "id": int
+      }
     }
     ```
   - **Error (400 Bad Request)**:
@@ -1050,13 +1049,13 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
 ## Engagement Management Endpoints
 
-### GET /api/expert-engagements
+### GET /api/engagements
 
 - **Purpose**: Lists engagements with filters.
 - **Method**: GET
-- **Path**: `/api/expert-engagements`
+- **Path**: `/api/engagements`
 - **Request Headers**:
-  - `Authorization: Bearer <admin_token>`
+  - `Authorization: Bearer <token>`
 - **Query Parameters**:
   - `limit`, `offset`: Pagination.
   - `expert_id`: Filter by expert ID.
@@ -1082,16 +1081,13 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
           }
         ],
         "pagination": {
-          "totalCount": int,
-          "totalPages": int,
-          "currentPage": int,
-          "pageSize": int,
-          "hasNextPage": boolean,
-          "hasPrevPage": boolean
+          "limit": int,
+          "offset": int,
+          "count": int
         },
         "filters": {
           "expertId": int,
-          "type": "string"
+          "engagementType": "string"
         }
       }
     }
@@ -1107,6 +1103,203 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 - **Notes**:
   - Logs retrieval (e.g., "Retrieved engagements").
 
+### GET /api/experts/{id}/engagements
+
+- **Purpose**: Lists engagements for a specific expert.
+- **Method**: GET
+- **Path**: `/api/experts/{id}/engagements`
+- **Request Headers**:
+  - `Authorization: Bearer <token>`
+- **Query Parameters**:
+  - `limit`, `offset`: Pagination.
+  - `type`: `validator` or `evaluator`.
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "engagements": [
+          {
+            "id": int,
+            "expertId": int,
+            "expertName": "string",
+            "engagementType": "string",
+            "startDate": "string",
+            "projectName": "string",
+            "status": "string",
+            "notes": "string",
+            "createdAt": "string"
+          }
+        ],
+        "pagination": {
+          "limit": int,
+          "offset": int,
+          "count": int
+        },
+        "expertId": int
+      }
+    }
+    ```
+  - **Error (404 Not Found)**:
+
+    ```json
+    { "error": "Expert not found" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/engagements/engagement_handler.go`
+- **Notes**:
+  - Allows filtering by engagement type.
+
+### GET /api/engagements/{id}
+
+- **Purpose**: Retrieves a specific engagement.
+- **Method**: GET
+- **Path**: `/api/engagements/{id}`
+- **Request Headers**:
+  - `Authorization: Bearer <token>`
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "id": int,
+        "expertId": int,
+        "engagementType": "string",
+        "startDate": "string",
+        "endDate": "string",
+        "projectName": "string",
+        "status": "string",
+        "notes": "string",
+        "createdAt": "string"
+      }
+    }
+    ```
+  - **Error (404 Not Found)**:
+
+    ```json
+    { "error": "Engagement not found" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/engagements/engagement_handler.go`
+- **Notes**:
+  - Accessible to all authenticated users.
+
+### POST /api/engagements
+
+- **Purpose**: Creates a new engagement.
+- **Method**: POST
+- **Path**: `/api/engagements`
+- **Request Headers**:
+  - `Authorization: Bearer <planner_token>`
+- **Request Payload**:
+
+  ```json
+  {
+    "expertId": int,        // Required
+    "engagementType": "string", // Required: "validator" or "evaluator"
+    "startDate": "string",  // Required: ISO format date
+    "endDate": "string",    // Optional
+    "projectName": "string", // Optional
+    "status": "string",     // Optional, defaults to "pending"
+    "notes": "string"       // Optional
+  }
+  ```
+- **Response Payload**:
+  - **Success (201 Created)**:
+
+    ```json
+    {
+      "success": true,
+      "message": "Engagement created successfully",
+      "data": {
+        "id": int
+      }
+    }
+    ```
+  - **Error (400 Bad Request)**:
+
+    ```json
+    { "error": "Expert ID is required" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/engagements/engagement_handler.go`
+- **Notes**:
+  - Creates new engagements for experts.
+  - Accessible to planners.
+
+### PUT /api/engagements/{id}
+
+- **Purpose**: Updates an engagement.
+- **Method**: PUT
+- **Path**: `/api/engagements/{id}`
+- **Request Headers**:
+  - `Authorization: Bearer <planner_token>`
+- **Request Payload**:
+
+  ```json
+  {
+    "engagementType": "string", // Optional
+    "startDate": "string",      // Optional
+    "endDate": "string",        // Optional
+    "projectName": "string",    // Optional
+    "status": "string",         // Optional
+    "notes": "string"           // Optional
+  }
+  ```
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "message": "Engagement updated successfully",
+      "data": {
+        "id": int
+      }
+    }
+    ```
+  - **Error (404 Not Found)**:
+
+    ```json
+    { "error": "Engagement not found" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/engagements/engagement_handler.go`
+- **Notes**:
+  - Updates engagement details.
+  - Accessible to planners.
+
+### DELETE /api/engagements/{id}
+
+- **Purpose**: Deletes an engagement.
+- **Method**: DELETE
+- **Path**: `/api/engagements/{id}`
+- **Request Headers**:
+  - `Authorization: Bearer <planner_token>`
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "message": "Engagement deleted successfully"
+    }
+    ```
+  - **Error (404 Not Found)**:
+
+    ```json
+    { "error": "Engagement not found" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/engagements/engagement_handler.go`
+- **Notes**:
+  - Deletes an engagement record.
+  - Accessible to planners.
+
 ### POST /api/engagements/import
 
 - **Purpose**: Imports past engagements from CSV/JSON.
@@ -1114,47 +1307,38 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 - **Path**: `/api/engagements/import`
 - **Request Headers**:
   - `Authorization: Bearer <admin_token>`
-- **Request Payload**: Form-data
+- **Request Payload**: Form-data/JSON
 
   ```text
-  format: string      // Required: "csv" or "json"
-  file: file          // Required
+  # For multipart/form-data:
+  file: file          // Required: CSV file
+
+  # For application/json:
+  [
+    {
+      "expertId": int,
+      "engagementType": "string", // "validator" or "evaluator"
+      "startDate": "string",      // ISO format date
+      "endDate": "string",        // Optional
+      "projectName": "string",    // Optional
+      "status": "string",         // Optional
+      "notes": "string"           // Optional
+    }
+  ]
   ```
-  - CSV Example:
-
-    ```csv
-    expert_id,type,date,details
-    1,validator,2025-01-01,Project X
-    ```
-  - JSON Example:
-
-    ```json
-    [
-      {
-        "expert_id": 1,
-        "type": "validator",
-        "date": "2025-01-01",
-        "details": "Project X"
-      }
-    ]
-    ```
 - **Response Payload**:
   - **Success (200 OK)**:
 
     ```json
     {
       "success": true,
-      "message": "Engagements imported successfully",
+      "message": "Import completed: X successful, Y failed out of Z total",
       "data": {
-        "imported": int,
-        "failed": int,
-        "details": [
-          {
-            "expertId": int,
-            "status": "success" | "failed",
-            "error": "string"
-          }
-        ]
+        "success": boolean,
+        "successCount": int,
+        "failureCount": int,
+        "totalCount": int,
+        "errors": { "index": "error message" }
       }
     }
     ```
@@ -1167,6 +1351,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - File: `internal/api/handlers/engagements/engagement_handler.go`
   - Validates and deduplicates via `internal/storage/sqlite/engagement.go` (Phase 11C).
 - **Notes**:
+  - Supports both CSV and JSON formats.
   - Logs import results (e.g., "Imported 10 engagements").
 
 ## Phase Planning Endpoints
@@ -1183,7 +1368,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   ```json
   {
     "title": "string",
-    "assignedSchedulerId": int,
+    "assignedPlannerId": int,
     "status": "string",
     "applications": [
       {
@@ -1202,9 +1387,11 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
     ```json
     {
-      "id": int,
       "success": true,
-      "message": "Phase created successfully"
+      "message": "Phase created successfully",
+      "data": {
+        "id": int
+      }
     }
     ```
   - **Error (400 Bad Request)**:
@@ -1228,7 +1415,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 - **Query Parameters**:
   - `limit`, `offset`: Pagination.
   - `status`: Phase status.
-  - `scheduler_id`: Assigned scheduler ID.
+  - `planner_id`: Assigned planner ID.
 - **Response Payload**:
   - **Success (200 OK)**:
 
@@ -1241,8 +1428,8 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
             "id": int,
             "phaseId": "string",
             "title": "string",
-            "assignedSchedulerId": int,
-            "schedulerName": "string",
+            "assignedPlannerId": int,
+            "plannerName": "string",
             "status": "string",
             "createdAt": "string",
             "updatedAt": "string",
@@ -1275,7 +1462,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
         },
         "filters": {
           "status": "string",
-          "schedulerId": int
+          "plannerId": int
         }
       }
     }
@@ -1297,7 +1484,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 - **Method**: PUT
 - **Path**: `/api/phases/{id}/applications/{app_id}`
 - **Request Headers**:
-  - `Authorization: Bearer <scheduler_token>`
+  - `Authorization: Bearer <planner_token>`
 - **Request Payload**:
 
   ```json

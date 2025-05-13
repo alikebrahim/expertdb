@@ -13,7 +13,7 @@ interface LoginFormData {
 
 const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const { addNotification } = useUI();
   const navigate = useNavigate();
   
@@ -36,24 +36,24 @@ const LoginForm = () => {
           duration: 3000,
         });
         
-        // Check user role from auth context to determine redirect
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-          try {
-            const user = JSON.parse(userStr);
-            
-            if (user.role === 'admin') {
-              navigate('/admin');
-            } else {
-              navigate('/search');
+        // Determine redirection based on user role
+        if (user) {
+          redirectBasedOnRole(user.role);
+        } else {
+          // If user context isn't available yet, try getting from localStorage
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            try {
+              const userData = JSON.parse(userStr);
+              redirectBasedOnRole(userData.role);
+            } catch (e) {
+              console.error('Error parsing user data:', e);
+              navigate('/search'); // default fallback
             }
-          } catch (e) {
-            console.error('Error parsing user data:', e);
+          } else {
+            console.warn('No user data found after successful login');
             navigate('/search'); // default fallback
           }
-        } else {
-          console.warn('No user data found in localStorage after successful login');
-          navigate('/search'); // default fallback
         }
       } else {
         // Get the error message from AuthContext if available
@@ -89,6 +89,12 @@ const LoginForm = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  // Helper function to redirect based on role
+  const redirectBasedOnRole = (role: string) => {
+    // All users go to search page as it's the main function of the app
+    navigate('/search');
   };
   
   return (

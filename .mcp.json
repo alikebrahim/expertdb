@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "shared-server": {
+      "url": "localhost:5173",
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--browser chrome",
+        "--vision"
+      ],
+      "env": {}
+    }
+  }
+}

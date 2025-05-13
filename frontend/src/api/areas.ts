@@ -5,7 +5,7 @@ export const getExpertAreas = () =>
     id: number;
     name: string;
   }>>({
-    url: '/expert/areas',
+    url: '/api/expert/areas',
     method: 'GET',
   });
   
@@ -15,7 +15,7 @@ export const createExpertArea = (data: { name: string }) =>
     success: boolean;
     message: string;
   }>({
-    url: '/expert/areas',
+    url: '/api/expert/areas',
     method: 'POST',
     data,
   });
@@ -25,7 +25,7 @@ export const updateExpertArea = (id: number, data: { name: string }) =>
     success: boolean;
     message: string;
   }>({
-    url: `/expert/areas/${id}`,
+    url: `/api/expert/areas/${id}`,
     method: 'PUT',
     data,
   });

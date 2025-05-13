@@ -7,7 +7,7 @@ import Footer from './layout/Footer';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requiredRole?: 'admin' | 'user';
+  requiredRole?: 'super_user' | 'admin' | 'planner' | 'regular';
 }
 
 const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
@@ -30,12 +30,27 @@ const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   }
 
   // Check if user has required role (if specified)
-  if (requiredRole && user.role !== requiredRole) {
-    // Redirect to appropriate page based on role
-    if (user.role === 'admin') {
-      return <Navigate to="/admin" replace />;
-    } else {
-      return <Navigate to="/search" replace />;
+  if (requiredRole) {
+    const roleHierarchy = {
+      'super_user': 4,
+      'admin': 3,
+      'planner': 2,
+      'regular': 1
+    };
+    
+    const userRoleLevel = roleHierarchy[user.role as keyof typeof roleHierarchy] || 0;
+    const requiredRoleLevel = roleHierarchy[requiredRole] || 0;
+    
+    // If the user's role level is less than the required role level
+    if (userRoleLevel < requiredRoleLevel) {
+      // Redirect to appropriate page based on role
+      if (userRoleLevel >= 3) { // admin or super_user
+        return <Navigate to="/admin" replace />;
+      } else if (userRoleLevel === 2) { // planner
+        return <Navigate to="/search" replace />;
+      } else {
+        return <Navigate to="/search" replace />;
+      }
     }
   }
 

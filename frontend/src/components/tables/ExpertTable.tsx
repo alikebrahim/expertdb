@@ -7,6 +7,11 @@ import Button from '../ui/Button';
 import Modal from '../Modal';
 import { formatDate } from '../../utils/formatters';
 
+export interface SortConfig {
+  field: string;
+  direction: 'asc' | 'desc';
+}
+
 interface ExpertTableProps {
   experts: Expert[];
   isLoading: boolean;
@@ -22,6 +27,8 @@ interface ExpertTableProps {
   onBatchExport?: (expertIds: number[]) => void;
   onBatchPublish?: (expertIds: number[]) => void;
   onBatchUnpublish?: (expertIds: number[]) => void;
+  sortConfig?: SortConfig;
+  onSort?: (field: string) => void;
 }
 
 const ExpertTable = ({ 
@@ -43,8 +50,25 @@ const ExpertTable = ({
   const { addNotification } = useUI();
   
   const headers = enableBatchActions 
-    ? ['Select', 'Name', 'Role', 'Employment', 'Affiliation', 'Rating', 'Last Updated', 'Actions']
-    : ['Name', 'Role', 'Employment', 'Affiliation', 'Contact', 'Rating', 'Actions'];
+    ? [
+        { label: 'Select' },
+        { label: 'Name', field: 'name', sortable: true },
+        { label: 'Role', field: 'role', sortable: true },
+        { label: 'Employment', field: 'employmentType', sortable: true },
+        { label: 'Affiliation', field: 'institution', sortable: true },
+        { label: 'Rating', field: 'rating', sortable: true },
+        { label: 'Last Updated', field: 'updated_at', sortable: true },
+        { label: 'Actions' }
+      ]
+    : [
+        { label: 'Name', field: 'name', sortable: true },
+        { label: 'Role', field: 'role', sortable: true },
+        { label: 'Employment', field: 'employmentType', sortable: true },
+        { label: 'Affiliation', field: 'institution', sortable: true },
+        { label: 'Contact', field: 'primaryContact', sortable: false },
+        { label: 'Rating', field: 'rating', sortable: true },
+        { label: 'Actions' }
+      ];
   
   const handleSelectExpert = (expert: Expert) => {
     setSelectedExpert(expert);
@@ -180,7 +204,12 @@ const ExpertTable = ({
           <p className="text-sm text-neutral-500 mt-1">Try adjusting your search criteria.</p>
         </div>
       ) : (
-        <Table headers={headers} pagination={pagination}>
+        <Table 
+          headers={headers} 
+          pagination={pagination}
+          sortConfig={sortConfig}
+          onSort={onSort}
+        >
           {enableBatchActions && (
             <tr className="bg-neutral-50">
               <th className="px-4 py-2 text-left">

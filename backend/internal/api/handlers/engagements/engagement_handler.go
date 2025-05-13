@@ -387,7 +387,7 @@ func (h *Handler) HandleImportEngagements(w http.ResponseWriter, r *http.Request
 		errorMap[fmt.Sprintf("%d", index)] = err.Error()
 	}
 
-	response := ImportResponse{
+	respData := ImportResponse{
 		Success:      successCount > 0,
 		SuccessCount: successCount,
 		FailureCount: len(errors),
@@ -398,11 +398,10 @@ func (h *Handler) HandleImportEngagements(w http.ResponseWriter, r *http.Request
 	// Return response with standardized format
 	log.Info("Engagement import completed: %d successful, %d failed", successCount, len(errors))
 	
-	// Create a message based on the results
-	msg := fmt.Sprintf("Import completed: %d successful, %d failed out of %d total", 
+	message := fmt.Sprintf("Import completed: %d successful, %d failed out of %d total", 
 		successCount, len(errors), len(engagements))
 		
-	return response.Success(w, http.StatusOK, msg, response)
+	return response.Success(w, http.StatusOK, message, respData)
 }
 
 // parseCSVEngagements parses CSV data into engagement records

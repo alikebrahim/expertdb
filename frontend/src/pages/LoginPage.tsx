@@ -11,11 +11,8 @@ const LoginPage = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/search');
-      }
+      // All users go to search page as it's the main function of the app
+      navigate('/search');
     }
   }, [isAuthenticated, user, navigate]);
   

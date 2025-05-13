@@ -42,6 +42,14 @@ export interface Expert {
   skills: string[];
   createdAt: string;
   updatedAt: string;
+  created_at?: string; // For API compatibility
+  updated_at?: string; // For API compatibility
+  
+  // Computed properties
+  availability?: 'Available' | 'Limited' | 'Unavailable';
+  primaryContact?: string;
+  contactType?: string;
+  affiliation?: string; // Alias for institution
 }
 
 // Expert Request Types
