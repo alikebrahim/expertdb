@@ -321,15 +321,15 @@ func ValidateCreateExpertRequest(req *CreateExpertRequest) error {
 	}
 
 	// Validate role values
-	validRoles := []string{"evaluator", "validator", "consultant", "trainer", "expert"}
+	validRoles := []string{"evaluator", "validator", "evaluator/validator"}
 	if !containsString(validRoles, strings.ToLower(req.Role)) {
-		return errors.New("role must be one of: evaluator, validator, consultant, trainer, expert")
+		return errors.New("role must be one of: evaluator, validator, evaluator/validator")
 	}
 
 	// Validate employment type values
-	validEmploymentTypes := []string{"academic", "employer", "freelance", "government", "other"}
+	validEmploymentTypes := []string{"academic", "employer"}
 	if !containsString(validEmploymentTypes, strings.ToLower(req.EmploymentType)) {
-		return errors.New("employment type must be one of: academic, employer, freelance, government, other")
+		return errors.New("employment type must be one of: academic, employer")
 	}
 
 	// Limit biography length

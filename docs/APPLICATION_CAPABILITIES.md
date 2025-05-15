@@ -33,7 +33,7 @@ The system enables the organization to:
 - Track expert engagements and performance
 - Generate statistics and reports on expert utilization
 
-## User Roles and Permissions
+## User Roles and Permissions //NOTE: Ensure it is reflected clearly that Planner have the same Regular User task/privilages (capabilities), with added Phase/Application Planning
 
 The system implements a role-based access control model with four distinct roles:
 
@@ -87,7 +87,10 @@ The expert creation workflow manages how new experts are proposed, reviewed, and
 
 5. **Notification**
    - Request submitter notified of decision
-   - For rejections, user can resubmit with corrections
+   - For rejections, user can edit and resubmit the rejected request:
+     - Users can edit their rejected requests using `/api/expert-requests/{id}/edit` endpoint
+     - This allows for correction of issues that led to rejection
+     - The resubmitted request will return to "pending" status for admin review
 
 #### Key Features
 - Batch approval capability for processing multiple requests
@@ -97,44 +100,61 @@ The expert creation workflow manages how new experts are proposed, reviewed, and
 
 ### Phase Planning Workflow
 
-The phase planning workflow manages the process of creating review phases, defining applications, assigning experts, and tracking reviews.
+The phase planning workflow manages the process of creating review phases, defining applications, assigning experts, and tracking reviews. This workflow is central to the system's purpose, allowing planners to match qualified experts to appropriate applications.
 
 #### Process Flow
 1. **Phase Creation**
    - Admin creates new phase (`/api/phases` POST) 
-   - Assigns planner user to the phase
-   - Provides phase title and business ID (e.g., "PH-2025-001")
+   - Assigns planner user to the phase (via `assignedPlannerId`)
+   - Provides phase title and system automatically generates a unique phase ID
+   - Sets initial phase status (typically "pending")
 
 2. **Application Definition**
-   - Admin adds applications to the phase:
-     - Application type: "validation" (QP) or "evaluation" (IL)
-     - Institution name and qualification details
-   - Applications initially have "pending" status
+   - Admin adds applications to the phase as part of phase creation:
+     - Application type must be either "QP" (Qualification Placement) or "IL" (Institutional Listing)
+     - Requires institution name and qualification details
+     - Applications are created with "pending" status by default
+   - Each phase can contain multiple applications
 
 3. **Expert Assignment**
-   - Planner views assigned phases (`/api/phases?assigned_to=me` GET)
+   - Planner views assigned phases (`/api/phases?planner_id={id}` GET)
    - For each application, planner proposes two experts:
-     - Expert 1: Primary reviewer
-     - Expert 2: Secondary reviewer
-   - Planner submits selections (`/api/phases/{id}/applications/{app_id}` PUT)
-   - Application status changes to "assigned"
+     - Expert 1 (Primary): Required for all applications
+     - Expert 2 (Secondary): Optional but recommended for quality assurance
+   - Planner submits expert selections (`/api/phases/{id}/applications/{app_id}` PUT)
+   - Application status automatically changes to "assigned" upon submission
 
 4. **Assignment Review**
    - Admin reviews expert assignments (`/api/phases/{id}` GET)
-   - Admin can approve or reject assignments
-   - For rejection: Admin provides rejection notes
+   - Admin approves or rejects each application's expert assignments (`/api/phases/{id}/applications/{app_id}/review` PUT)
+   - For rejection: Admin must provide rejection notes explaining why the proposed experts are unsuitable
+   - Rejected applications are returned to the planner for new expert proposals
 
 5. **Engagement Creation**
-   - Upon approval, system automatically:
-     - Creates engagement records for assigned experts
-     - Sets engagement type based on application type
-     - Links experts to specific project/qualification
+   - Upon assignment approval, system automatically:
+     - Creates engagement records for both assigned experts
+     - Sets engagement type strictly based on application type:
+       - QP applications ALWAYS create "validator" engagements
+       - IL applications ALWAYS create "evaluator" engagements
+     - Sets initial engagement status to "pending"
+     - Links experts to the specific project/qualification via the projectName field
+     - Records start date for the engagement
 
 #### Key Features
-- Role separation between planners and approvers
-- Two-expert assignment pattern for quality assurance
-- Status tracking throughout workflow
-- Automatic engagement creation upon approval
+- Role-based workflow with clear separation of responsibilities:
+  - Admins create phases and make final approvals
+  - Planners assign appropriate experts based on expertise
+- Application types directly determine engagement types:
+  - QP (Qualification Placement) → validator engagements
+  - IL (Institutional Listing) → evaluator engagements
+- Status tracking throughout the entire workflow:
+  - Phases track overall status
+  - Applications track assignment status
+  - Engagements track completion status
+- Comprehensive validation ensuring:
+  - Experts are qualified for their assigned applications
+  - Experts are available during the required timeframe
+  - Proposed experts meet the criteria for the application type
 
 ## Key Functional Areas
 
@@ -165,13 +185,18 @@ Expert management is the central capability of the system, providing comprehensi
 - **Expert Classification**
   - Hierarchical specialization areas
   - General and specialized area mapping
-  - Role categorization (evaluator, validator, consultant)
-  - Employment type tracking (academic, employer, freelance)
+  - Role categorization: Limited to only three options:
+    - "validator" - For experts who validate QP applications
+    - "evaluator" - For experts who evaluate IL applications
+    - "evaluator/validator" - For experts who can perform both roles
+  - Employment type tracking: Limited to only two options:
+    - "academic" - For experts from academic institutions
+    - "employer" - For experts from industry/employer organizations
 
 - **Expert Lifecycle Management**
   - Availability status updates
   - Performance rating tracking
-  - Publication status control (is_published)
+  - Publication status control (is_published) //NOTE: is published pertains to expert profile being published on another website. Ensure the implementation does not handle this as being published in the database
   - Record update history (created_at, updated_at)
 
 ### Document Management
@@ -203,13 +228,15 @@ Document management enables secure storage and retrieval of expert-related docum
 
 ### Engagement Tracking
 
-Engagement tracking monitors expert assignments to specific qualification reviews and projects.
+Engagement tracking monitors expert assignments to specific qualification reviews and projects, with a strict mapping between application types and engagement types.
 
 #### Features
 - **Engagement Types**
-  - Validator engagements (QP reviews)
-  - Evaluator engagements (IL reviews)
-  - Other customizable engagement types
+  - Strict mapping to application types:
+    - "validator" engagements - Created ONLY from QP (Qualification Placement) applications
+    - "evaluator" engagements - Created ONLY from IL (Institutional Listing) applications
+  - No other engagement types are supported in the current implementation
+  - Engagement type is automatically determined by application type and cannot be modified manually
 
 - **Engagement Lifecycle**
   - Status tracking (pending, active, completed, cancelled)
@@ -235,30 +262,37 @@ Statistics and reporting provide analytical insights into the expert database an
 #### Features
 - **General Statistics**
   - Total expert count
-  - Availability distribution
+  - Active (available) vs inactive experts
   - Trained vs untrained ratios
   - Published vs unpublished counts
+  - Accessible via `/api/statistics` endpoint
 
 - **Nationality Statistics**
   - Bahraini vs non-Bahraini expert ratios
   - Nationality distribution breakdown
-  - Nationality trends over time
+  - Accessible via `/api/statistics/nationality` endpoint
 
 - **Engagement Statistics**
-  - Distribution by engagement type
-  - Status breakdown (pending, active, completed)
-  - Time-based engagement trends
-  - Average engagement duration
+  - Categorization strictly by type:
+    - "validator" engagements (from QP applications)
+    - "evaluator" engagements (from IL applications)
+  - Status distribution of engagements
+  - Accessible via `/api/statistics/engagements` endpoint
+  - Also shows number of engagements per expert in profile page
 
 - **Growth Statistics**
-  - Expert database growth rate
+  - Expert database yearly growth rate
   - Time-based growth visualization
-  - New experts by time period
+  - New experts by year
+  - Accessible via `/api/statistics/growth` endpoint
+  - Important: Growth statistics are aggregated by year (2023, 2024, etc.)
+  - Experts with creation dates from 2022 or earlier are grouped as "Before 2023"
 
 - **Specialization Statistics**
-  - Expert distribution by area
-  - Most/least represented specializations
-  - Area-specific availability metrics
+  - Expert distribution by general area
+  - Top 5 most represented specialized areas
+  - Bottom 5 least represented specialized areas
+  - Accessible via `/api/statistics/areas` endpoint
 
 ## Operational Capabilities
 

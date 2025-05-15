@@ -1,7 +1,7 @@
 # ExpertDB API Endpoints Documentation
 
-**Date**: April 22, 2025\
-**Version**: 1.3\
+**Date**: May 15, 2025\
+**Version**: 1.4\
 **Context**:\
 ExpertDB is a lightweight internal tool for managing a database of experts, designed for a department with 10-12 users and a maximum of 1200 database entries over 5 years. The tool operates on an intranet, with security handled organizationally, prioritizing simplicity, maintainability, and clear error messaging over complex scalability or security measures. The backend is built in Go, uses SQLite as the database, and provides a RESTful API with JSON payloads, JWT authentication, and permissive CORS settings (`*`).
 
@@ -15,6 +15,8 @@ This document provides an updated reference for all API endpoints, incorporating
  3. Authentication Endpoints
     - POST /api/auth/login
  4. User Management Endpoints
+    - GET /api/users
+    - GET /api/users/{id}
     - POST /api/users
     - DELETE /api/users/{id}
  5. Expert Management Endpoints
@@ -49,6 +51,7 @@ This document provides an updated reference for all API endpoints, incorporating
  9. Phase Planning Endpoints
     - POST /api/phases
     - GET /api/phases
+    - GET /api/phases/{id}
     - PUT /api/phases/{id}/applications/{app_id}
     - PUT /api/phases/{id}/applications/{app_id}/review
 10. Statistics Endpoints
@@ -83,7 +86,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 - **Access Levels**:
   - **Super User**: Full access, including admin creation and deletion.
   - **Admin**: Manages users, experts, requests, documents, areas, phases, and backups.
-  - **Planner**: Submits requests, proposes experts for phase plans, views experts/documents.
+  - **Planner**: Has all capabilities of regular users (submitting requests, viewing experts/documents) plus additional phase planning capabilities (proposing experts for applications, managing engagements).
   - **Regular**: Submits requests, views experts/documents.
 - **CORS**: Allows all origins (`*`), suitable for intranet use.
 - **Database**: SQLite with schema in `db/migrations/sqlite`. Indexes added for filters (`nationality`, `general_area`, etc.).
@@ -161,6 +164,82 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - Logs successful logins.
 
 ## User Management Endpoints
+
+### GET /api/users
+
+- **Purpose**: Retrieves a paginated list of users.
+- **Method**: GET
+- **Path**: `/api/users`
+- **Request Headers**:
+  - `Authorization: Bearer <super_user_token|admin_token>`
+- **Query Parameters**:
+  - `limit`, `offset`: Pagination.
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "users": [
+          {
+            "id": int,
+            "name": "string",
+            "email": "string",
+            "role": "string",
+            "isActive": boolean,
+            "createdAt": "string",
+            "lastLogin": "string"
+          }
+        ],
+        "pagination": {
+          "limit": int,
+          "offset": int,
+          "count": int
+        }
+      }
+    }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/user.go`
+  - Lists users with pagination, excluding password data.
+- **Notes**:
+  - Super users see all users; admins only see non-admin users.
+
+### GET /api/users/{id}
+
+- **Purpose**: Retrieves a specific user's details.
+- **Method**: GET
+- **Path**: `/api/users/{id}`
+- **Request Headers**:
+  - `Authorization: Bearer <super_user_token|admin_token>`
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "id": int,
+        "name": "string",
+        "email": "string",
+        "role": "string",
+        "isActive": boolean,
+        "createdAt": "string",
+        "lastLogin": "string"
+      }
+    }
+    ```
+  - **Error (404 Not Found)**:
+
+    ```json
+    { "error": "User not found" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/user.go`
+  - Super users can view any user; admins can only view non-admin users.
+- **Notes**:
+  - Password data is never returned.
 
 ### POST /api/users
 
@@ -1404,6 +1483,8 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - Stores in `phases` and `phase_applications` tables (Phase 10B).
 - **Notes**:
   - Logs creation (e.g., "Phase created: ID 1").
+  - Application types must be "QP" (Qualification Placement) or "IL" (Institutional Listing).
+  - QP applications create validator engagements, IL applications create evaluator engagements.
 
 ### GET /api/phases
 
@@ -1477,6 +1558,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - Supports filtering (Phase 10E).
 - **Notes**:
   - Logs retrieval (e.g., "Retrieved phases").
+  - Application types will be either "QP" (Qualification Placement) or "IL" (Institutional Listing).
 
 ### PUT /api/phases/{id}/applications/{app_id}
 
@@ -1513,6 +1595,60 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 - **Notes**:
   - Logs update (e.g., "Experts proposed for application: ID 1").
 
+### GET /api/phases/{id}
+
+- **Purpose**: Retrieves a specific phase plan's details.
+- **Method**: GET
+- **Path**: `/api/phases/{id}`
+- **Request Headers**:
+  - `Authorization: Bearer <admin_token|planner_token>`
+- **Response Payload**:
+  - **Success (200 OK)**:
+
+    ```json
+    {
+      "success": true,
+      "data": {
+        "id": int,
+        "phaseId": "string",
+        "title": "string",
+        "assignedPlannerId": int,
+        "plannerName": "string",
+        "status": "string",
+        "createdAt": "string",
+        "updatedAt": "string",
+        "applications": [
+          {
+            "id": int,
+            "phaseId": int,
+            "type": "string",
+            "institutionName": "string",
+            "qualificationName": "string",
+            "expert1": int,
+            "expert1Name": "string",
+            "expert2": int,
+            "expert2Name": "string",
+            "status": "string",
+            "rejectionNotes": "string",
+            "createdAt": "string",
+            "updatedAt": "string"
+          }
+        ]
+      }
+    }
+    ```
+  - **Error (404 Not Found)**:
+
+    ```json
+    { "error": "Phase not found" }
+    ```
+- **Implementation**:
+  - File: `internal/api/handlers/phase/phase_handler.go`
+  - Admins can view any phase; planners can only view phases assigned to them.
+- **Notes**:
+  - Includes all applications associated with the phase.
+  - Application types will be either "QP" (Qualification Placement) or "IL" (Institutional Listing).
+
 ### PUT /api/phases/{id}/applications/{app_id}/review
 
 - **Purpose**: Approves or rejects a phase application, creating engagements.
@@ -1547,6 +1683,8 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - Creates `validator`/`evaluator` engagements on approval (Phase 10D).
 - **Notes**:
   - Uses transactions; logs review (e.g., "Application approved: ID 1").
+  - For QP applications, creates validator engagements.
+  - For IL applications, creates evaluator engagements.
 
 ## Statistics Endpoints
 

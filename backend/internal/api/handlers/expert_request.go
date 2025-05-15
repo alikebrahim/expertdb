@@ -100,9 +100,9 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 		errors = append(errors, "role is required")
 	} else {
 		// Validate role values
-		validRoles := []string{"evaluator", "validator", "expert", "trainer", "consultant", "reviewer"}
+		validRoles := []string{"evaluator", "validator", "evaluator/validator"}
 		if !containsString(validRoles, strings.ToLower(req.Role)) {
-			errors = append(errors, "role must be one of: evaluator, validator, expert, trainer, consultant, reviewer")
+			errors = append(errors, "role must be one of: evaluator, validator, evaluator/validator")
 		}
 	}
 	
@@ -110,9 +110,9 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 		errors = append(errors, "employmentType is required")
 	} else {
 		// Validate employment type values
-		validEmploymentTypes := []string{"academic", "employer", "freelance", "government", "other"}
+		validEmploymentTypes := []string{"academic", "employer"}
 		if !containsString(validEmploymentTypes, strings.ToLower(req.EmploymentType)) {
-			errors = append(errors, "employmentType must be one of: academic, employer, freelance, government, other")
+			errors = append(errors, "employmentType must be one of: academic, employer")
 		}
 	}
 	
