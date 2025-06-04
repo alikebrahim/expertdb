@@ -73,9 +73,11 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
     formData.append('expertId', expertId.toString());
     formData.append('documentType', docType);
 
+    let interval: number;
+    
     try {
       // Simulate progress (in a real app, you'd use XMLHttpRequest with progress events)
-      const interval = setInterval(() => {
+      interval = setInterval(() => {
         setProgress(prev => {
           const newProgress = prev + 10;
           if (newProgress >= 90) {
@@ -113,7 +115,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({
         }
       }, 2000);
     } catch (error) {
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
       console.error('Upload error:', error);
       setError('An error occurred while uploading the document. Please try again.');
       setIsUploading(false);

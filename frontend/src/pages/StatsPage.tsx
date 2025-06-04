@@ -5,7 +5,7 @@ import { NationalityChart, GrowthChart, ExpertAreaChart } from '../components/St
 
 const StatsPage = () => {
   // Nationality stats
-  const [nationalityStats, setNationalityStats] = useState<NationalityStats[]>([]);
+  const [nationalityStats, setNationalityStats] = useState<NationalityStats>({ total: 0, stats: [] });
   const [loadingNationality, setLoadingNationality] = useState(true);
   const [nationalityError, setNationalityError] = useState<string | null>(null);
   
@@ -28,10 +28,8 @@ const StatsPage = () => {
       try {
         const response = await statisticsApi.getNationalityStats();
         
-        if (response.success) {
-          // Transform data for pie chart if needed
-          const stats = response.data.stats || response.data;
-          setNationalityStats(stats);
+        if (response.success && response.data) {
+          setNationalityStats(response.data);
         } else {
           setNationalityError(response.message || 'Failed to fetch nationality statistics');
         }
@@ -116,7 +114,7 @@ const StatsPage = () => {
             </div>
           ) : (
             <NationalityChart 
-              data={nationalityStats} 
+              data={nationalityStats.stats} 
               isLoading={loadingNationality} 
             />
           )}

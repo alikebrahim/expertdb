@@ -4,7 +4,9 @@ import { UIProvider } from './contexts/UIContext';
 import LoginPage from './pages/LoginPage';
 import SearchPage from './pages/SearchPage';
 import ExpertRequestPage from './pages/ExpertRequestPage';
+import ExpertApplicationPage from './pages/ExpertApplicationPage';
 import AdminPage from './pages/AdminPage';
+import AdminPanelPage from './pages/AdminPanelPage';
 import StatsPage from './pages/StatsPage';
 import ExpertDetailPage from './pages/ExpertDetailPage';
 import ExpertManagementPage from './pages/ExpertManagementPage';
@@ -40,6 +42,15 @@ function App() {
             />
             
             <Route 
+              path="/apply" 
+              element={
+                <ProtectedRoute>
+                  <ExpertApplicationPage />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
               path="/stats" 
               element={
                 <ProtectedRoute>
@@ -57,12 +68,21 @@ function App() {
               } 
             />
             
-            {/* Admin-only route */}
+            {/* Admin-only routes */}
             <Route 
               path="/admin" 
               element={
                 <ProtectedRoute requiredRole="admin">
                   <AdminPage />
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/admin/requests" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminPanelPage />
                 </ProtectedRoute>
               } 
             />

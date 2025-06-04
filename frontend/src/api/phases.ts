@@ -3,7 +3,7 @@ import { PhaseListResponse } from '../types';
 
 export const createPhase = (data: {
   title: string;
-  assignedSchedulerId: number;
+  assignedPlannerId: number;
   status: string;
   applications: Array<{
     type: string;
@@ -17,14 +17,14 @@ export const createPhase = (data: {
   request<{
     id: number;
   }>({
-    url: '/phases',
+    url: '/api/phases',
     method: 'POST',
     data,
   });
 
 export const getPhases = (limit: number = 10, offset: number = 0, params?: Record<string, string | number>) => 
   request<PhaseListResponse>({
-    url: '/phases',
+    url: '/api/phases',
     method: 'GET',
     params: {
       ...params,
@@ -35,14 +35,14 @@ export const getPhases = (limit: number = 10, offset: number = 0, params?: Recor
 
 export const proposeExperts = (phaseId: number, applicationId: number, data: { expert1: number; expert2: number }) => 
   request<null>({
-    url: `/phases/${phaseId}/applications/${applicationId}`,
+    url: `/api/phases/${phaseId}/applications/${applicationId}`,
     method: 'PUT',
     data,
   });
 
 export const reviewApplication = (phaseId: number, applicationId: number, data: { status: string; rejectionNotes?: string }) => 
   request<null>({
-    url: `/phases/${phaseId}/applications/${applicationId}/review`,
+    url: `/api/phases/${phaseId}/applications/${applicationId}/review`,
     method: 'PUT',
     data,
   });

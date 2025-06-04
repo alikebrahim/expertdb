@@ -35,11 +35,12 @@ const AdminPage = () => {
     setUserError(null);
     
     try {
-      const response = await usersApi.getUsers(userPage, userLimit);
+      const response = await usersApi.getUsers(userLimit, (userPage - 1) * userLimit);
       
-      if (response.success) {
-        setUsers(response.data.data);
-        setUserTotalPages(response.data.totalPages);
+      if (response.success && response.data) {
+        const data = response.data as any;
+        setUsers(data.users || []);
+        setUserTotalPages(data.pagination?.totalPages || 1);
       } else {
         // Check if this is likely a "no users" situation or a real error
         if (response.message?.includes("not found") || 
@@ -70,11 +71,12 @@ const AdminPage = () => {
     setRequestError(null);
     
     try {
-      const response = await expertRequestsApi.getExpertRequests(requestPage, requestLimit);
+      const response = await expertRequestsApi.getExpertRequests(requestLimit, (requestPage - 1) * requestLimit);
       
-      if (response.success) {
-        setRequests(response.data.data);
-        setRequestTotalPages(response.data.totalPages);
+      if (response.success && response.data) {
+        const data = response.data as any;
+        setRequests(data.requests || []);
+        setRequestTotalPages(data.pagination?.totalPages || 1);
       } else {
         // Check if this is likely a "no requests" situation or a real error
         if (response.message?.includes("not found") || 

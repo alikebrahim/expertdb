@@ -7,8 +7,6 @@ interface LoginResponse {
 }
 
 export const login = async (email: string, password: string) => {
-  console.log('Sending login request');
-  
   try {
     const response = await request<LoginResponse>({
       url: '/api/auth/login',
@@ -18,7 +16,7 @@ export const login = async (email: string, password: string) => {
     
     return response;
   } catch (error) {
-    console.error('Login error in API service:', error);
+    console.error('AUTH API: Login error:', error);
     return {
       success: false,
       message: 'Failed to connect to authentication service',

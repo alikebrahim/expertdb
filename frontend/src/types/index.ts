@@ -76,14 +76,24 @@ export interface ExpertRequest {
   isPublished: boolean;
   createdAt: string;
   updatedAt: string;
+  rejectionReason?: string;
+  createdBy?: number;
+  reviewedBy?: number;
+  reviewedAt?: string;
+  expertId?: string;
 }
 
 // Document Types
 export interface Document {
   id: number;
   expertId: number;
-  documentType: string;
+  documentType: 'cv' | 'certificate' | 'publication' | 'research' | 'other';
   filePath: string;
+  originalFilename?: string;
+  filename?: string; // For compatibility
+  contentType?: string;
+  size?: number;
+  uploadedAt?: string;
   createdAt: string;
 }
 
@@ -97,6 +107,9 @@ export interface StatItem {
 export interface NationalityStats {
   total: number;
   stats: StatItem[];
+  bahraini?: number;
+  international?: number;
+  percentage?: number;
 }
 
 export interface GrowthStats {
@@ -168,11 +181,18 @@ export interface Engagement {
   id: number;
   expertId: number;
   expertName: string;
-  engagementType: string;
+  title: string;
+  description: string;
+  engagementType: 'consulting' | 'consultation' | 'training' | 'mentoring' | 'research' | 'project' | 'workshop' | 'other';
   startDate: string;
+  endDate: string;
   projectName: string;
-  status: string;
-  notes: string;
+  organizationName: string;
+  contactPerson: string;
+  contactEmail: string;
+  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  notes?: string;
+  requestId?: number;
   createdAt: string;
 }
 
@@ -181,6 +201,14 @@ export interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 export interface PaginationInfo {

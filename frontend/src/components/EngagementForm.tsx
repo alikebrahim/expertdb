@@ -93,10 +93,12 @@ const EngagementForm = ({ expertId, engagement, onSuccess, onCancel }: Engagemen
     const fetchRequests = async () => {
       try {
         const response = await expertRequestsApi.getExpertRequests();
-        if (response.success) {
-          const options = response.data.data.map(request => ({
+        if (response.success && response.data) {
+          // Handle both array and paginated response formats
+          const requests = Array.isArray(response.data) ? response.data : (response.data as any).requests || [];
+          const options = requests.map((request: any) => ({
             value: request.id.toString(),
-            label: `${request.projectName} (${request.organizationName})`
+            label: `${request.name || request.organizationName} (${request.institution || request.projectName})`
           }));
           setRequestOptions([{ value: '', label: 'None (Direct Engagement)' }, ...options]);
         }
@@ -108,7 +110,7 @@ const EngagementForm = ({ expertId, engagement, onSuccess, onCancel }: Engagemen
     fetchRequests();
   }, []);
 
-  const onSubmit = async (data: EngagementFormData) => {
+  const onSubmit = async (data: EngagementFormData): Promise<void> => {
     setIsLoading(true);
     
     try {
@@ -128,24 +130,14 @@ const EngagementForm = ({ expertId, engagement, onSuccess, onCancel }: Engagemen
       
       if (response.success) {
         onSuccess(response.data);
-        return { 
-          success: true, 
-          message: `Engagement ${isEditMode ? 'updated' : 'created'} successfully!` 
-        };
+        // Success is handled through onSuccess callback
       } else {
-        return { 
-          success: false, 
-          message: response.message || `Failed to ${isEditMode ? 'update' : 'create'} engagement` 
-        };
+        throw new Error(response.message || `Failed to ${isEditMode ? 'update' : 'create'} engagement`);
       }
     } catch (error) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} engagement:`, error);
-      return { 
-        success: false, 
-        message: error instanceof Error 
-          ? error.message 
-          : `An error occurred while ${isEditMode ? 'updating' : 'creating'} the engagement` 
-      };
+      // Error will be handled by form's error handling
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -159,7 +151,7 @@ const EngagementForm = ({ expertId, engagement, onSuccess, onCancel }: Engagemen
     >
       <Form
         form={form}
-        onSubmit={form.handleSubmitWithNotifications(onSubmit)}
+        onSubmit={onSubmit}
         className="space-y-4"
         submitText={isEditMode ? 'Update Engagement' : 'Create Engagement'}
       >

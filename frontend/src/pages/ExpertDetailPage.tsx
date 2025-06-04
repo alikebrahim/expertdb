@@ -76,8 +76,8 @@ const ExpertDetailPage = () => {
           documentType: 'cv',
           contentType: 'application/pdf',
           size: 1245678,
-          uploadedBy: 1,
-          uploadedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          filePath: '/uploads/expert_cv.pdf',
         },
         {
           id: 2,
@@ -87,8 +87,8 @@ const ExpertDetailPage = () => {
           documentType: 'certificate',
           contentType: 'image/jpeg',
           size: 587341,
-          uploadedBy: 1,
-          uploadedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          filePath: '/uploads/certificate.jpg',
         },
       ];
       

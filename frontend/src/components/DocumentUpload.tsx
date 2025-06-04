@@ -54,9 +54,9 @@ const DocumentUpload = ({ expertId, onSuccess }: DocumentUploadProps) => {
     setFile(null);
   };
   
-  const onSubmit = async (data: DocumentUploadFormData) => {
+  const onSubmit = async (data: DocumentUploadFormData): Promise<void> => {
     if (!file) {
-      return { success: false, message: 'Please select a file to upload' };
+      return;
     }
     
     setIsUploading(true);
@@ -76,19 +76,18 @@ const DocumentUpload = ({ expertId, onSuccess }: DocumentUploadProps) => {
       if (response.success) {
         setFile(null);
         form.reset();
-        onSuccess(response.data);
-        return { success: true, message: 'Document uploaded successfully!' };
-      } else {
-        return { success: false, message: response.message || 'Failed to upload document' };
+        // Create a basic document object from the response
+        const document: Document = {
+          id: response.data?.id || 0,
+          expertId: expertId,
+          documentType: data.documentType as any,
+          filePath: '',
+          createdAt: new Date().toISOString()
+        };
+        onSuccess(document);
       }
     } catch (error) {
       console.error('Error uploading document:', error);
-      return { 
-        success: false, 
-        message: error instanceof Error 
-          ? error.message 
-          : 'An error occurred while uploading the document'
-      };
     } finally {
       setIsUploading(false);
     }
@@ -104,7 +103,7 @@ const DocumentUpload = ({ expertId, onSuccess }: DocumentUploadProps) => {
       
       <Form
         form={form}
-        onSubmit={form.handleSubmitWithNotifications(onSubmit)}
+        onSubmit={onSubmit}
         className="space-y-4"
         onReset={handleFormReset}
         showResetButton={!!file}

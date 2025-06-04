@@ -1,9 +1,9 @@
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import { 
   ApiResponse, User, Expert, ExpertRequest, 
   NationalityStats, GrowthStats,
   PaginatedResponse, Engagement, Document,
-  AreaStats, Phase, PhaseApplication
+  Phase
 } from '../types';
 
 // Check if we're in debug mode
@@ -24,7 +24,7 @@ console.log('Debug mode:', isDebugMode ? 'enabled' : 'disabled');
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
-  (config) => {
+  (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -102,7 +102,7 @@ const request = async <T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> =
         return {
           success: false,
           message: errorMessage,
-          data: null as unknown as T,
+          data: null as T,
         };
       }
       
@@ -111,7 +111,7 @@ const request = async <T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> =
         return {
           success: false,
           message: 'Request timed out. Please try again.',
-          data: null as unknown as T,
+          data: null as T,
         };
       }
       
@@ -119,7 +119,7 @@ const request = async <T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> =
         return {
           success: false,
           message: 'Network connection error. Please check your connection.',
-          data: null as unknown as T,
+          data: null as T,
         };
       }
       
@@ -274,7 +274,7 @@ export const expertRequestsApi = {
       },
     }),
 
-  updateExpertRequest: (id: string, data: FormData) => 
+  updateExpertRequest: (id: number, data: FormData) => 
     request<{
       success: boolean;
       message: string;
@@ -287,7 +287,7 @@ export const expertRequestsApi = {
       },
     }),
     
-  editExpertRequest: (id: string, data: FormData) => 
+  editExpertRequest: (id: number, data: FormData) => 
     request<{
       success: boolean;
       message: string;
@@ -317,6 +317,46 @@ export const expertRequestsApi = {
         'Content-Type': 'multipart/form-data',
       },
     }),
+
+  // Individual approve/reject methods for admin panel
+  approveExpertRequest: (id: number, approvalDocument: File, comment?: string) => {
+    const formData = new FormData();
+    formData.append('status', 'approved');
+    formData.append('approval_document', approvalDocument);
+    if (comment) {
+      formData.append('comment', comment);
+    }
+    
+    return request<{
+      success: boolean;
+      message: string;
+    }>({
+      url: `/expert-requests/${id}`,
+      method: 'PUT',
+      data: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  rejectExpertRequest: (id: number, rejectionReason: string) => {
+    const formData = new FormData();
+    formData.append('status', 'rejected');
+    formData.append('rejectionReason', rejectionReason);
+    
+    return request<{
+      success: boolean;
+      message: string;
+    }>({
+      url: `/expert-requests/${id}`,
+      method: 'PUT',
+      data: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 };
 
 // Users API
@@ -490,6 +530,39 @@ export const engagementApi = {
         limit,
         offset
       },
+    }),
+
+  getExpertEngagements: (expertId: string, limit: number = 10, offset: number = 0) => 
+    request<Engagement[]>({
+      url: `/experts/${expertId}/engagements`,
+      method: 'GET',
+      params: {
+        limit,
+        offset
+      },
+    }),
+
+  createEngagement: (data: Partial<Engagement>) => 
+    request<Engagement>({
+      url: '/engagements',
+      method: 'POST',
+      data,
+    }),
+
+  updateEngagement: (id: string, data: Partial<Engagement>) => 
+    request<Engagement>({
+      url: `/engagements/${id}`,
+      method: 'PUT',
+      data,
+    }),
+
+  deleteEngagement: (id: string) => 
+    request<{
+      success: boolean;
+      message: string;
+    }>({
+      url: `/engagements/${id}`,
+      method: 'DELETE',
     }),
 
   importEngagements: (data: FormData) => 

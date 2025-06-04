@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { engagementApi, expertsApi } from '../services/api';
 import { Engagement, Expert } from '../types';
-import Button from '../components/ui/Button';
-import Table from '../components/ui/Table';
+import { Button, Table, Input } from '../components/ui';
 import Modal from '../components/Modal';
-import Input from '../components/ui/Input';
 import EngagementForm from '../components/EngagementForm';
 
 const EngagementManagementPage = () => {
@@ -44,12 +42,12 @@ const EngagementManagementPage = () => {
       const response = await engagementApi.getEngagements(pagination.page, pagination.limit, params);
       
       if (response.success) {
-        setEngagements(response.data.data);
+        setEngagements(response.data);
         setPagination({
-          page: response.data.page,
-          limit: response.data.limit,
-          total: response.data.total,
-          totalPages: response.data.totalPages
+          page: pagination.page,
+          limit: pagination.limit,
+          total: response.data.length,
+          totalPages: Math.ceil(response.data.length / pagination.limit)
         });
       } else {
         setError(response.message || 'Failed to load engagements');
@@ -66,7 +64,7 @@ const EngagementManagementPage = () => {
     try {
       const response = await expertsApi.getExperts(1, 100);
       if (response.success) {
-        const expertsList = response.data.data;
+        const expertsList = response.data.experts;
         setExperts(expertsList);
         
         // Create a map of expert IDs to expert objects for quick lookup

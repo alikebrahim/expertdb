@@ -1,1 +1,2 @@
-export { default as ExpertTable, SortConfig } from './ExpertTable';
+export { default as ExpertTable } from './ExpertTable';
+export type { SortConfig } from './ExpertTable';

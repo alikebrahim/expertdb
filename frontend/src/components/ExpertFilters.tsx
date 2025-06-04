@@ -69,7 +69,7 @@ const ExpertFilters = ({ onFilterChange, initialFilters = {} }: ExpertFiltersPro
     setIsExpanded(!isExpanded);
   };
   
-  const onSubmit = (data: FiltersFormData) => {
+  const onSubmit = async (data: FiltersFormData): Promise<void> => {
     // Convert empty strings to undefined
     const cleanedData = Object.fromEntries(
       Object.entries(data).filter(([_, value]) => {
@@ -81,7 +81,6 @@ const ExpertFilters = ({ onFilterChange, initialFilters = {} }: ExpertFiltersPro
     ) as FiltersFormData;
     
     onFilterChange(cleanedData);
-    return { success: true };
   };
   
   const handleReset = () => {
@@ -129,7 +128,7 @@ const ExpertFilters = ({ onFilterChange, initialFilters = {} }: ExpertFiltersPro
       
       <Form
         form={form}
-        onSubmit={form.handleSubmitWithNotifications(onSubmit)}
+        onSubmit={onSubmit}
         showResetButton={true}
         resetText="Reset"
         submitText="Apply Filters"

@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Engagement } from '../types';
 import { engagementApi } from '../services/api';
-import Button from './ui/Button';
-import Table from './ui/Table';
+import { Button, Table } from './ui';
 import Modal from './Modal';
 import EngagementForm from './EngagementForm';
 import { useAuth } from '../hooks/useAuth';
@@ -40,12 +39,14 @@ const EngagementList = ({ expertId }: EngagementListProps) => {
       );
       
       if (response.success) {
-        setEngagements(response.data.data);
+        setEngagements(response.data || []);
+        // Since the API returns a direct array, we'll handle pagination differently
+        // For now, we'll show all results on a single page
         setPagination({
-          page: response.data.page,
-          limit: response.data.limit,
-          total: response.data.total,
-          totalPages: response.data.totalPages
+          page: 1,
+          limit: pagination.limit,
+          total: response.data?.length || 0,
+          totalPages: 1
         });
       } else {
         setError(response.message || 'Failed to load engagements');

@@ -26,7 +26,7 @@ const UserForm = ({ user, onSuccess, onCancel }: UserFormProps) => {
   const isEditMode = !!user;
   
   const form = useFormWithNotifications<UserFormData>({
-    schema: userSchema,
+    schema: userSchema as any,
     defaultValues: user ? {
       name: user.name,
       email: user.email,
@@ -50,7 +50,7 @@ const UserForm = ({ user, onSuccess, onCancel }: UserFormProps) => {
     { label: 'Manager', value: 'manager' },
   ];
   
-  const onSubmit = async (data: UserFormData) => {
+  const onSubmit = async (data: UserFormData): Promise<void> => {
     setIsSubmitting(true);
     
     try {
@@ -65,35 +65,24 @@ const UserForm = ({ user, onSuccess, onCancel }: UserFormProps) => {
       let response;
       
       if (isEditMode && user) {
-        response = await usersApi.updateUser(user.id, apiData);
+        response = await usersApi.updateUser(user.id.toString(), apiData);
       } else {
         if (!data.password) {
-          return { 
-            success: false, 
-            message: 'Password is required for new users' 
-          };
+          throw new Error('Password is required for new users');
         }
         response = await usersApi.createUser(apiData);
       }
       
       if (response.success) {
         onSuccess();
-        return { 
-          success: true, 
-          message: `User ${isEditMode ? 'updated' : 'created'} successfully` 
-        };
+        // Success is handled through onSuccess callback
       } else {
-        return { 
-          success: false, 
-          message: response.message || `Failed to ${isEditMode ? 'update' : 'create'} user` 
-        };
+        throw new Error(response.message || `Failed to ${isEditMode ? 'update' : 'create'} user`);
       }
     } catch (error) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} user:`, error);
-      return { 
-        success: false, 
-        message: `An error occurred while ${isEditMode ? 'updating' : 'creating'} the user` 
-      };
+      // Error will be handled by form's error handling
+      throw error;
     } finally {
       setIsSubmitting(false);
     }
@@ -103,7 +92,7 @@ const UserForm = ({ user, onSuccess, onCancel }: UserFormProps) => {
     <LoadingOverlay isLoading={isSubmitting}>
       <Form
         form={form}
-        onSubmit={form.handleSubmitWithNotifications(onSubmit)}
+        onSubmit={onSubmit}
         className="space-y-4"
         resetOnSuccess={false}
         submitText={isEditMode ? 'Update User' : 'Create User'}

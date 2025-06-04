@@ -18,14 +18,14 @@ const LoginForm = () => {
   const navigate = useNavigate();
   
   const form = useFormWithNotifications<LoginFormData>({
-    schema: loginSchema,
+    schema: loginSchema as any,
     defaultValues: {
       email: '',
       password: '',
     },
   });
   
-  const onSubmit = async (data: LoginFormData) => {
+  const onSubmit = async (data: LoginFormData): Promise<void> => {
     setIsLoading(true);
     
     try {
@@ -52,18 +52,15 @@ const LoginForm = () => {
           navigate('/search'); // default fallback
         }
         
-        return { success: true, message: 'Login successful!' };
+        // Success is handled by navigation
       } else {
         // Get the error message from AuthContext if available
         const authError = localStorage.getItem('auth_error');
         if (authError) {
           localStorage.removeItem('auth_error');
-          return { success: false, message: authError };
+          throw new Error(authError);
         } else {
-          return { 
-            success: false, 
-            message: 'Invalid email or password. Please check your credentials and try again.' 
-          };
+          throw new Error('Invalid email or password. Please check your credentials and try again.');
         }
       }
     } catch (error) {
@@ -74,7 +71,8 @@ const LoginForm = () => {
         errorMessage = `Login error: ${error.message}`;
       }
       
-      return { success: false, message: errorMessage };
+      // Error will be handled by form's error handling
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -84,7 +82,7 @@ const LoginForm = () => {
     <LoadingOverlay isLoading={isLoading} className="w-full max-w-md">
       <Form
         form={form}
-        onSubmit={form.handleSubmitWithNotifications(onSubmit)}
+        onSubmit={onSubmit}
         className="space-y-4 w-full max-w-md"
         submitText="Log In"
         submitButtonPosition="center"

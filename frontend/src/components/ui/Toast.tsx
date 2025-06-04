@@ -5,7 +5,7 @@ interface ToastProps extends Notification {
   onDismiss: () => void;
 }
 
-export const Toast: React.FC<ToastProps> = ({ id, type, message, duration = 5000, onDismiss }) => {
+export const Toast: React.FC<ToastProps> = ({ type, message, duration = 5000, onDismiss }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   
@@ -70,7 +70,7 @@ export const Toast: React.FC<ToastProps> = ({ id, type, message, duration = 5000
     }, 10);
     
     // Auto-dismiss after duration
-    let dismissTimer: NodeJS.Timeout;
+    let dismissTimer: number;
     if (duration !== 0) {
       dismissTimer = setTimeout(() => {
         handleDismiss();

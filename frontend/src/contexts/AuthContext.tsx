@@ -63,28 +63,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Login function
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      if (isDebugMode) {
-        console.log('Login attempt:', { email });
-        console.log('API URL:', import.meta.env.VITE_API_URL);
-      }
+      console.log('AUTH CONTEXT: Login attempt for:', email);
+      console.log('AUTH CONTEXT: Debug mode:', isDebugMode);
+      console.log('AUTH CONTEXT: API URL:', import.meta.env.VITE_API_URL);
       
-      setState({
-        ...state,
+      setState(prev => ({
+        ...prev,
         isLoading: true,
         error: null,
-      });
+      }));
 
       const response = await authApi.login(email, password);
       
-      if (isDebugMode) {
-        console.log('Login response:', response);
-      }
+      console.log('AUTH CONTEXT: Login response:', response);
       
       // Check if the response includes token directly (backend format)
       if (response.data?.token && response.data?.user) {
-        if (isDebugMode) {
-          console.log('Direct token format detected - login successful');
-        }
+        console.log('AUTH CONTEXT: Token and user found in response');
         
         const { token, user } = response.data;
         
@@ -100,12 +95,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           error: null,
         });
         
+        console.log('AUTH CONTEXT: Login successful, state updated');
         return true;
       }
       else {
-        if (isDebugMode) {
-          console.log('Login failed with response:', response);
-        }
+        console.log('AUTH CONTEXT: No token/user in response, login failed');
+        console.log('AUTH CONTEXT: Response structure:', response);
         
         const errorMessage = response.message || 'Authentication failed';
         

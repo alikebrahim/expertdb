@@ -5,7 +5,13 @@ export { Form } from './Form';
 export { FormField } from './FormField';
 
 // Layout components
-export { Table, TableRow, TableCell } from './Table';
+export { default as Table } from './Table';
+export { default as TableHeader } from './Table';
+export { default as TableBody } from './Table';
+export { default as TableRow } from './Table';
+export { default as TableCell } from './Table';
+export { default as TableHeaderCell } from './Table';
+export type { TableProps, TableHeaderProps, TableBodyProps, TableRowProps, TableCellProps, TableHeaderCellProps } from './Table';
 export { default as NotificationContainer } from './NotificationContainer';
 export { Toast, ToastContainer } from './Toast';
 

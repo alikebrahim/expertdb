@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react';
 import { ExpertRequest } from '../types';
-import { expertRequestsApi } from '../services/api';
+import { expertRequestsApi, expertAreasApi } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import ExpertRequestForm from '../components/ExpertRequestForm';
 import ExpertRequestTable from '../components/ExpertRequestTable';
 import Button from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { Alert } from '../components/ui/Alert';
+
+interface ExpertArea {
+  id: number;
+  name: string;
+}
 
 const ExpertRequestPage = () => {
   const { user } = useAuth();
@@ -27,13 +34,14 @@ const ExpertRequestPage = () => {
       setError(null);
       
       try {
-        const response = await expertRequestsApi.getExpertRequests(page, limit, {
-          userId: user.id
+        const response = await expertRequestsApi.getExpertRequests(limit, (page - 1) * limit, {
+          userId: user.id.toString()
         });
         
-        if (response.success) {
-          setRequests(response.data.data);
-          setTotalPages(response.data.totalPages);
+        if (response.success && response.data) {
+          const data = response.data as any;
+          setRequests(data.requests || []);
+          setTotalPages(data.pagination?.totalPages || 1);
         } else {
           setError(response.message || 'Failed to fetch expert requests');
           setRequests([]);
@@ -72,18 +80,19 @@ const ExpertRequestPage = () => {
     setShowForm(false);
     setSuccessMessage(
       resubmittingRequest
-        ? 'Your expert request has been resubmitted successfully!'
-        : 'Your expert request has been submitted successfully!'
+        ? 'Expert profile has been resubmitted successfully!'
+        : 'Expert profile has been submitted successfully!'
     );
     
     // Refresh the list of requests
     if (user) {
       setIsLoading(true);
-      expertRequestsApi.getExpertRequests(page, limit, { userId: user.id })
+      expertRequestsApi.getExpertRequests(limit, (page - 1) * limit, { userId: user.id.toString() })
         .then(response => {
-          if (response.success) {
-            setRequests(response.data.data);
-            setTotalPages(response.data.totalPages);
+          if (response.success && response.data) {
+            const data = response.data as any;
+            setRequests(data.requests || []);
+            setTotalPages(data.pagination?.totalPages || 1);
           }
         })
         .finally(() => setIsLoading(false));
@@ -99,9 +108,9 @@ const ExpertRequestPage = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-primary">Expert Requests</h1>
+        <h1 className="text-2xl font-bold text-primary">Expert Database Management</h1>
         <p className="text-neutral-600">
-          Submit new expert requests or view your previous submissions
+          Submit expert profiles for database inclusion and review your submission history
         </p>
       </div>
       
@@ -115,7 +124,7 @@ const ExpertRequestPage = () => {
         <div className="bg-white rounded-md shadow p-6 mb-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-primary">
-              {resubmittingRequest ? 'Resubmit Expert Request' : 'Submit New Expert Request'}
+              {resubmittingRequest ? 'Resubmit Expert Profile' : 'Add Expert to Database'}
             </h2>
             <Button
               variant="outline"
@@ -130,14 +139,14 @@ const ExpertRequestPage = () => {
       ) : (
         <div className="flex justify-end mb-6">
           <Button onClick={handleNewRequest}>
-            Submit New Request
+            Add Expert Profile
           </Button>
         </div>
       )}
       
       <div className="bg-white rounded-md shadow p-6">
         <h2 className="text-xl font-semibold text-primary mb-4">
-          Your Request History
+          Your Submission History
         </h2>
         
         <ExpertRequestTable

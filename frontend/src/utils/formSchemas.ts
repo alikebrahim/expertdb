@@ -48,13 +48,38 @@ export const expertSchema = z.object({
   cvFile: z.any().optional(),
 });
 
-// Expert request form schemas
+// Expert request form schemas - based on backend API requirements
 export const expertRequestSchema = z.object({
-  title: z.string().min(5, 'Title must be at least 5 characters'),
-  description: z.string().min(10, 'Description must be at least 10 characters'),
-  requiredExpertise: z.array(z.number()).min(1, 'Please select at least one area of expertise'),
-  deadline: z.string().min(1, 'Please select a deadline'),
-  priority: z.enum(['low', 'medium', 'high']),
+  // Personal Information (required)
+  name: z.string().min(2, 'Name is required and must be at least 2 characters'),
+  designation: z.string().min(2, 'Designation is required'),
+  institution: z.string().min(2, 'Institution is required'),
+  phone: z.string().min(8, 'Valid phone number is required'),
+  email: z.string().email('Valid email address is required'),
+  
+  // Professional Details (required)
+  isBahraini: z.boolean(),
+  isAvailable: z.boolean(),
+  rating: z.string().min(1, 'Rating is required'),
+  role: z.enum(['evaluator', 'validator', 'evaluator/validator'], {
+    errorMap: () => ({ message: 'Role must be evaluator, validator, or evaluator/validator' })
+  }),
+  employmentType: z.enum(['academic', 'employer'], {
+    errorMap: () => ({ message: 'Employment type must be academic or employer' })
+  }),
+  isTrained: z.boolean(),
+  isPublished: z.boolean().optional().default(false),
+  
+  // Expertise Areas (required)
+  generalArea: z.number().min(1, 'General area is required'),
+  specializedArea: z.string().min(2, 'Specialized area is required'),
+  skills: z.string().min(3, 'Skills are required'),
+  
+  // Biography & Documents (required)
+  biography: z.string().min(10, 'Biography is required').max(1000, 'Biography must not exceed 1000 characters'),
+  cv: z.any().refine(file => file instanceof File, 'CV document is required')
+    .refine(file => file?.type === 'application/pdf', 'CV must be a PDF file')
+    .refine(file => file?.size <= 5 * 1024 * 1024, 'CV file size must be less than 5MB'),
 });
 
 // Engagement form schemas

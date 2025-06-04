@@ -33,7 +33,7 @@ const ExpertForm = ({ expert, onSuccess, onCancel }: ExpertFormProps) => {
   const isEditMode = !!expert;
   
   const form = useFormWithNotifications<ExpertFormData>({
-    schema: expertSchema,
+    schema: expertSchema as any,
     defaultValues: {
       name: '',
       affiliation: '',
@@ -103,7 +103,7 @@ const ExpertForm = ({ expert, onSuccess, onCancel }: ExpertFormProps) => {
     setCvFile(file);
   };
   
-  const onSubmit = async (data: ExpertFormData) => {
+  const onSubmit = async (data: ExpertFormData): Promise<void> => {
     setIsSubmitting(true);
     
     try {
@@ -141,19 +141,14 @@ const ExpertForm = ({ expert, onSuccess, onCancel }: ExpertFormProps) => {
         form.reset();
         setCvFile(null);
         onSuccess(response.data);
-        return { success: true, message: `Expert ${isEditMode ? 'updated' : 'created'} successfully` };
+        // Success is handled through onSuccess callback
       } else {
-        return { 
-          success: false, 
-          message: response.message || `Failed to ${isEditMode ? 'update' : 'create'} expert` 
-        };
+        throw new Error(response.message || `Failed to ${isEditMode ? 'update' : 'create'} expert`);
       }
     } catch (error) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} expert:`, error);
-      return { 
-        success: false, 
-        message: `An error occurred while ${isEditMode ? 'updating' : 'creating'} the expert` 
-      };
+      // Error will be handled by form's error handling
+      throw error;
     } finally {
       setIsSubmitting(false);
     }
@@ -163,7 +158,7 @@ const ExpertForm = ({ expert, onSuccess, onCancel }: ExpertFormProps) => {
     <LoadingOverlay isLoading={isSubmitting}>
       <Form
         form={form}
-        onSubmit={form.handleSubmitWithNotifications(onSubmit)}
+        onSubmit={onSubmit}
         className="space-y-4"
         resetOnSuccess={false}
         submitText={isEditMode ? 'Update Expert' : 'Create Expert'}

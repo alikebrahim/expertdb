@@ -1,6 +1,5 @@
 import { ExpertRequest } from '../types';
-import { Table, TableRow, TableCell } from './ui/Table';
-import Button from './ui/Button';
+import { Table, Button } from './ui';
 
 interface ExpertRequestTableProps {
   requests: ExpertRequest[];
@@ -18,17 +17,9 @@ const ExpertRequestTable = ({
   requests, 
   isLoading, 
   error, 
-  onResubmit,
-  pagination
+  onResubmit
 }: ExpertRequestTableProps) => {
-  const headers = [
-    'Name',
-    'Affiliation',
-    'Role',
-    'Status',
-    'Submitted',
-    'Actions'
-  ];
+
   
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -72,47 +63,59 @@ const ExpertRequestTable = ({
           </p>
         </div>
       ) : (
-        <Table headers={headers} pagination={pagination}>
-          {requests.map((request) => (
-            <TableRow key={request.id}>
-              <TableCell>{request.name}</TableCell>
-              <TableCell>{request.affiliation}</TableCell>
-              <TableCell>{request.role}</TableCell>
-              <TableCell>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(request.status)}`}>
-                  {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                </span>
-              </TableCell>
-              <TableCell>{formatDate(request.createdAt)}</TableCell>
-              <TableCell>
-                {request.status === 'rejected' && onResubmit && (
-                  <Button 
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onResubmit(request)}
-                  >
-                    Resubmit
-                  </Button>
-                )}
-                
-                {request.status === 'approved' && (
-                  <a 
-                    href={`/api/experts/${request.id}/approval-pdf`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block"
-                  >
+        <Table>
+          <Table.Header>
+            <Table.Row>
+              <Table.HeaderCell>Name</Table.HeaderCell>
+              <Table.HeaderCell>Institution</Table.HeaderCell>
+              <Table.HeaderCell>Role</Table.HeaderCell>
+              <Table.HeaderCell>Status</Table.HeaderCell>
+              <Table.HeaderCell>Request Date</Table.HeaderCell>
+              <Table.HeaderCell>Actions</Table.HeaderCell>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {requests.map((request) => (
+              <Table.Row key={request.id}>
+                <Table.Cell>{request.name}</Table.Cell>
+                <Table.Cell>{request.institution}</Table.Cell>
+                <Table.Cell>{request.role}</Table.Cell>
+                <Table.Cell>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(request.status)}`}>
+                    {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                  </span>
+                </Table.Cell>
+                <Table.Cell>{formatDate(request.createdAt)}</Table.Cell>
+                <Table.Cell>
+                  {request.status === 'rejected' && onResubmit && (
                     <Button 
                       variant="outline"
                       size="sm"
+                      onClick={() => onResubmit(request)}
                     >
-                      Download PDF
+                      Resubmit
                     </Button>
-                  </a>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
+                  )}
+                  
+                  {request.status === 'approved' && (
+                    <a 
+                      href={`/api/experts/${request.id}/approval-pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block"
+                    >
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                      >
+                        Download PDF
+                      </Button>
+                    </a>
+                  )}
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
         </Table>
       )}
     </div>

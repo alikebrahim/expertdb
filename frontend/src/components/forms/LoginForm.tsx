@@ -27,9 +27,13 @@ const LoginForm = () => {
     setIsLoading(true);
     
     try {
+      console.log('LOGIN FORM: Submitting login for:', data.email);
       const success = await login(data.email, data.password);
+      console.log('LOGIN FORM: Login result:', success);
       
       if (success) {
+        console.log('LOGIN FORM: Login successful, user context:', user);
+        
         addNotification({
           type: 'success',
           message: 'Login successful!',
@@ -38,20 +42,23 @@ const LoginForm = () => {
         
         // Determine redirection based on user role
         if (user) {
+          console.log('LOGIN FORM: User context available, redirecting based on role:', user.role);
           redirectBasedOnRole(user.role);
         } else {
           // If user context isn't available yet, try getting from localStorage
+          console.log('LOGIN FORM: User context not available, checking localStorage...');
           const userStr = localStorage.getItem('user');
           if (userStr) {
             try {
               const userData = JSON.parse(userStr);
+              console.log('LOGIN FORM: Found user in localStorage:', userData);
               redirectBasedOnRole(userData.role);
             } catch (e) {
-              console.error('Error parsing user data:', e);
+              console.error('LOGIN FORM: Error parsing user data:', e);
               navigate('/search'); // default fallback
             }
           } else {
-            console.warn('No user data found after successful login');
+            console.warn('LOGIN FORM: No user data found after successful login');
             navigate('/search'); // default fallback
           }
         }

@@ -3,7 +3,7 @@ import { ExpertRequest, RequestListResponse, BatchApproveResponse } from '../typ
 
 export const getExpertRequests = (limit: number = 10, offset: number = 0, params?: Record<string, string | boolean>) => 
   request<RequestListResponse>({
-    url: '/expert-requests',
+    url: '/api/expert-requests',
     method: 'GET',
     params: {
       ...params,
@@ -14,13 +14,13 @@ export const getExpertRequests = (limit: number = 10, offset: number = 0, params
 
 export const getExpertRequestById = (id: string) => 
   request<ExpertRequest>({
-    url: `/expert-requests/${id}`,
+    url: `/api/expert-requests/${id}`,
     method: 'GET',
   });
 
 export const createExpertRequest = (data: FormData) => 
-  request<ExpertRequest>({
-    url: '/expert-requests',
+  request<{id: number}>({
+    url: '/api/expert-requests',
     method: 'POST',
     data,
     headers: {
@@ -30,7 +30,7 @@ export const createExpertRequest = (data: FormData) =>
 
 export const updateExpertRequest = (id: string, data: FormData) => 
   request<null>({
-    url: `/expert-requests/${id}`,
+    url: `/api/expert-requests/${id}`,
     method: 'PUT',
     data,
     headers: {
@@ -40,7 +40,7 @@ export const updateExpertRequest = (id: string, data: FormData) =>
   
 export const editExpertRequest = (id: string, data: FormData) => 
   request<null>({
-    url: `/expert-requests/${id}/edit`,
+    url: `/api/expert-requests/${id}/edit`,
     method: 'PUT',
     data,
     headers: {
@@ -50,7 +50,7 @@ export const editExpertRequest = (id: string, data: FormData) =>
   
 export const batchApprove = (data: FormData) => 
   request<BatchApproveResponse>({
-    url: '/expert-requests/batch-approve',
+    url: '/api/expert-requests/batch-approve',
     method: 'POST',
     data,
     headers: {

@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Expert } from '../../types';
 import { useUI } from '../../hooks/useUI';
-import { Table, TableRow, TableCell } from '../ui/Table';
-import Button from '../ui/Button';
+import { Table, Button } from '../ui';
 import Modal from '../Modal';
 import { formatDate } from '../../utils/formatters';
 
@@ -12,21 +11,23 @@ export interface SortConfig {
   direction: 'asc' | 'desc';
 }
 
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
 interface ExpertTableProps {
   experts: Expert[];
   isLoading: boolean;
   error: string | null;
-  pagination?: {
-    currentPage: number;
-    totalPages: number;
-    onPageChange: (page: number) => void;
-  };
   onEdit?: (expert: Expert) => void;
   onDelete?: (expert: Expert) => void;
   enableBatchActions?: boolean;
   onBatchExport?: (expertIds: number[]) => void;
   onBatchPublish?: (expertIds: number[]) => void;
   onBatchUnpublish?: (expertIds: number[]) => void;
+  pagination?: PaginationProps;
   sortConfig?: SortConfig;
   onSort?: (field: string) => void;
 }
@@ -35,40 +36,21 @@ const ExpertTable = ({
   experts, 
   isLoading, 
   error, 
-  pagination, 
   onEdit, 
   onDelete,
   enableBatchActions = false,
   onBatchExport,
   onBatchPublish,
-  onBatchUnpublish
+  onBatchUnpublish,
+  pagination,
+  sortConfig,
+  onSort
 }: ExpertTableProps) => {
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const [selectedExperts, setSelectedExperts] = useState<number[]>([]);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const navigate = useNavigate();
   const { addNotification } = useUI();
-  
-  const headers = enableBatchActions 
-    ? [
-        { label: 'Select' },
-        { label: 'Name', field: 'name', sortable: true },
-        { label: 'Role', field: 'role', sortable: true },
-        { label: 'Employment', field: 'employmentType', sortable: true },
-        { label: 'Affiliation', field: 'institution', sortable: true },
-        { label: 'Rating', field: 'rating', sortable: true },
-        { label: 'Last Updated', field: 'updated_at', sortable: true },
-        { label: 'Actions' }
-      ]
-    : [
-        { label: 'Name', field: 'name', sortable: true },
-        { label: 'Role', field: 'role', sortable: true },
-        { label: 'Employment', field: 'employmentType', sortable: true },
-        { label: 'Affiliation', field: 'institution', sortable: true },
-        { label: 'Contact', field: 'primaryContact', sortable: false },
-        { label: 'Rating', field: 'rating', sortable: true },
-        { label: 'Actions' }
-      ];
   
   const handleSelectExpert = (expert: Expert) => {
     setSelectedExpert(expert);
@@ -81,7 +63,7 @@ const ExpertTable = ({
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedExperts(experts.map(expert => expert.id));
+      setSelectedExperts(experts.map((expert: Expert) => expert.id));
     } else {
       setSelectedExperts([]);
     }
@@ -89,9 +71,9 @@ const ExpertTable = ({
 
   const handleSelectSingle = (expertId: number, isChecked: boolean) => {
     if (isChecked) {
-      setSelectedExperts(prev => [...prev, expertId]);
+      setSelectedExperts((prev: number[]) => [...prev, expertId]);
     } else {
-      setSelectedExperts(prev => prev.filter(id => id !== expertId));
+      setSelectedExperts((prev: number[]) => prev.filter((id: number) => id !== expertId));
     }
   };
 
@@ -204,95 +186,136 @@ const ExpertTable = ({
           <p className="text-sm text-neutral-500 mt-1">Try adjusting your search criteria.</p>
         </div>
       ) : (
-        <Table 
-          headers={headers} 
-          pagination={pagination}
-          sortConfig={sortConfig}
-          onSort={onSort}
-        >
-          {enableBatchActions && (
-            <tr className="bg-neutral-50">
-              <th className="px-4 py-2 text-left">
-                <input
-                  type="checkbox"
-                  onChange={handleSelectAll}
-                  checked={selectedExperts.length === experts.length && experts.length > 0}
-                  className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
-                />
-              </th>
-              <th colSpan={7} className="px-4 py-2 text-left text-sm font-medium text-neutral-500">
-                {selectedExperts.length} of {experts.length} selected
-              </th>
-            </tr>
-          )}
-          {experts.map((expert) => (
-            <TableRow 
-              key={expert.id} 
-              isClickable 
-              onClick={() => handleSelectExpert(expert)}
-            >
-              {enableBatchActions && (
-                <TableCell onClick={(e) => e.stopPropagation()}>
+        <Table>
+          <Table.Header>
+            {enableBatchActions && (
+              <Table.Row className="bg-neutral-50">
+                <Table.HeaderCell>
                   <input
                     type="checkbox"
-                    checked={selectedExperts.includes(expert.id)}
-                    onChange={(e) => handleSelectSingle(expert.id, e.target.checked)}
+                    onChange={handleSelectAll}
+                    checked={selectedExperts.length === experts.length && experts.length > 0}
                     className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
                   />
-                </TableCell>
-              )}
-              <TableCell>{expert.name}</TableCell>
-              <TableCell>{expert.role}</TableCell>
-              <TableCell>{expert.employmentType}</TableCell>
-              <TableCell>{expert.affiliation}</TableCell>
-              {!enableBatchActions && <TableCell>{expert.primaryContact}</TableCell>}
-              <TableCell>
-                <div className="flex items-center">
-                  <span className="mr-1">{expert.rating}</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                </div>
-              </TableCell>
-              {enableBatchActions && <TableCell>{formatDate(expert.updated_at)}</TableCell>}
-              <TableCell>
-                <div className="flex flex-wrap gap-2">
-                  <Button 
-                    variant="primary"
-                    size="sm"
-                    onClick={(e) => handleViewExpertDetails(expert, e)}
-                  >
-                    View
-                  </Button>
-                  {onEdit && (
+                </Table.HeaderCell>
+                <Table.HeaderCell>Name</Table.HeaderCell>
+                <Table.HeaderCell>Role</Table.HeaderCell>
+                <Table.HeaderCell>Employment</Table.HeaderCell>
+                <Table.HeaderCell>Affiliation</Table.HeaderCell>
+                <Table.HeaderCell>Rating</Table.HeaderCell>
+                <Table.HeaderCell>Last Updated</Table.HeaderCell>
+                <Table.HeaderCell>Actions</Table.HeaderCell>
+              </Table.Row>
+            )}
+            {!enableBatchActions && (
+              <Table.Row>
+                <Table.HeaderCell>Name</Table.HeaderCell>
+                <Table.HeaderCell>Role</Table.HeaderCell>
+                <Table.HeaderCell>Employment</Table.HeaderCell>
+                <Table.HeaderCell>Affiliation</Table.HeaderCell>
+                <Table.HeaderCell>Contact</Table.HeaderCell>
+                <Table.HeaderCell>Rating</Table.HeaderCell>
+                <Table.HeaderCell>Actions</Table.HeaderCell>
+              </Table.Row>
+            )}
+          </Table.Header>
+          <Table.Body>
+            {experts.map((expert) => (
+              <Table.Row 
+                key={expert.id} 
+                className="hover:bg-gray-50 cursor-pointer"
+                onClick={() => handleSelectExpert(expert)}
+              >
+                {enableBatchActions && (
+                  <Table.Cell onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedExperts.includes(expert.id)}
+                      onChange={(e) => handleSelectSingle(expert.id, e.target.checked)}
+                      className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
+                    />
+                  </Table.Cell>
+                )}
+                <Table.Cell>{expert.name}</Table.Cell>
+                <Table.Cell>{expert.role}</Table.Cell>
+                <Table.Cell>{expert.employmentType}</Table.Cell>
+                <Table.Cell>{expert.affiliation}</Table.Cell>
+                {!enableBatchActions && <Table.Cell>{expert.primaryContact}</Table.Cell>}
+                <Table.Cell>
+                  <div className="flex items-center">
+                    <span className="mr-1">{expert.rating}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  </div>
+                </Table.Cell>
+                {enableBatchActions && <Table.Cell>{formatDate(expert.updated_at || '')}</Table.Cell>}
+                <Table.Cell>
+                  <div className="flex flex-wrap gap-2">
                     <Button 
-                      variant="secondary"
+                      variant="primary"
                       size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEdit(expert);
-                      }}
+                      onClick={(e: React.MouseEvent) => handleViewExpertDetails(expert, e)}
                     >
-                      Edit
+                      View
                     </Button>
-                  )}
-                  {onDelete && (
-                    <Button 
-                      variant="danger"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(expert);
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+                    {onEdit && (
+                      <Button 
+                        variant="secondary"
+                        size="sm"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          onEdit(expert);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button 
+                        variant="danger"
+                        size="sm"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          onDelete(expert);
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </div>
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
         </Table>
+      )}
+      
+      {/* Pagination controls */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Page {pagination.currentPage} of {pagination.totalPages}
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => pagination.onPageChange(pagination.currentPage - 1)}
+              disabled={pagination.currentPage <= 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => pagination.onPageChange(pagination.currentPage + 1)}
+              disabled={pagination.currentPage >= pagination.totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       )}
       
       {/* Expert details modal */}
@@ -337,7 +360,7 @@ const ExpertTable = ({
                 <div>
                   <h3 className="text-sm font-medium text-neutral-500">Skills</h3>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    {selectedExpert.skills.map((skill, index) => (
+                    {selectedExpert.skills.map((skill: string, index: number) => (
                       <span 
                         key={index}
                         className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary bg-opacity-10 text-primary"
@@ -402,7 +425,7 @@ const ExpertTable = ({
                 </Button>
                 <Button 
                   variant="primary"
-                  onClick={(e) => {
+                  onClick={(e: React.MouseEvent) => {
                     setSelectedExpert(null);
                     handleViewExpertDetails(selectedExpert, e as React.MouseEvent<HTMLButtonElement>);
                   }}

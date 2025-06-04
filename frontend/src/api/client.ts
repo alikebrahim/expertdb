@@ -1,11 +1,11 @@
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ApiResponse } from '../types';
 
 // Check if we're in debug mode
-const isDebugMode = import.meta.env.VITE_DEBUG_MODE === 'true';
+const isDebugMode = import.meta.env?.VITE_DEBUG_MODE === 'true' || false;
 
 // Create and export the API client
-export const createApiClient = (baseURL = import.meta.env.VITE_API_URL || '/api') => {
+export const createApiClient = (baseURL = '/api') => {
   const client = axios.create({
     baseURL,
     headers: {
@@ -19,6 +19,17 @@ export const createApiClient = (baseURL = import.meta.env.VITE_API_URL || '/api'
   if (isDebugMode) {
     console.log('API baseURL:', baseURL);
     console.log('Debug mode: enabled');
+    
+    // Add more debug info
+    client.interceptors.request.use(function (config) {
+      console.log('API CLIENT: Making request:', config.method, config.url, config.data || config.params || '');
+      return config;
+    });
+
+    client.interceptors.response.use(function (response) {
+      console.log('API CLIENT: Response received:', response.status, response.config.url, response.data);
+      return response;
+    });
   }
 
   // Request interceptor to add auth token
@@ -26,16 +37,16 @@ export const createApiClient = (baseURL = import.meta.env.VITE_API_URL || '/api'
     (config) => {
       const token = localStorage.getItem('token');
       if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+        config.headers.set('Authorization', `Bearer ${token}`);
       }
       return config;
     },
-    (error) => Promise.reject(error)
+    (error: any) => Promise.reject(error)
   );
 
   // Response interceptor for error handling
   client.interceptors.response.use(
-    (response) => response,
+    (response: any) => response,
     (error: AxiosError) => {
       if (isDebugMode) {
         console.error('API Error:', error.message);
@@ -68,21 +79,17 @@ export const apiClient = createApiClient();
 // Generic request function for standard API responses
 export const request = async <T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> => {
   try {
-    if (isDebugMode) {
-      console.log(`Making request: ${config.method} ${config.url}`, config.data || config.params || '');
-    }
+    console.log(`API CLIENT: Making request: ${config.method} ${config.url}`, config.data || config.params || '');
     
     const response = await apiClient(config);
     
-    if (isDebugMode) {
-      console.log(`Response from ${config.url}:`, response.data);
-    }
+    console.log(`API CLIENT: Raw response from ${config.url}:`, response);
+    console.log(`API CLIENT: Response data:`, response.data);
+    console.log(`API CLIENT: Response status:`, response.status);
     
     return response.data;
   } catch (error) {
-    if (isDebugMode) {
-      console.error(`Request failed for ${config.url}:`, error);
-    }
+    console.error(`API CLIENT: Request failed for ${config.url}:`, error);
     
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError<ApiResponse<null>>;
@@ -91,9 +98,7 @@ export const request = async <T>(config: AxiosRequestConfig): Promise<ApiRespons
       if (axiosError.response) {
         const status = axiosError.response.status;
         
-        if (isDebugMode) {
-          console.error(`Error ${status} for ${config.url}:`, axiosError.response.data);
-        }
+        console.error(`API CLIENT: Error ${status} for ${config.url}:`, axiosError.response.data);
         
         // Return backend error response if available
         if (axiosError.response.data) {
@@ -110,7 +115,7 @@ export const request = async <T>(config: AxiosRequestConfig): Promise<ApiRespons
         return {
           success: false,
           message: errorMessage,
-          data: null as unknown as T,
+          data: null as any,
         };
       }
       
@@ -119,7 +124,7 @@ export const request = async <T>(config: AxiosRequestConfig): Promise<ApiRespons
         return {
           success: false,
           message: 'Request timed out. Please try again.',
-          data: null as unknown as T,
+          data: null as any,
         };
       }
       
@@ -127,14 +132,14 @@ export const request = async <T>(config: AxiosRequestConfig): Promise<ApiRespons
         return {
           success: false,
           message: 'Network connection error. Please check your connection.',
-          data: null as unknown as T,
+          data: null as any,
         };
       }
       
       return {
         success: false,
         message: axiosError.message,
-        data: null as unknown as T,
+        data: null as any,
       };
     }
     
@@ -146,7 +151,7 @@ export const request = async <T>(config: AxiosRequestConfig): Promise<ApiRespons
     return {
       success: false,
       message: 'An unexpected error occurred',
-      data: null as unknown as T,
+      data: null as any,
     };
   }
 };

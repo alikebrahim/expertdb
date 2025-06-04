@@ -22,7 +22,7 @@ const DocumentList = ({ expertId, onRefreshNeeded }: DocumentListProps) => {
       const response = await documentApi.getExpertDocuments(expertId);
       
       if (response.success) {
-        setDocuments(response.data.documents);
+        setDocuments(response.data || []);
       } else {
         setError(response.message || 'Failed to load documents');
       }

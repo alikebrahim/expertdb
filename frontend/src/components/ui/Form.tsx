@@ -1,7 +1,7 @@
 import React from 'react';
 import { FieldValues, UseFormReturn } from 'react-hook-form';
 
-interface FormProps<T extends FieldValues> extends React.FormHTMLAttributes<HTMLFormElement> {
+interface FormProps<T extends FieldValues> {
   form: UseFormReturn<T>;
   onSubmit: (data: T) => void | Promise<void>;
   children: React.ReactNode;

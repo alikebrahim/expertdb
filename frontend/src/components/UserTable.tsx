@@ -1,8 +1,13 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { User } from '../types';
 import { usersApi } from '../services/api';
-import { Table, TableRow, TableCell } from './ui/Table';
-import Button from './ui/Button';
+import { Table, Button } from './ui';
+
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
 
 interface UserTableProps {
   users: User[];
@@ -10,11 +15,7 @@ interface UserTableProps {
   error: string | null;
   onEditUser: (user: User) => void;
   onRefresh: () => void;
-  pagination?: {
-    currentPage: number;
-    totalPages: number;
-    onPageChange: (page: number) => void;
-  };
+  pagination?: PaginationProps;
 }
 
 const UserTable = ({ 
@@ -28,15 +29,6 @@ const UserTable = ({
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  const headers = [
-    'Name',
-    'Email',
-    'Role',
-    'Status',
-    'Last Login',
-    'Actions'
-  ];
-  
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'Never';
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -46,13 +38,13 @@ const UserTable = ({
     });
   };
   
-  const handleDelete = async (userId: string) => {
+  const handleDelete = async (userId: number) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
-      setDeletingUserId(userId);
+      setDeletingUserId(userId.toString());
       setIsDeleting(true);
       
       try {
-        const response = await usersApi.deleteUser(userId);
+        const response = await usersApi.deleteUser(userId.toString());
         
         if (response.success) {
           onRefresh();
@@ -102,53 +94,92 @@ const UserTable = ({
           <p className="text-neutral-600">No users found.</p>
         </div>
       ) : (
-        <Table headers={headers} pagination={pagination}>
-          {users.map((user) => (
-            <TableRow key={user.id}>
-              <TableCell>{user.name}</TableCell>
-              <TableCell>{user.email}</TableCell>
-              <TableCell>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  user.role === 'admin' 
-                    ? 'bg-purple-100 text-purple-800' 
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {user.role}
-                </span>
-              </TableCell>
-              <TableCell>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  user.isActive 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  {user.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </TableCell>
-              <TableCell>{formatDate(user.lastLogin)}</TableCell>
-              <TableCell>
-                <div className="flex space-x-2">
-                  <Button 
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onEditUser(user)}
-                  >
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(user.id)}
-                    isLoading={isDeleting && deletingUserId === user.id}
-                    className="text-secondary hover:bg-secondary hover:text-white"
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+        <Table>
+          <Table.Header>
+            <Table.Row>
+              <Table.HeaderCell>Name</Table.HeaderCell>
+              <Table.HeaderCell>Email</Table.HeaderCell>
+              <Table.HeaderCell>Role</Table.HeaderCell>
+              <Table.HeaderCell>Status</Table.HeaderCell>
+              <Table.HeaderCell>Last Login</Table.HeaderCell>
+              <Table.HeaderCell>Actions</Table.HeaderCell>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {users.map((user) => (
+              <Table.Row key={user.id}>
+                <Table.Cell>{user.name}</Table.Cell>
+                <Table.Cell>{user.email}</Table.Cell>
+                <Table.Cell>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    user.role === 'admin' 
+                      ? 'bg-purple-100 text-purple-800' 
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {user.role}
+                  </span>
+                </Table.Cell>
+                <Table.Cell>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    user.isActive 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {user.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </Table.Cell>
+                <Table.Cell>{formatDate(user.lastLogin)}</Table.Cell>
+                <Table.Cell>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onEditUser(user)}
+                    >
+                      Edit
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(user.id)}
+                      isLoading={isDeleting && deletingUserId === user.id.toString()}
+                      className="text-secondary hover:bg-secondary hover:text-white"
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
         </Table>
+      )}
+      
+      {/* Pagination controls */}
+      {pagination && pagination.totalPages > 1 && !isLoading && users.length > 0 && (
+        <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+          <div className="text-sm text-gray-700">
+            Page {pagination.currentPage} of {pagination.totalPages}
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => pagination.onPageChange(pagination.currentPage - 1)}
+              disabled={pagination.currentPage <= 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => pagination.onPageChange(pagination.currentPage + 1)}
+              disabled={pagination.currentPage >= pagination.totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
