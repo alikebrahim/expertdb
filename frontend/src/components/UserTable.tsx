@@ -14,6 +14,7 @@ interface UserTableProps {
   isLoading: boolean;
   error: string | null;
   onEditUser: (user: User) => void;
+  onManageRoles?: (user: User) => void;
   onRefresh: () => void;
   pagination?: PaginationProps;
 }
@@ -23,6 +24,7 @@ const UserTable = ({
   isLoading, 
   error, 
   onEditUser,
+  onManageRoles,
   onRefresh,
   pagination
 }: UserTableProps) => {
@@ -138,6 +140,16 @@ const UserTable = ({
                     >
                       Edit
                     </Button>
+                    {onManageRoles && (
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onManageRoles(user)}
+                        className="text-blue-600 hover:bg-blue-50"
+                      >
+                        Roles
+                      </Button>
+                    )}
                     <Button 
                       variant="outline"
                       size="sm"

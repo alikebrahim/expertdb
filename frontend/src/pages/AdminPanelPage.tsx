@@ -7,6 +7,7 @@ import { Card } from '../components/ui/Card';
 import { Alert } from '../components/ui/Alert';
 import AdminRequestTable from '../components/AdminRequestTable';
 import RequestDetailModal from '../components/RequestDetailModal';
+import Layout from '../components/layout/Layout';
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
 
@@ -66,7 +67,7 @@ const AdminPanelPage = () => {
       setError(null);
       
       try {
-        const filters: any = {};
+        const filters: Record<string, string> = {};
         if (statusFilter !== 'all') {
           filters.status = statusFilter;
         }
@@ -83,9 +84,9 @@ const AdminPanelPage = () => {
         const response = await expertRequestsApi.getExpertRequests(limit, (page - 1) * limit, filters);
         
         if (response.success && response.data) {
-          const data = response.data as any;
-          setRequests(data.requests || []);
-          setTotalPages(data.pagination?.totalPages || 1);
+          const requests = Array.isArray(response.data) ? response.data : [];
+          setRequests(requests);
+          setTotalPages(1);
         } else {
           setError(response.message || 'Failed to fetch expert requests');
           setRequests([]);
@@ -131,7 +132,7 @@ const AdminPanelPage = () => {
     setIsLoading(true);
     const refreshRequests = async () => {
       try {
-        const filters: any = {};
+        const filters: Record<string, string> = {};
         if (statusFilter !== 'all') {
           filters.status = statusFilter;
         }
@@ -148,9 +149,9 @@ const AdminPanelPage = () => {
         const response = await expertRequestsApi.getExpertRequests(limit, (page - 1) * limit, filters);
         
         if (response.success && response.data) {
-          const data = response.data as any;
-          setRequests(data.requests || []);
-          setTotalPages(data.pagination?.totalPages || 1);
+          const requests = Array.isArray(response.data) ? response.data : [];
+          setRequests(requests);
+          setTotalPages(1);
         }
       } catch (error) {
         console.error('Error refreshing requests:', error);
@@ -261,7 +262,8 @@ const AdminPanelPage = () => {
   }
 
   return (
-    <div className="p-6">
+    <Layout>
+      <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-primary">Expert Request Management</h1>
         <p className="text-neutral-600">
@@ -473,7 +475,8 @@ const AdminPanelPage = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </Layout>
   );
 };
 

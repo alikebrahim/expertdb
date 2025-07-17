@@ -66,7 +66,7 @@ const LoginForm = () => {
     } catch (error) {
       console.error('Login error:', error);
       
-      let errorMessage = 'An unexpected error occurred during login. Please try again.';
+      let errorMessage = 'An unexpected error occurred';
       if (error instanceof Error) {
         errorMessage = `Login error: ${error.message}`;
       }

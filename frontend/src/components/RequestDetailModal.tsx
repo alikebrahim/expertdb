@@ -120,7 +120,7 @@ const RequestDetailModal = ({ request, onClose, onRequestUpdate }: RequestDetail
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as 'details' | 'documents' | 'actions')}
                 className={`px-6 py-3 text-sm font-medium border-b-2 ${
                   activeTab === tab.id
                     ? 'border-primary text-primary'

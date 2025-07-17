@@ -34,37 +34,9 @@ export const ProgressStepper: React.FC<ProgressStepperProps> = ({
   const totalSteps = steps.length;
 
   useEffect(() => {
-    if (!animated) {
-      setProgress((currentStep / (totalSteps - 1)) * 100);
-      return;
-    }
-
-    // Animate the progress change
-    const targetProgress = (currentStep / (totalSteps - 1)) * 100;
-    let start: number | null = null;
-    const duration = 500; // ms
-
-    const animateProgress = (timestamp: number) => {
-      if (!start) start = timestamp;
-      const elapsed = timestamp - start;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Calculate current progress with easing
-      const easedProgress = progress < 0.5
-        ? 2 * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 2) / 2; // easeInOutQuad
-      
-      const currentProgress = prevProgress + (targetProgress - prevProgress) * easedProgress;
-      setProgress(currentProgress);
-
-      if (progress < 1) {
-        requestAnimationFrame(animateProgress);
-      }
-    };
-
-    const prevProgress = progress;
-    requestAnimationFrame(animateProgress);
-  }, [currentStep, totalSteps, animated]);
+    const percentage = ((currentStep - 1) / (totalSteps - 1)) * 100;
+    setProgress(Math.max(0, Math.min(100, percentage)));
+  }, [currentStep, totalSteps]);
 
   // Size classes
   const sizeClasses = {

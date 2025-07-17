@@ -370,10 +370,10 @@ func (s *SQLiteStore) DeleteUser(id int64) error {
 	if role == "planner" {
 		// In a real implementation, you would delete/reassign any planner assignments here
 		// For example:
-		// _, err := s.db.Exec("UPDATE phases SET assigned_planner_id = NULL WHERE assigned_planner_id = ?", id)
-		// if err != nil {
-		//     return fmt.Errorf("failed to clear planner assignments: %w", err)
-		// }
+		_, err := s.db.Exec("UPDATE phases SET assigned_planner_id = NULL WHERE assigned_planner_id = ?", id)
+		if err != nil {
+		    return fmt.Errorf("failed to clear planner assignments: %w", err)
+		}
 	}
 	
 	// Now proceed with deleting the user

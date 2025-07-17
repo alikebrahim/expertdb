@@ -93,10 +93,23 @@ The expert creation workflow manages how new experts are proposed, reviewed, and
      - The resubmitted request will return to "pending" status for admin review
 
 #### Key Features
-- Batch approval capability for processing multiple requests
-- Document validation for required CV format
-- Traceability from expert back to original request
-- Rejection reason tracking for quality improvement
+- **Structured Biography System**: Template-based professional background collection
+  - Separate Experience and Education sections with structured data entry
+  - Dynamic add/remove functionality for multiple career entries
+  - Real-time preview showing formatted biography output
+  - Standardized data format for consistent admin review
+- **Enhanced Form Validation**: Comprehensive field validation with standardized options
+  - Designation dropdown with professional titles: Prof., Dr., Mr., Ms., Mrs., Miss, Eng.
+  - Performance rating on 1-5 scale with descriptive labels
+  - Skills management via tag-based input system
+- **File Management**: Robust document handling with validation
+  - PDF-only CV upload with 5MB size limit
+  - Drag-and-drop interface with progress indication
+- **Quality Assurance Features**:
+  - Batch approval capability for processing multiple requests
+  - Document validation for required CV format
+  - Traceability from expert back to original request
+  - Rejection reason tracking for quality improvement
 
 ### Phase Planning Workflow
 
@@ -186,8 +199,8 @@ Expert management is the central capability of the system, providing comprehensi
   - Hierarchical specialization areas
   - General and specialized area mapping
   - Role categorization: Limited to only three options:
-    - "validator" - For experts who validate QP applications
     - "evaluator" - For experts who evaluate IL applications
+    - "validator" - For experts who validate QP applications
     - "evaluator/validator" - For experts who can perform both roles
   - Employment type tracking: Limited to only two options:
     - "academic" - For experts from academic institutions

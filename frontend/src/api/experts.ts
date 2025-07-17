@@ -30,15 +30,20 @@ export const createExpert = (data: FormData) =>
     },
   });
 
-export const updateExpert = (id: string, data: FormData) => 
-  request<null>({
+export const updateExpert = (id: string, data: FormData | Record<string, any>) => {
+  const isFormData = data instanceof FormData;
+  
+  return request<null>({
     url: `/api/experts/${id}`,
     method: 'PUT',
     data,
-    headers: {
+    headers: isFormData ? {
       'Content-Type': 'multipart/form-data',
+    } : {
+      'Content-Type': 'application/json',
     },
   });
+};
   
 export const deleteExpert = (id: string) => 
   request<null>({

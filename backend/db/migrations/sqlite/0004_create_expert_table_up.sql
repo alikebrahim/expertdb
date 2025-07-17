@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS "experts" (
     is_bahraini BOOLEAN,    -- Convert "Yes/No" to boolean
     nationality TEXT DEFAULT 'Bahraini' CHECK (nationality IN ('Bahraini', 'Non-Bahraini', 'Unknown')),
     is_available BOOLEAN,   -- Convert "Yes/No" to boolean
-    rating TEXT,
+    rating INTEGER DEFAULT 0 CHECK (rating >= 0 AND rating <= 5), -- Rating scale: 0=No Rating, 1-5=Performance rating
     role TEXT,              -- Evaluator, Validator or both
     employment_type TEXT,   -- Academic, Employer or both
     general_area INTEGER,   -- Reference to expert_areas table

@@ -3,6 +3,7 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import Footer from './Footer';
 import NotificationContainer from '../ui/NotificationContainer';
+import { Breadcrumb } from '../ui';
 import { useUI } from '../../hooks/useUI';
 
 interface LayoutProps {
@@ -17,9 +18,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <Header />
       <div className="flex flex-1">
         <Sidebar />
-        <main className={`flex-1 p-6 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-16'}`}>
-          {children}
-        </main>
+        <div className="flex-1 flex flex-col">
+          <Breadcrumb />
+          <main className="flex-1 p-6 bg-neutral-50">
+            {children}
+          </main>
+        </div>
       </div>
       <Footer />
       <NotificationContainer />

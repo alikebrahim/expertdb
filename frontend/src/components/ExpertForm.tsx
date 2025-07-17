@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Expert } from '../types';
 import { expertsApi } from '../services/api';
 import { useFormWithNotifications } from '../hooks/useForm';
+import { z, ZodType } from 'zod';
 import { expertSchema } from '../utils/formSchemas';
 import { Form, FormField, LoadingOverlay } from './ui';
 
@@ -33,7 +34,7 @@ const ExpertForm = ({ expert, onSuccess, onCancel }: ExpertFormProps) => {
   const isEditMode = !!expert;
   
   const form = useFormWithNotifications<ExpertFormData>({
-    schema: expertSchema as any,
+    schema: expertSchema as ZodType<ExpertFormData>,
     defaultValues: {
       name: '',
       affiliation: '',

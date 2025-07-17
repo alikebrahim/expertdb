@@ -12,7 +12,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, className = '', fullWidth = true, isLoading = false, hint, ...props }, ref) => {
     const widthClass = fullWidth ? 'w-full' : '';
-    const errorClass = error ? 'border-secondary' : 'border-neutral-300';
+    const errorClass = error ? 'border-accent' : 'border-neutral-300';
     
     if (isLoading) {
       return (
@@ -28,7 +28,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label className="block text-sm font-medium text-neutral-700 mb-1">
             {label}
-            {props.required && <span className="ml-1 text-secondary">*</span>}
+            {props.required && <span className="ml-1 text-accent">*</span>}
           </label>
         )}
         
@@ -48,7 +48,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         
         {error && (
-          <p className="mt-1 text-sm text-secondary">{error}</p>
+          <p className="mt-1 text-sm text-accent">{error}</p>
         )}
       </div>
     );

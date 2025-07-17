@@ -136,7 +136,7 @@ func (h *Handler) addExpertsToZip(zipWriter *zip.Writer, tempDir string) error {
 
 	// Write header row
 	header := []string{
-		"ID", "ExpertID", "Name", "Designation", "Institution", "IsBahraini", 
+		"ID", "ExpertID", "Name", "Designation", "Affiliation", "IsBahraini", 
 		"Nationality", "IsAvailable", "Rating", "Role", "EmploymentType",
 		"GeneralArea", "GeneralAreaName", "SpecializedArea", "IsTrained",
 		"CVPath", "ApprovalDocumentPath", "Phone", "Email", "IsPublished", 
@@ -153,11 +153,11 @@ func (h *Handler) addExpertsToZip(zipWriter *zip.Writer, tempDir string) error {
 			expert.ExpertID,
 			expert.Name,
 			expert.Designation,
-			expert.Institution,
+			expert.Affiliation,
 			strconv.FormatBool(expert.IsBahraini),
 			expert.Nationality,
 			strconv.FormatBool(expert.IsAvailable),
-			expert.Rating,
+			strconv.Itoa(expert.Rating),
 			expert.Role,
 			expert.EmploymentType,
 			strconv.FormatInt(expert.GeneralArea, 10),
@@ -206,7 +206,7 @@ func (h *Handler) addExpertRequestsToZip(zipWriter *zip.Writer, tempDir string) 
 
 	// Write header row
 	header := []string{
-		"ID", "ExpertID", "Name", "Designation", "Institution", "IsBahraini", 
+		"ID", "ExpertID", "Name", "Designation", "Affiliation", "IsBahraini", 
 		"IsAvailable", "Rating", "Role", "EmploymentType", "GeneralArea",
 		"SpecializedArea", "IsTrained", "CVPath", "ApprovalDocumentPath",
 		"Phone", "Email", "IsPublished", "Status", "RejectionReason",
@@ -234,10 +234,10 @@ func (h *Handler) addExpertRequestsToZip(zipWriter *zip.Writer, tempDir string) 
 			req.ExpertID,
 			req.Name,
 			req.Designation,
-			req.Institution,
+			req.Affiliation,
 			strconv.FormatBool(req.IsBahraini),
 			strconv.FormatBool(req.IsAvailable),
-			req.Rating,
+			strconv.Itoa(req.Rating),
 			req.Role,
 			req.EmploymentType,
 			strconv.FormatInt(req.GeneralArea, 10),

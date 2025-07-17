@@ -206,8 +206,8 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 		if strings.TrimSpace(app.Type) == "" {
 			validationErrors = append(validationErrors, fmt.Sprintf("application %d: type is required", i+1))
 		} else {
-			// Support both traditional types and explicit QP/IL types
-			validTypes := []string{"validation", "evaluation", "QP", "IL"}
+			// Only support QP and IL types
+			validTypes := []string{"QP", "IL"}
 			valid := false
 			for _, t := range validTypes {
 				if app.Type == t {
@@ -216,7 +216,7 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 				}
 			}
 			if !valid {
-				validationErrors = append(validationErrors, fmt.Sprintf("application %d: type must be one of: validation (QP), evaluation (IL)", i+1))
+				validationErrors = append(validationErrors, fmt.Sprintf("application %d: type must be one of: QP (Qualification Placement), IL (Institutional Listing)", i+1))
 			}
 		}
 		

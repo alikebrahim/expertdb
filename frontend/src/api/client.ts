@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { ApiResponse } from '../types';
 
 // Check if we're in debug mode
@@ -41,12 +41,12 @@ export const createApiClient = (baseURL = '/api') => {
       }
       return config;
     },
-    (error: any) => Promise.reject(error)
+    (error: unknown) => Promise.reject(error)
   );
 
   // Response interceptor for error handling
   client.interceptors.response.use(
-    (response: any) => response,
+    (response) => response,
     (error: AxiosError) => {
       if (isDebugMode) {
         console.error('API Error:', error.message);
@@ -74,7 +74,7 @@ export const createApiClient = (baseURL = '/api') => {
 };
 
 // Default client instance
-export const apiClient = createApiClient();
+export const apiClient = createApiClient('');
 
 // Generic request function for standard API responses
 export const request = async <T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> => {
@@ -115,7 +115,7 @@ export const request = async <T>(config: AxiosRequestConfig): Promise<ApiRespons
         return {
           success: false,
           message: errorMessage,
-          data: null as any,
+          data: null,
         };
       }
       
@@ -124,7 +124,7 @@ export const request = async <T>(config: AxiosRequestConfig): Promise<ApiRespons
         return {
           success: false,
           message: 'Request timed out. Please try again.',
-          data: null as any,
+          data: null,
         };
       }
       
@@ -132,14 +132,14 @@ export const request = async <T>(config: AxiosRequestConfig): Promise<ApiRespons
         return {
           success: false,
           message: 'Network connection error. Please check your connection.',
-          data: null as any,
+          data: null,
         };
       }
       
       return {
         success: false,
         message: axiosError.message,
-        data: null as any,
+        data: null,
       };
     }
     
@@ -151,7 +151,7 @@ export const request = async <T>(config: AxiosRequestConfig): Promise<ApiRespons
     return {
       success: false,
       message: 'An unexpected error occurred',
-      data: null as any,
+      data: null,
     };
   }
 };

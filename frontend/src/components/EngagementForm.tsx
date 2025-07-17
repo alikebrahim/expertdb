@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Engagement } from '../types';
+import { Engagement, EngagementListResponse } from '../types';
 import { engagementApi, expertRequestsApi } from '../services/api';
 import { z } from 'zod';
 import { useFormWithNotifications } from '../hooks/useForm';
@@ -19,7 +19,7 @@ interface EngagementFormProps {
 const engagementFormSchema = z.object({
   title: z.string().min(2, 'Title is required'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
-  engagementType: z.enum(['consultation', 'project', 'workshop', 'training', 'research', 'other']),
+  engagementType: z.enum(['validator', 'evaluator']),
   status: z.enum(['pending', 'confirmed', 'in_progress', 'completed', 'cancelled']),
   startDate: z.string().min(1, 'Start date is required'),
   endDate: z.string().min(1, 'End date is required'),
@@ -39,12 +39,8 @@ const EngagementForm = ({ expertId, engagement, onSuccess, onCancel }: Engagemen
   
   // Define engagement type options
   const engagementTypeOptions = [
-    { value: 'consultation', label: 'Consultation' },
-    { value: 'project', label: 'Project' },
-    { value: 'workshop', label: 'Workshop' },
-    { value: 'training', label: 'Training' },
-    { value: 'research', label: 'Research' },
-    { value: 'other', label: 'Other' }
+    { value: 'validator', label: 'Validator' },
+    { value: 'evaluator', label: 'Evaluator' },
   ];
   
   // Define status options
@@ -63,8 +59,8 @@ const EngagementForm = ({ expertId, engagement, onSuccess, onCancel }: Engagemen
       ? {
           title: engagement.title,
           description: engagement.description,
-          engagementType: engagement.engagementType as any,
-          status: engagement.status as any,
+          engagementType: engagement.engagementType,
+          status: engagement.status,
           startDate: engagement.startDate.split('T')[0],
           endDate: engagement.endDate.split('T')[0],
           contactPerson: engagement.contactPerson,
@@ -76,7 +72,7 @@ const EngagementForm = ({ expertId, engagement, onSuccess, onCancel }: Engagemen
       : {
           title: '',
           description: '',
-          engagementType: 'consultation',
+          engagementType: 'validator',
           status: 'pending',
           startDate: new Date().toISOString().split('T')[0],
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -95,7 +91,7 @@ const EngagementForm = ({ expertId, engagement, onSuccess, onCancel }: Engagemen
         const response = await expertRequestsApi.getExpertRequests();
         if (response.success && response.data) {
           // Handle both array and paginated response formats
-          const requests = Array.isArray(response.data) ? response.data : (response.data as any).requests || [];
+          const requests = Array.isArray(response.data) ? response.data : (response.data as EngagementListResponse).engagements || [];
           const options = requests.map((request: any) => ({
             value: request.id.toString(),
             label: `${request.name || request.organizationName} (${request.institution || request.projectName})`

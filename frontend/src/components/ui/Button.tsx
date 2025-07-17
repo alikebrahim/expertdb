@@ -1,7 +1,7 @@
 import React, { ButtonHTMLAttributes, ReactNode } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'accent' | 'highlight' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   isLoading?: boolean;
@@ -19,14 +19,16 @@ const Button: React.FC<ButtonProps> = ({
   icon,
   ...props
 }) => {
-  const baseClasses = 'font-medium rounded focus:outline-none transition-colors';
+  const baseClasses = 'font-medium rounded focus:outline-none focus:ring-2 transition-all duration-200 ease-in-out';
   
   const variantClasses = {
-    primary: 'bg-primary hover:bg-primary-light text-white',
-    secondary: 'bg-secondary hover:bg-secondary-light text-white',
-    outline: 'border border-primary text-primary hover:bg-primary hover:text-white',
-    ghost: 'text-primary hover:bg-primary hover:bg-opacity-10',
-    danger: 'bg-red-600 hover:bg-red-700 text-white',
+    primary: 'bg-primary hover:bg-primary-light text-white focus:ring-primary focus:ring-opacity-50',
+    secondary: 'bg-secondary hover:bg-secondary-light text-white focus:ring-secondary focus:ring-opacity-50',
+    accent: 'bg-accent hover:bg-accent-light text-white focus:ring-accent focus:ring-opacity-50',
+    highlight: 'bg-highlight hover:bg-highlight-light text-white focus:ring-highlight focus:ring-opacity-50',
+    outline: 'border border-primary text-primary hover:bg-primary hover:text-white focus:ring-primary focus:ring-opacity-50',
+    ghost: 'text-primary hover:bg-primary hover:bg-opacity-10 focus:ring-primary focus:ring-opacity-50',
+    danger: 'bg-accent hover:bg-accent-dark text-white focus:ring-accent focus:ring-opacity-50',
   };
   
   const sizeClasses = {

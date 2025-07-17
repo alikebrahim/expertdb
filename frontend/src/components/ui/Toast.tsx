@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Notification } from '../../contexts/UIContext';
 
 interface ToastProps extends Notification {
@@ -62,34 +62,23 @@ export const Toast: React.FC<ToastProps> = ({ type, message, duration = 5000, on
 
   const { icon, color, closeColor, progressColor } = getIconAndColor();
 
-  // Handle animation and auto-dismiss
-  useEffect(() => {
-    // Start entrance animation
-    const enterTimer = setTimeout(() => {
-      setIsVisible(true);
-    }, 10);
-    
-    // Auto-dismiss after duration
-    let dismissTimer: number;
-    if (duration !== 0) {
-      dismissTimer = setTimeout(() => {
-        handleDismiss();
-      }, duration);
-    }
-    
-    return () => {
-      clearTimeout(enterTimer);
-      if (dismissTimer) clearTimeout(dismissTimer);
-    };
-  }, [duration]);
-
   // Handle dismiss with exit animation
-  const handleDismiss = () => {
+  const handleDismiss = useCallback(() => {
     setIsClosing(true);
     setTimeout(() => {
       onDismiss();
     }, 300); // Match this with the CSS transition duration
-  };
+  }, [onDismiss]);
+
+  // Handle animation and auto-dismiss
+  useEffect(() => {
+    if (duration) {
+      const timer = setTimeout(() => {
+        handleDismiss();
+      }, duration);
+      return () => clearTimeout(timer);
+    }
+  }, [duration, handleDismiss]);
 
   return (
     <div 

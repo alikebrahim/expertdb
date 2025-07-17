@@ -872,9 +872,9 @@ func (s *SQLiteStore) UpdatePhaseApplicationStatus(id int64, status, rejectionNo
 		// Determine engagement type based on application type
 		// Mapping QP (Qualification Placement) to validator and IL (Institutional Listing) to evaluator
 		var engagementType string
-		if app.Type == "validation" || app.Type == "QP" {
+		if app.Type == "QP" {
 			engagementType = "validator"  // QP (Qualification Placement) maps to validator
-		} else if app.Type == "evaluation" || app.Type == "IL" {
+		} else if app.Type == "IL" {
 			engagementType = "evaluator"  // IL (Institutional Listing) maps to evaluator
 		} else {
 			return fmt.Errorf("invalid application type: %s", app.Type)

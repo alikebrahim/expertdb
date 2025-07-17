@@ -3,6 +3,7 @@ import { documentApi } from '../services/api';
 import { Document } from '../types';
 import { useFormWithNotifications } from '../hooks/useForm';
 import { z } from 'zod';
+import { documentUploadSchema } from '../utils/formSchemas';
 import { Form } from './ui/Form';
 import { FormField } from './ui/FormField';
 import { LoadingOverlay } from './ui/LoadingSpinner';
@@ -13,15 +14,6 @@ interface DocumentUploadProps {
 }
 
 // Document types
-const DOCUMENT_TYPES = ['cv', 'certificate', 'research', 'publication', 'other'] as const;
-type DocumentType = typeof DOCUMENT_TYPES[number];
-
-// Document upload schema
-const documentUploadSchema = z.object({
-  documentType: z.enum(DOCUMENT_TYPES),
-  description: z.string().optional(),
-});
-
 type DocumentUploadFormData = z.infer<typeof documentUploadSchema>;
 
 const DocumentUpload = ({ expertId, onSuccess }: DocumentUploadProps) => {
@@ -40,8 +32,8 @@ const DocumentUpload = ({ expertId, onSuccess }: DocumentUploadProps) => {
   const form = useFormWithNotifications<DocumentUploadFormData>({
     schema: documentUploadSchema,
     defaultValues: {
-      documentType: 'other',
-      description: '',
+      type: 'other',
+      title: '',
     }
   });
   
@@ -65,10 +57,10 @@ const DocumentUpload = ({ expertId, onSuccess }: DocumentUploadProps) => {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('expertId', expertId.toString());
-      formData.append('documentType', data.documentType);
+      formData.append('type', data.type);
       
-      if (data.description) {
-        formData.append('description', data.description);
+      if (data.title) {
+        formData.append('title', data.title);
       }
       
       const response = await documentApi.uploadDocument(formData);
@@ -80,7 +72,7 @@ const DocumentUpload = ({ expertId, onSuccess }: DocumentUploadProps) => {
         const document: Document = {
           id: response.data?.id || 0,
           expertId: expertId,
-          documentType: data.documentType as any,
+          type: data.type,
           filePath: '',
           createdAt: new Date().toISOString()
         };
@@ -112,7 +104,7 @@ const DocumentUpload = ({ expertId, onSuccess }: DocumentUploadProps) => {
       >
         <FormField
           form={form}
-          name="documentType"
+          name="type"
           label="Document Type"
           type="select"
           options={documentTypeOptions}
@@ -121,12 +113,11 @@ const DocumentUpload = ({ expertId, onSuccess }: DocumentUploadProps) => {
         
         <FormField
           form={form}
-          name="description"
-          label="Description (Optional)"
-          type="textarea"
-          rows={3}
-          placeholder="Brief description of the document..."
-          hint="Add a short description to help identify the document"
+          name="title"
+          label="Title"
+          type="text"
+          placeholder="Document title..."
+          hint="Enter a descriptive title for the document"
         />
         
         <div className="mb-4">

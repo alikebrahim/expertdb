@@ -97,7 +97,15 @@ const ExpertManagementPage = () => {
   
   const handleEditExpert = async (expert: Expert) => {
     try {
-      const response = await expertsApi.updateExpert(expert.id.toString(), expert as any);
+      // Convert Expert object to FormData
+      const formData = new FormData();
+      Object.entries(expert).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          formData.append(key, value.toString());
+        }
+      });
+      
+      const response = await expertsApi.updateExpert(expert.id.toString(), formData);
       if (response.success) {
         await updateItem(expert, () => Promise.resolve(expert), {
           successMessage: 'Expert updated successfully',

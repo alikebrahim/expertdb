@@ -48,19 +48,44 @@ export const expertSchema = z.object({
   cvFile: z.any().optional(),
 });
 
+// Biography schemas for structured expert profiles
+export const experienceEntrySchema = z.object({
+  start_date: z.string().min(1, 'Start date is required'),
+  end_date: z.string().min(1, 'End date is required'),
+  title: z.string().min(1, 'Title is required'),
+  organization: z.string().min(1, 'Organization is required'),
+  description: z.string().min(1, 'Description is required'),
+});
+
+export const educationEntrySchema = z.object({
+  start_date: z.string().min(1, 'Start date is required'),
+  end_date: z.string().min(1, 'End date is required'),
+  title: z.string().min(1, 'Title is required'),
+  institution: z.string().min(1, 'Institution is required'),
+});
+
+export const biographySchema = z.object({
+  experience: z.array(experienceEntrySchema).min(0, 'Experience entries'),
+  education: z.array(educationEntrySchema).min(0, 'Education entries'),
+}).refine(data => data.experience.length > 0 || data.education.length > 0, {
+  message: 'At least one experience or education entry is required',
+});
+
 // Expert request form schemas - based on backend API requirements
 export const expertRequestSchema = z.object({
   // Personal Information (required)
   name: z.string().min(2, 'Name is required and must be at least 2 characters'),
-  designation: z.string().min(2, 'Designation is required'),
-  institution: z.string().min(2, 'Institution is required'),
+  designation: z.enum(['Prof.', 'Dr.', 'Mr.', 'Ms.', 'Mrs.', 'Miss', 'Eng.'], {
+    errorMap: () => ({ message: 'Please select a valid designation' })
+  }),
+  affiliation: z.string().min(2, 'Affiliation is required'),
   phone: z.string().min(8, 'Valid phone number is required'),
   email: z.string().email('Valid email address is required'),
   
   // Professional Details (required)
   isBahraini: z.boolean(),
   isAvailable: z.boolean(),
-  rating: z.string().min(1, 'Rating is required'),
+  rating: z.number().int().min(1, 'Rating must be at least 1').max(5, 'Rating must not exceed 5'),
   role: z.enum(['evaluator', 'validator', 'evaluator/validator'], {
     errorMap: () => ({ message: 'Role must be evaluator, validator, or evaluator/validator' })
   }),
@@ -73,10 +98,10 @@ export const expertRequestSchema = z.object({
   // Expertise Areas (required)
   generalArea: z.number().min(1, 'General area is required'),
   specializedArea: z.string().min(2, 'Specialized area is required'),
-  skills: z.string().min(3, 'Skills are required'),
+  skills: z.array(z.string().min(1, 'Skill cannot be empty')).min(1, 'At least one skill is required'),
   
   // Biography & Documents (required)
-  biography: z.string().min(10, 'Biography is required').max(1000, 'Biography must not exceed 1000 characters'),
+  biography: biographySchema,
   cv: z.any().refine(file => file instanceof File, 'CV document is required')
     .refine(file => file?.type === 'application/pdf', 'CV must be a PDF file')
     .refine(file => file?.size <= 5 * 1024 * 1024, 'CV file size must be less than 5MB'),

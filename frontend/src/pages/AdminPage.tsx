@@ -5,6 +5,8 @@ import UserTable from '../components/UserTable';
 import UserForm from '../components/UserForm';
 import Button from '../components/ui/Button';
 import ExpertRequestTable from '../components/ExpertRequestTable';
+import { RoleAssignmentForm } from '../components/forms/RoleAssignmentForm';
+import Layout from '../components/layout/Layout';
 
 type ActiveTab = 'users' | 'requests';
 
@@ -20,6 +22,8 @@ const AdminPage = () => {
   const [userPage, setUserPage] = useState(1);
   const [userTotalPages, setUserTotalPages] = useState(1);
   const [userLimit] = useState(10);
+  const [showRoleAssignmentForm, setShowRoleAssignmentForm] = useState(false);
+  const [userForRoleAssignment, setUserForRoleAssignment] = useState<User | null>(null);
   
   // Expert requests state
   const [requests, setRequests] = useState<ExpertRequest[]>([]);
@@ -38,9 +42,8 @@ const AdminPage = () => {
       const response = await usersApi.getUsers(userLimit, (userPage - 1) * userLimit);
       
       if (response.success && response.data) {
-        const data = response.data as any;
-        setUsers(data.users || []);
-        setUserTotalPages(data.pagination?.totalPages || 1);
+        setUsers(response.data.data || []);
+        setUserTotalPages(response.data.totalPages || 1);
       } else {
         // Check if this is likely a "no users" situation or a real error
         if (response.message?.includes("not found") || 
@@ -74,9 +77,10 @@ const AdminPage = () => {
       const response = await expertRequestsApi.getExpertRequests(requestLimit, (requestPage - 1) * requestLimit);
       
       if (response.success && response.data) {
-        const data = response.data as any;
-        setRequests(data.requests || []);
-        setRequestTotalPages(data.pagination?.totalPages || 1);
+        // Handle case where response.data is an array directly
+        const requests = Array.isArray(response.data) ? response.data : [];
+        setRequests(requests);
+        setRequestTotalPages(1); // Since it's a simple array, no pagination
       } else {
         // Check if this is likely a "no requests" situation or a real error
         if (response.message?.includes("not found") || 
@@ -147,13 +151,31 @@ const AdminPage = () => {
   const handleUserFormCancel = () => {
     setShowUserForm(false);
   };
+
+  // Role assignment handlers
+  const handleManageRoles = (user: User) => {
+    setUserForRoleAssignment(user);
+    setShowRoleAssignmentForm(true);
+  };
+
+  const handleRoleAssignmentSuccess = () => {
+    setShowRoleAssignmentForm(false);
+    setUserForRoleAssignment(null);
+    // No need to refresh users list as assignments don't change user data
+  };
+
+  const handleRoleAssignmentCancel = () => {
+    setShowRoleAssignmentForm(false);
+    setUserForRoleAssignment(null);
+  };
   
   // Request update function no longer needed with ExpertRequestTable component
   
   // Request actions no longer needed with ExpertRequestTable component
   
   return (
-    <div>
+    <Layout>
+      <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-primary">Admin Panel</h1>
         <p className="text-neutral-600">
@@ -218,12 +240,26 @@ const AdminPage = () => {
               isLoading={isLoadingUsers}
               error={userError}
               onEditUser={handleEditUser}
+              onManageRoles={handleManageRoles}
               onRefresh={fetchUsers}
               pagination={{
                 currentPage: userPage,
                 totalPages: userTotalPages,
                 onPageChange: handleUserPageChange
               }}
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* Role Assignment Modal */}
+      {showRoleAssignmentForm && userForRoleAssignment && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <RoleAssignmentForm
+              user={userForRoleAssignment}
+              onSuccess={handleRoleAssignmentSuccess}
+              onCancel={handleRoleAssignmentCancel}
             />
           </div>
         </div>
@@ -248,7 +284,8 @@ const AdminPage = () => {
           />
         </div>
       )}
-    </div>
+      </div>
+    </Layout>
   );
 };
 

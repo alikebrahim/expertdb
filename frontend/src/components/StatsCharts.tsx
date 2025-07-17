@@ -3,7 +3,7 @@ import {
   CartesianGrid, Tooltip, Legend, LineChart, Line, 
   ResponsiveContainer
 } from 'recharts';
-import { NationalityStats, GrowthStats, StatItem } from '../types';
+import { AreaStats, GrowthStats, EngagementStats, StatItem } from '../types';
 
 // Custom colors
 const COLORS = ['#003366', '#0055a4', '#e63946', '#457b9d', '#1d3557', '#a8dadc'];
@@ -62,7 +62,7 @@ export const NationalityChart = ({ data, isLoading }: NationalityChartProps) => 
         </PieChart>
       </ResponsiveContainer>
       <div className="text-center mt-2 text-sm text-neutral-500">
-        Overall Bahraini percentage: {(data as any).percentage}%
+        Overall Bahraini percentage: {data.length > 0 ? (data[0] as {percentage: number}).percentage : 0}%
       </div>
     </div>
   );

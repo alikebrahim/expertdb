@@ -33,14 +33,14 @@ func (s *SQLiteStore) CreateExpertRequest(req *domain.ExpertRequest) (int64, err
 		designation = "" // Not NULL but empty string
 	}
 	
-	institution := req.Institution
-	if institution == "" {
-		institution = "" // Not NULL but empty string
+	affiliation := req.Affiliation
+	if affiliation == "" {
+		affiliation = "" // Not NULL but empty string
 	}
 	
 	// Rating can be NULL
 	var rating interface{} = nil
-	if req.Rating != "" {
+	if req.Rating != 0 {
 		rating = req.Rating
 	}
 	
@@ -70,7 +70,7 @@ func (s *SQLiteStore) CreateExpertRequest(req *domain.ExpertRequest) (int64, err
 	
 	result, err := s.db.Exec(
 		query,
-		req.Name, designation, institution,
+		req.Name, designation, affiliation,
 		req.IsBahraini, req.IsAvailable, rating,
 		req.Role, req.EmploymentType, req.GeneralArea,
 		specializedArea, req.IsTrained, cvPath,
@@ -113,7 +113,7 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) 
 	var createdBy sql.NullInt64
 	
 	err := s.db.QueryRow(query, id).Scan(
-		&req.ID, &expertID, &req.Name, &req.Designation, &req.Institution, 
+		&req.ID, &expertID, &req.Name, &req.Designation, &req.Affiliation, 
 		&req.IsBahraini, &req.IsAvailable, &req.Rating, &req.Role, 
 		&req.EmploymentType, &req.GeneralArea, &req.SpecializedArea, 
 		&req.IsTrained, &req.CVPath, &req.ApprovalDocumentPath, &req.Phone, &req.Email, 
@@ -202,7 +202,7 @@ func (s *SQLiteStore) ListExpertRequests(status string, limit, offset int) ([]*d
 		var createdBy sql.NullInt64
 		
 		err := rows.Scan(
-			&req.ID, &expertID, &req.Name, &req.Designation, &req.Institution, 
+			&req.ID, &expertID, &req.Name, &req.Designation, &req.Affiliation, 
 			&req.IsBahraini, &req.IsAvailable, &req.Rating, &req.Role, 
 			&req.EmploymentType, &req.GeneralArea, &req.SpecializedArea, 
 			&req.IsTrained, &req.CVPath, &req.ApprovalDocumentPath, &req.Phone, &req.Email, 
@@ -285,7 +285,7 @@ func (s *SQLiteStore) UpdateExpertRequestStatus(id int64, status, rejectionReaso
 			CVPath:              req.CVPath,
 			ApprovalDocumentPath: req.ApprovalDocumentPath,
 			Designation:         req.Designation,
-			Institution:         req.Institution,
+			Affiliation:         req.Affiliation,
 			IsBahraini:          req.IsBahraini,
 			IsAvailable:         req.IsAvailable,
 			Rating:              req.Rating,
@@ -338,7 +338,7 @@ func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
 	// Handle nullable fields
 	var rating, specializedArea, cvPath, approvalDocPath, biography, rejectionReason, expertID interface{} = nil, nil, nil, nil, nil, nil, nil
 	
-	if req.Rating != "" {
+	if req.Rating != 0 {
 		rating = req.Rating
 	}
 	if req.SpecializedArea != "" {
@@ -378,7 +378,7 @@ func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
 	// Execute update
 	result, err := s.db.Exec(
 		query,
-		req.Name, req.Designation, req.Institution, req.IsBahraini,
+		req.Name, req.Designation, req.Affiliation, req.IsBahraini,
 		req.IsAvailable, rating, req.Role, req.EmploymentType,
 		req.GeneralArea, specializedArea, req.IsTrained,
 		cvPath, approvalDocPath, req.Phone, req.Email, req.IsPublished,
@@ -491,7 +491,7 @@ func (s *SQLiteStore) BatchApproveExpertRequests(requestIDs []int64, approvalDoc
 		`
 		
 		err = tx.QueryRow(query, id).Scan(
-			&req.ID, &req.ExpertID, &req.Name, &req.Designation, &req.Institution, 
+			&req.ID, &req.ExpertID, &req.Name, &req.Designation, &req.Affiliation, 
 			&req.IsBahraini, &req.IsAvailable, &req.Rating, &req.Role, 
 			&req.EmploymentType, &req.GeneralArea, &req.SpecializedArea, 
 			&req.IsTrained, &req.CVPath, &req.Phone, &req.Email, 
@@ -513,7 +513,7 @@ func (s *SQLiteStore) BatchApproveExpertRequests(requestIDs []int64, approvalDoc
 			CVPath:              req.CVPath,
 			ApprovalDocumentPath: approvalDocumentPath,
 			Designation:         req.Designation,
-			Institution:         req.Institution,
+			Affiliation:         req.Affiliation,
 			IsBahraini:          req.IsBahraini,
 			IsAvailable:         req.IsAvailable,
 			Rating:              req.Rating,
@@ -566,7 +566,7 @@ func (s *SQLiteStore) BatchApproveExpertRequests(requestIDs []int64, approvalDoc
 		}
 		
 		result, err = expertStmt.Exec(
-			expert.ExpertID, expert.Name, expert.Designation, expert.Institution,
+			expert.ExpertID, expert.Name, expert.Designation, expert.Affiliation,
 			expert.IsBahraini, expert.IsAvailable, expert.Rating, expert.Role,
 			expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
 			expert.IsTrained, expert.CVPath, expert.ApprovalDocumentPath,

@@ -60,17 +60,17 @@ const UserForm = ({ user, onSuccess, onCancel }: UserFormProps) => {
       }
       
       // Remove confirmPassword before sending to API
-      const { confirmPassword, ...apiData } = data;
+      // const confirmPassword = data.confirmPassword;
       
       let response;
       
       if (isEditMode && user) {
-        response = await usersApi.updateUser(user.id.toString(), apiData);
+        response = await usersApi.updateUser(user.id.toString(), data);
       } else {
         if (!data.password) {
           throw new Error('Password is required for new users');
         }
-        response = await usersApi.createUser(apiData);
+        response = await usersApi.createUser(data);
       }
       
       if (response.success) {

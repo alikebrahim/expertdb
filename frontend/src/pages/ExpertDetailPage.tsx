@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import * as expertsApi from '../api/experts';
+import { expertsApi } from '../services/api';
 import * as documentsApi from '../api/documents';
 import { Expert, Document } from '../types';
 import Layout from '../components/layout/Layout';

@@ -116,7 +116,7 @@ func (s *Server) registerRoutes() {
 	
 	// Register routes with middleware
 	// Create handlers
-	expertHandler := handlers.NewExpertHandler(s.store)
+	expertHandler := handlers.NewExpertHandler(s.store, s.documentService)
 	expertRequestHandler := handlers.NewExpertRequestHandler(s.store, s.documentService)
 	documentHandler := documents.NewHandler(s.store, s.documentService)
 	engagementHandler := engagements.NewHandler(s.store)
@@ -125,6 +125,7 @@ func (s *Server) registerRoutes() {
 	userHandler := handlers.NewUserHandler(s.store)
 	authHandler := handlers.NewAuthHandler(s.store)
 	phaseHandler := phase.NewHandler(s.store)
+	roleAssignmentHandler := handlers.NewRoleAssignmentHandler(s.store)
 	
 	// Define a generic error handler wrapper for converting HandlerFunc to http.HandlerFunc
 	errorHandler := func(h auth.HandlerFunc) http.HandlerFunc {
@@ -298,6 +299,28 @@ func (s *Server) registerRoutes() {
 		return backupHandler.HandleBackupCSV(w, r)
 	}))))
 	
+	// Role assignment endpoints (admin access only)
+	s.mux.Handle("POST /api/users/{id}/planner-assignments", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		roleAssignmentHandler.AssignPlannerApplications(w, r)
+		return nil
+	}))))
+	s.mux.Handle("POST /api/users/{id}/manager-assignments", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		roleAssignmentHandler.AssignManagerApplications(w, r)
+		return nil
+	}))))
+	s.mux.Handle("DELETE /api/users/{id}/planner-assignments", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		roleAssignmentHandler.RemovePlannerAssignments(w, r)
+		return nil
+	}))))
+	s.mux.Handle("DELETE /api/users/{id}/manager-assignments", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		roleAssignmentHandler.RemoveManagerAssignments(w, r)
+		return nil
+	}))))
+	s.mux.Handle("GET /api/users/{id}/assignments", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+		roleAssignmentHandler.GetUserAssignments(w, r)
+		return nil
+	}))))
+	
 	// Phase planning endpoints
 	// Phase listing - admin access
 	s.mux.Handle("GET /api/phases", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
@@ -319,8 +342,8 @@ func (s *Server) registerRoutes() {
 		return phaseHandler.HandleUpdatePhase(w, r)
 	}))))
 	
-	// Update application experts - planner access
-	s.mux.Handle("PUT /api/phases/{id}/applications/{app_id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RolePlanner, func(w http.ResponseWriter, r *http.Request) error {
+	// Update application experts - planner access (context-aware)
+	s.mux.Handle("PUT /api/phases/{id}/applications/{app_id}", corsAndLogMiddleware(errorHandler(auth.RequirePlannerForApplication(s.store, func(w http.ResponseWriter, r *http.Request) error {
 		return phaseHandler.HandleUpdateApplicationExperts(w, r)
 	}))))
 	
@@ -355,7 +378,7 @@ func (s *Server) registerRoutes() {
 		return userHandler.HandleGetUser(w, r)
 	}))))
 	
-	// Create user - super user access
+	// Create user - super user and admin access
 	s.mux.Handle("POST /api/users", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
 		return userHandler.HandleCreateUser(w, r)
 	}))))
@@ -365,8 +388,8 @@ func (s *Server) registerRoutes() {
 		return userHandler.HandleUpdateUser(w, r)
 	}))))
 	
-	// Delete user - super user access
-	s.mux.Handle("DELETE /api/users/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleSuperUser, func(w http.ResponseWriter, r *http.Request) error {
+	// Delete user - super user and admin access
+	s.mux.Handle("DELETE /api/users/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
 		return userHandler.HandleDeleteUser(w, r)
 	}))))
 }

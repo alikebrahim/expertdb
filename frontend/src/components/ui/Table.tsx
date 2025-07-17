@@ -76,16 +76,16 @@ interface TableComponent extends React.FC<TableProps> {
 }
 
 const Table = ({ children, className = '' }: TableProps) => (
-  <table className={`min-w-full divide-y divide-gray-200 ${className}`}>
+  <table className={`divide-y divide-gray-200 ${className}`}>
     {children}
   </table>
 );
 
 // Attach sub-components to the main Table component
-(Table as any).Header = TableHeader;
-(Table as any).Body = TableBody;
-(Table as any).Row = TableRow;
-(Table as any).Cell = TableCell;
-(Table as any).HeaderCell = TableHeaderCell;
+(Table as TableComponent).Header = TableHeader;
+(Table as TableComponent).Body = TableBody;
+(Table as TableComponent).Row = TableRow;
+(Table as TableComponent).Cell = TableCell;
+(Table as TableComponent).HeaderCell = TableHeaderCell;
 
 export default Table as TableComponent;

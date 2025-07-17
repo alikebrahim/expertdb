@@ -11,6 +11,12 @@ import StatsPage from './pages/StatsPage';
 import ExpertDetailPage from './pages/ExpertDetailPage';
 import ExpertManagementPage from './pages/ExpertManagementPage';
 import EngagementManagementPage from './pages/EngagementManagementPage';
+import PhasePlanningPage from './pages/PhasePlanningPage';
+import PhaseListPage from './pages/PhaseListPage';
+import PhaseDetailPage from './pages/PhaseDetailPage';
+import CreatePhasePage from './pages/CreatePhasePage';
+import AreaManagementPage from './pages/AreaManagementPage';
+import DataManagementPage from './pages/DataManagementPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -101,6 +107,51 @@ function App() {
               element={
                 <ProtectedRoute requiredRole="admin">
                   <EngagementManagementPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/phases" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <PhaseListPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/phases/create" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <CreatePhasePage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/phases/:id" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <PhaseDetailPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/areas"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AreaManagementPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/data"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <DataManagementPage />
                 </ProtectedRoute>
               } 
             />

@@ -52,6 +52,12 @@ export interface Expert {
   affiliation?: string; // Alias for institution
 }
 
+// Expert Area Types
+export interface ExpertArea {
+  id: number;
+  name: string;
+}
+
 // Expert Request Types
 export interface ExpertRequest {
   id: number;
@@ -87,7 +93,9 @@ export interface ExpertRequest {
 export interface Document {
   id: number;
   expertId: number;
-  documentType: 'cv' | 'certificate' | 'publication' | 'research' | 'other';
+  documentType?: 'cv' | 'certificate' | 'publication' | 'research' | 'other';
+  type?: 'cv' | 'other' | 'contract' | 'report'; // For schema compatibility
+  title?: string; // For schema compatibility
   filePath: string;
   originalFilename?: string;
   filename?: string; // For compatibility
@@ -168,8 +176,8 @@ export interface Phase {
   id: number;
   phaseId: string;
   title: string;
-  assignedSchedulerId: number;
-  schedulerName: string;
+  assignedPlannerId: number;
+  plannerName: string;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -183,7 +191,7 @@ export interface Engagement {
   expertName: string;
   title: string;
   description: string;
-  engagementType: 'consulting' | 'consultation' | 'training' | 'mentoring' | 'research' | 'project' | 'workshop' | 'other';
+  engagementType: 'validator' | 'evaluator';
   startDate: string;
   endDate: string;
   projectName: string;
@@ -246,7 +254,7 @@ export interface PhaseListResponse {
   pagination: PaginationInfo;
   filters: {
     status?: string;
-    schedulerId?: number;
+    plannerId?: number;
   };
 }
 

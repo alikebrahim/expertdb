@@ -2,6 +2,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -15,21 +16,49 @@ var (
 	ErrForbidden          = errors.New("access forbidden")
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrValidation         = errors.New("validation error")
+	ErrBadRequest         = errors.New("bad request")
+	ErrInternalServer     = errors.New("internal server error")
 )
 
+// Biography structures for structured expert profiles
+type Biography struct {
+	Experience []ExperienceEntry `json:"experience"` // Professional experience entries
+	Education  []EducationEntry  `json:"education"`  // Educational background entries
+}
+
+type ExperienceEntry struct {
+	StartDate    string `json:"start_date"`    // Start date of experience
+	EndDate      string `json:"end_date"`      // End date of experience (can be "Present")
+	Title        string `json:"title"`         // Job title or position
+	Organization string `json:"organization"`  // Organization or company name
+	Description  string `json:"description"`   // Description of responsibilities and achievements
+}
+
+type EducationEntry struct {
+	StartDate   string `json:"start_date"`   // Start date of education
+	EndDate     string `json:"end_date"`     // End date of education
+	Title       string `json:"title"`        // Degree, qualification, or program title
+	Institution string `json:"institution"`  // Educational institution name
+}
+
 type CreateExpertRequest struct {
-	Name           string   `json:"name"`           // Full name of the expert
-	Affiliation    string   `json:"affiliation"`    // Organization or institution the expert is affiliated with
-	PrimaryContact string   `json:"primaryContact"` // Main contact information (email or phone)
-	ContactType    string   `json:"contactType"`    // Type of contact information: "email" or "phone"
-	Skills         []string `json:"skills"`         // List of expert's skills and competencies
-	Role           string   `json:"role"`           // Expert's role (evaluator, validator, consultant, etc.)
-	EmploymentType string   `json:"employmentType"` // Type of employment (academic, employer, freelance, etc.)
-	GeneralArea    int64    `json:"generalArea"`    // ID referencing expert_areas table
-	CVPath         string   `json:"cvPath"`         // Path to the expert's CV file
-	Biography      string   `json:"biography"`      // Short biography or professional summary
-	IsBahraini     bool     `json:"isBahraini"`     // Flag indicating if expert is Bahraini citizen
-	Availability   string   `json:"availability"`   // Availability status: "yes"/"full-time" means active
+	Name            string     `json:"name"`            // Full name of the expert
+	Designation     string     `json:"designation"`     // Professional title: Prof., Dr., Mr., Ms., Mrs., Miss, Eng.
+	Affiliation     string     `json:"affiliation"`     // Organization or institution the expert is affiliated with
+	Phone           string     `json:"phone"`           // Contact phone number
+	Email           string     `json:"email"`           // Contact email address
+	Skills          []string   `json:"skills"`          // List of expert's skills and competencies
+	Role            string     `json:"role"`            // Expert's role: "evaluator", "validator", or "evaluator/validator"
+	EmploymentType  string     `json:"employmentType"`  // Type of employment: "academic" or "employer"
+	GeneralArea     int64      `json:"generalArea"`     // ID referencing expert_areas table
+	SpecializedArea string     `json:"specializedArea"` // Specific field of specialization
+	CVPath          string     `json:"cvPath"`          // Path to the expert's CV file
+	Biography       Biography  `json:"biography"`       // Structured biography with experience and education
+	IsBahraini      bool       `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
+	IsAvailable     bool       `json:"isAvailable"`     // Current availability status for assignments
+	Rating          int        `json:"rating"`          // Performance rating (1-5 scale)
+	IsTrained       bool       `json:"isTrained"`       // Indicates if expert has completed required training
+	IsPublished     bool       `json:"isPublished"`     // Indicates if expert has published work
 }
 
 type CreateExpertResponse struct {
@@ -46,13 +75,13 @@ type Expert struct {
 	ExpertID            string    `json:"expertId,omitempty"` // Business identifier
 	Name                string    `json:"name"`            // Full name of the expert
 	Designation         string    `json:"designation"`     // Professional title or position
-	Institution         string    `json:"institution"`     // Organization or institution affiliation
+	Affiliation         string    `json:"affiliation"`     // Organization or institution affiliation
 	IsBahraini          bool      `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
 	Nationality         string    `json:"nationality"`     // Expert's nationality 
 	IsAvailable         bool      `json:"isAvailable"`     // Current availability status for assignments
-	Rating              string    `json:"rating"`          // Performance rating (if provided)
-	Role                string    `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
-	EmploymentType      string    `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
+	Rating              int       `json:"rating"`          // Performance rating (1-5 scale)
+	Role                string    `json:"role"`            // Expert's role: "evaluator", "validator", or "evaluator/validator"
+	EmploymentType      string    `json:"employmentType"`  // Type of employment: "academic" or "employer"
 	GeneralArea         int64     `json:"generalArea"`     // ID referencing expert_areas table 
 	GeneralAreaName     string    `json:"generalAreaName"` // Name of the general area (from expert_areas table)
 	SpecializedArea     string    `json:"specializedArea"` // Specific field of specialization
@@ -78,31 +107,31 @@ type Area struct {
 
 // ExpertRequest represents a request to add a new expert
 type ExpertRequest struct {
-	ID                 int64     `json:"id"`              // Primary key identifier
-	ExpertID           string    `json:"expertId,omitempty"` // Business identifier (assigned after approval)
-	Name               string    `json:"name"`            // Full name of the expert
-	Designation        string    `json:"designation"`     // Professional title or position
-	Institution        string    `json:"institution"`     // Organization or institution affiliation
-	IsBahraini         bool      `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
-	IsAvailable        bool      `json:"isAvailable"`     // Current availability status for assignments
-	Rating             string    `json:"rating"`          // Performance rating (if provided)
-	Role               string    `json:"role"`            // Expert's role (evaluator, validator, consultant, etc.)
-	EmploymentType     string    `json:"employmentType"`  // Type of employment (academic, employer, freelance, etc.)
-	GeneralArea        int64     `json:"generalArea"`     // ID referencing expert_areas table
-	SpecializedArea    string    `json:"specializedArea"` // Specific field of specialization
-	IsTrained          bool      `json:"isTrained"`       // Indicates if expert has completed required training
-	CVPath             string    `json:"cvPath"`          // Path to the expert's CV file
+	ID                   int64     `json:"id"`                   // Primary key identifier
+	ExpertID             string    `json:"expertId,omitempty"`   // Business identifier (assigned after approval)
+	Name                 string    `json:"name"`                 // Full name of the expert
+	Designation          string    `json:"designation"`          // Professional title: Prof., Dr., Mr., Ms., Mrs., Miss, Eng.
+	Affiliation          string    `json:"affiliation"`          // Organization or institution the expert is affiliated with
+	Phone                string    `json:"phone"`                // Contact phone number
+	Email                string    `json:"email"`                // Contact email address
+	IsBahraini           bool      `json:"isBahraini"`           // Flag indicating if expert is Bahraini citizen
+	IsAvailable          bool      `json:"isAvailable"`          // Current availability status for assignments
+	Rating               int       `json:"rating"`               // Performance rating (1-5 scale)
+	Role                 string    `json:"role"`                 // Expert's role: "evaluator", "validator", or "evaluator/validator"
+	EmploymentType       string    `json:"employmentType"`       // Type of employment: "academic" or "employer"
+	GeneralArea          int64     `json:"generalArea"`          // ID referencing expert_areas table
+	SpecializedArea      string    `json:"specializedArea"`      // Specific field of specialization
+	IsTrained            bool      `json:"isTrained"`            // Indicates if expert has completed required training
+	IsPublished          bool      `json:"isPublished"`          // Indicates if expert profile should be publicly visible
+	CVPath               string    `json:"cvPath"`               // Path to the expert's CV file
 	ApprovalDocumentPath string    `json:"approvalDocumentPath,omitempty"` // Path to the approval document
-	Phone              string    `json:"phone"`           // Contact phone number
-	Email              string    `json:"email"`           // Contact email address
-	IsPublished        bool      `json:"isPublished"`     // Indicates if expert profile should be publicly visible
-	Status             string    `json:"status"`          // Request status: "pending", "approved", "rejected"
-	RejectionReason    string    `json:"rejectionReason,omitempty"` // Reason for rejection if status is "rejected"
-	Biography          string    `json:"biography"`       // Professional summary or background
-	CreatedAt          time.Time `json:"createdAt"`       // Timestamp when request was submitted
-	ReviewedAt         time.Time `json:"reviewedAt,omitempty"` // Timestamp when request was reviewed
-	ReviewedBy         int64     `json:"reviewedBy,omitempty"` // ID of admin who reviewed the request
-	CreatedBy          int64     `json:"createdBy,omitempty"` // ID of user who created the request
+	Biography            string    `json:"biography"`            // Structured biography as JSON string
+	Status               string    `json:"status"`               // Request status: "pending", "approved", "rejected"
+	RejectionReason      string    `json:"rejectionReason,omitempty"` // Reason for rejection if status is "rejected"
+	CreatedAt            time.Time `json:"createdAt"`            // Timestamp when request was submitted
+	ReviewedAt           time.Time `json:"reviewedAt,omitempty"` // Timestamp when request was reviewed
+	ReviewedBy           int64     `json:"reviewedBy,omitempty"` // ID of admin who reviewed the request
+	CreatedBy            int64     `json:"createdBy,omitempty"`  // ID of user who created the request
 }
 
 // User represents a system user
@@ -203,7 +232,7 @@ type Phase struct {
 type PhaseApplication struct {
 	ID              int64     `json:"id"`              // Primary key identifier
 	PhaseID         int64     `json:"phaseId"`         // Foreign key reference to phases table
-	Type            string    `json:"type"`            // Type: "validation" or "evaluation"
+	Type            string    `json:"type"`            // Type: "QP" (Qualification Placement) or "IL" (Institutional Listing)
 	InstitutionName string    `json:"institutionName"` // Name of the institution
 	QualificationName string  `json:"qualificationName"` // Name of the qualification being reviewed
 	Expert1         int64     `json:"expert1"`         // First expert ID
@@ -249,32 +278,32 @@ type CreateUserResponse struct {
 
 // NewExpert creates a new Expert from a CreateExpertRequest
 func NewExpert(req CreateExpertRequest) *Expert {
-	var email, phone string
-	if req.ContactType == "email" {
-		email = req.PrimaryContact
-	} else {
-		email = ""
-	}
-
-	if req.ContactType == "phone" {
-		phone = req.PrimaryContact
-	} else {
-		phone = ""
+	// Convert Biography struct to JSON string for storage
+	biographyJSON := ""
+	if len(req.Biography.Experience) > 0 || len(req.Biography.Education) > 0 {
+		if data, err := json.Marshal(req.Biography); err == nil {
+			biographyJSON = string(data)
+		}
 	}
 
 	return &Expert{
-		Name:           req.Name,
-		Institution:    req.Affiliation,
-		IsAvailable:    req.Availability == "yes" || req.Availability == "full-time",
-		Email:          email,
-		Phone:          phone,
-		Role:           req.Role,
-		EmploymentType: req.EmploymentType,
-		GeneralArea:    req.GeneralArea,    // Now expecting an int64 ID referencing expert_areas
-		CVPath:         req.CVPath,
-		Biography:      req.Biography,
-		IsBahraini:     req.IsBahraini,
-		CreatedAt:      time.Now().UTC(),
+		Name:            req.Name,
+		Designation:     req.Designation,
+		Affiliation:     req.Affiliation,
+		IsAvailable:     req.IsAvailable,
+		Email:           req.Email,
+		Phone:           req.Phone,
+		Role:            req.Role,
+		EmploymentType:  req.EmploymentType,
+		GeneralArea:     req.GeneralArea,
+		SpecializedArea: req.SpecializedArea,
+		CVPath:          req.CVPath,
+		Biography:       biographyJSON,
+		IsBahraini:      req.IsBahraini,
+		IsTrained:       req.IsTrained,
+		IsPublished:     req.IsPublished,
+		Rating:          req.Rating,
+		CreatedAt:       time.Now().UTC(),
 	}
 }
 
@@ -285,56 +314,106 @@ func ValidateCreateExpertRequest(req *CreateExpertRequest) error {
 		return errors.New("name is required")
 	}
 
-	if strings.TrimSpace(req.PrimaryContact) == "" {
-		return errors.New("primary contact is required")
+	if strings.TrimSpace(req.Designation) == "" {
+		return errors.New("designation is required")
 	}
 
-	// Validate contact based on type
-	if req.ContactType == "email" {
-		emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
-		if !emailRegex.MatchString(req.PrimaryContact) {
-			return errors.New("invalid email format")
-		}
-	} else if req.ContactType == "phone" {
-		phoneRegex := regexp.MustCompile(`^\+?[0-9]{10,15}$`)
-		if !phoneRegex.MatchString(req.PrimaryContact) {
-			return errors.New("invalid phone number format")
-		}
+	if strings.TrimSpace(req.Affiliation) == "" {
+		return errors.New("affiliation is required")
 	}
 
-	// Set default contact type if not provided
-	if req.ContactType == "" {
-		req.ContactType = "email"
+	if strings.TrimSpace(req.Phone) == "" {
+		return errors.New("phone is required")
 	}
 
-	// Validate new required fields
-	if strings.TrimSpace(req.Role) == "" {
-		return errors.New("role is required")
+	if strings.TrimSpace(req.Email) == "" {
+		return errors.New("email is required")
 	}
 
-	if strings.TrimSpace(req.EmploymentType) == "" {
-		return errors.New("employment type is required")
+	if strings.TrimSpace(req.SpecializedArea) == "" {
+		return errors.New("specialized area is required")
 	}
 
-	if req.GeneralArea == 0 {
-		return errors.New("general area is required")
+	// Validate email format
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+	if !emailRegex.MatchString(req.Email) {
+		return errors.New("invalid email format")
+	}
+
+	// Validate phone format
+	phoneRegex := regexp.MustCompile(`^\+?[0-9]{10,15}$`)
+	if !phoneRegex.MatchString(req.Phone) {
+		return errors.New("invalid phone number format")
+	}
+
+	// Validate designation
+	validDesignations := []string{"Prof.", "Dr.", "Mr.", "Ms.", "Mrs.", "Miss", "Eng."}
+	if !containsString(validDesignations, req.Designation) {
+		return errors.New("designation must be one of: Prof., Dr., Mr., Ms., Mrs., Miss, Eng.")
 	}
 
 	// Validate role values
+	if strings.TrimSpace(req.Role) == "" {
+		return errors.New("role is required")
+	}
 	validRoles := []string{"evaluator", "validator", "evaluator/validator"}
 	if !containsString(validRoles, strings.ToLower(req.Role)) {
 		return errors.New("role must be one of: evaluator, validator, evaluator/validator")
 	}
 
 	// Validate employment type values
+	if strings.TrimSpace(req.EmploymentType) == "" {
+		return errors.New("employment type is required")
+	}
 	validEmploymentTypes := []string{"academic", "employer"}
 	if !containsString(validEmploymentTypes, strings.ToLower(req.EmploymentType)) {
 		return errors.New("employment type must be one of: academic, employer")
 	}
 
-	// Limit biography length
-	if len(req.Biography) > 1000 {
-		return errors.New("biography exceeds maximum length of 1000 characters")
+	// Validate general area
+	if req.GeneralArea == 0 {
+		return errors.New("general area is required")
+	}
+
+	// Validate rating (1-5 scale)
+	if req.Rating < 1 || req.Rating > 5 {
+		return errors.New("rating must be between 1 and 5")
+	}
+
+	// Validate skills
+	if len(req.Skills) == 0 {
+		return errors.New("at least one skill is required")
+	}
+
+	// Validate biography structure
+	if len(req.Biography.Experience) == 0 && len(req.Biography.Education) == 0 {
+		return errors.New("biography must contain at least one experience or education entry")
+	}
+
+	// Validate experience entries
+	for i, exp := range req.Biography.Experience {
+		if strings.TrimSpace(exp.Title) == "" {
+			return errors.New("experience title is required for entry " + string(rune(i+1)))
+		}
+		if strings.TrimSpace(exp.Organization) == "" {
+			return errors.New("experience organization is required for entry " + string(rune(i+1)))
+		}
+		if strings.TrimSpace(exp.StartDate) == "" {
+			return errors.New("experience start date is required for entry " + string(rune(i+1)))
+		}
+	}
+
+	// Validate education entries
+	for i, edu := range req.Biography.Education {
+		if strings.TrimSpace(edu.Title) == "" {
+			return errors.New("education title is required for entry " + string(rune(i+1)))
+		}
+		if strings.TrimSpace(edu.Institution) == "" {
+			return errors.New("education institution is required for entry " + string(rune(i+1)))
+		}
+		if strings.TrimSpace(edu.StartDate) == "" {
+			return errors.New("education start date is required for entry " + string(rune(i+1)))
+		}
 	}
 
 	return nil

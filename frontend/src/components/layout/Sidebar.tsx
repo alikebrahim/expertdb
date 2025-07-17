@@ -84,6 +84,38 @@ const Sidebar = () => {
         </svg>
       )
     },
+    { 
+      to: '/phases', 
+      label: 'Phase Planning', 
+      roles: ['admin'],
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+          <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+        </svg>
+      )
+    },
+    {
+      to: '/areas',
+      label: 'Area Management',
+      roles: ['admin'],
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+          <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+        </svg>
+      )
+    },
+    {
+      to: '/data',
+      label: 'Data Management',
+      roles: ['admin'],
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L6.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+        </svg>
+      )
+    },
   ];
 
   const filteredNavItems = navItems.filter(
@@ -92,26 +124,26 @@ const Sidebar = () => {
 
   if (!isSidebarOpen) {
     return (
-      <aside className="bg-neutral-100 w-16 min-h-screen p-4 transition-all duration-300">
+      <aside className="bg-secondary w-16 min-h-screen p-4 transition-all duration-300 border-r border-secondary-dark">
         <div className="mb-6 flex justify-center">
           <img 
             src="/Icon Logo - Color.svg" 
             alt="BQA Icon" 
-            className="h-8"
+            className="h-8 filter brightness-0 invert"
           />
         </div>
         
         <nav>
-          <ul className="space-y-6 flex flex-col items-center">
+          <ul className="space-y-4 flex flex-col items-center">
             {filteredNavItems.map((item) => (
               <li key={item.to} className="w-full">
                 <NavLink
                   to={item.to}
                   className={({ isActive }) => 
-                    `flex justify-center p-2 rounded transition-colors ${
+                    `flex justify-center p-3 rounded-lg transition-all duration-200 ${
                       isActive
-                        ? 'bg-primary text-white'
-                        : 'text-primary hover:bg-primary hover:bg-opacity-10'
+                        ? 'bg-primary text-white shadow-lg'
+                        : 'text-white hover:bg-secondary-light hover:shadow-md'
                     }`
                   }
                   title={item.label}
@@ -127,14 +159,14 @@ const Sidebar = () => {
   }
 
   return (
-    <aside className="bg-neutral-100 w-64 min-h-screen p-4 transition-all duration-300">
+    <aside className="bg-secondary w-64 min-h-screen p-4 transition-all duration-300 border-r border-secondary-dark">
       <div className="mb-6">
         <img 
           src="/Icon Logo - Color.svg" 
           alt="BQA Icon" 
-          className="h-8 mx-auto"
+          className="h-8 mx-auto filter brightness-0 invert"
         />
-        <h2 className="text-xl font-semibold text-center mt-2 text-primary">
+        <h2 className="text-xl font-semibold text-center mt-3 text-white">
           ExpertDB
         </h2>
       </div>
@@ -146,15 +178,15 @@ const Sidebar = () => {
               <NavLink
                 to={item.to}
                 className={({ isActive }) => 
-                  `flex items-center px-4 py-2 rounded transition-colors ${
+                  `flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                     isActive
-                      ? 'bg-primary text-white'
-                      : 'text-primary hover:bg-primary hover:bg-opacity-10'
+                      ? 'bg-primary text-white shadow-lg'
+                      : 'text-white hover:bg-secondary-light hover:shadow-md'
                   }`
                 }
               >
                 <span className="mr-3">{item.icon}</span>
-                {item.label}
+                <span className="font-medium">{item.label}</span>
               </NavLink>
             </li>
           ))}

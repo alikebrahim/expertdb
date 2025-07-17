@@ -1,5 +1,5 @@
 import { request } from './client';
-import { PhaseListResponse } from '../types';
+import { PhaseListResponse, Phase } from '../types';
 
 export const createPhase = (data: {
   title: string;
@@ -31,6 +31,12 @@ export const getPhases = (limit: number = 10, offset: number = 0, params?: Recor
       limit,
       offset
     },
+  });
+
+export const getPhaseById = (id: string) => 
+  request<Phase>({
+    url: `/api/phases/${id}`,
+    method: 'GET',
   });
 
 export const proposeExperts = (phaseId: number, applicationId: number, data: { expert1: number; expert2: number }) => 

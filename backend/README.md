@@ -55,7 +55,7 @@ cd backend
 
 # Set environment variables (or use defaults)
 export PORT=8080
-export DB_PATH=./db/sqlite/expertdb.sqlite
+export DB_PATH=./db/sqlite/main.db
 export UPLOAD_PATH=./data/documents
 export CORS_ALLOWED_ORIGINS=*
 export LOG_LEVEL=info
@@ -69,7 +69,7 @@ go run cmd/server/main.go
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | HTTP server port | `8080` |
-| `DB_PATH` | Path to SQLite database | `./db/sqlite/expertdb.sqlite` |
+| `DB_PATH` | Path to SQLite database | `./db/sqlite/main.db` |
 | `UPLOAD_PATH` | Directory for document uploads | `./data/documents` |
 | `CORS_ALLOWED_ORIGINS` | CORS allowed origins | `*` |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | `info` |

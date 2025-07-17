@@ -104,7 +104,7 @@ func (s *SQLiteStore) CreateExpert(expert *domain.Expert) (int64, error) {
 
 	result, err := s.db.Exec(
 		query,
-		expert.ExpertID, expert.Name, expert.Designation, expert.Institution,
+		expert.ExpertID, expert.Name, expert.Designation, expert.Affiliation,
 		expert.IsBahraini, expert.IsAvailable, expert.Rating,
 		expert.Role, expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
 		expert.IsTrained, expert.CVPath, expert.ApprovalDocumentPath, expert.Phone, expert.Email, expert.IsPublished,
@@ -167,7 +167,7 @@ func (s *SQLiteStore) GetExpert(id int64) (*domain.Expert, error) {
 	var nationality sql.NullString
 
 	err := s.db.QueryRow(query, id).Scan(
-		&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation, &expert.Institution,
+		&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation, &expert.Affiliation,
 		&expert.IsBahraini, &nationality, &expert.IsAvailable, &expert.Rating, &expert.Role,
 		&expert.EmploymentType, &expert.GeneralArea, &generalAreaName,
 		&expert.SpecializedArea, &expert.IsTrained, &expert.CVPath, &expert.ApprovalDocumentPath, &expert.Phone, &expert.Email,
@@ -237,7 +237,7 @@ func (s *SQLiteStore) GetExpertByEmail(email string) (*domain.Expert, error) {
 	var nationality sql.NullString
 
 	err := s.db.QueryRow(query, email).Scan(
-		&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation, &expert.Institution,
+		&expert.ID, &expert.ExpertID, &expert.Name, &expert.Designation, &expert.Affiliation,
 		&expert.IsBahraini, &nationality, &expert.IsAvailable, &expert.Rating, &expert.Role,
 		&expert.EmploymentType, &expert.GeneralArea, &generalAreaName,
 		&expert.SpecializedArea, &expert.IsTrained, &expert.CVPath, &expert.ApprovalDocumentPath, &expert.Phone, &expert.Email,
@@ -277,13 +277,13 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 	if expert.Designation == "" {
 		expert.Designation = currentExpert.Designation
 	}
-	if expert.Institution == "" {
-		expert.Institution = currentExpert.Institution
+	if expert.Affiliation == "" {
+		expert.Affiliation = currentExpert.Affiliation
 	}
 	if expert.Nationality == "" {
 		expert.Nationality = currentExpert.Nationality
 	}
-	if expert.Rating == "" {
+	if expert.Rating == 0 {
 		expert.Rating = currentExpert.Rating
 	}
 	if expert.Role == "" {
@@ -328,7 +328,7 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 
 	_, err = s.db.Exec(
 		query,
-		expert.Name, expert.Designation, expert.Institution, expert.IsBahraini,
+		expert.Name, expert.Designation, expert.Affiliation, expert.IsBahraini,
 		expert.Nationality, expert.IsAvailable, expert.Rating, expert.Role,
 		expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
 		expert.IsTrained, expert.CVPath, expert.ApprovalDocumentPath, expert.Phone, expert.Email,
@@ -474,9 +474,9 @@ func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset 
 	}
 
 	// Add dynamic ORDER BY based on sort_by and sort_order parameters
-	// Default to updated_at DESC if not specified
-	sortBy := "e.updated_at"
-	sortOrder := "DESC"
+	// Default to expert_id ASC (numeric sorting) if not specified
+	sortBy := "CAST(SUBSTR(e.expert_id, 2) AS INTEGER)"
+	sortOrder := "ASC"
 
 	if val, ok := filters["sort_by"]; ok && val != "" {
 		// To prevent SQL injection, validate against a whitelist of column names
@@ -532,7 +532,7 @@ func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset 
 		var name sql.NullString
 		var designation sql.NullString
 		var institution sql.NullString
-		var rating sql.NullString
+		var rating sql.NullInt32
 		var role sql.NullString
 		var employmentType sql.NullString
 		var specializedArea sql.NullString
@@ -575,10 +575,10 @@ func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset 
 			expert.Designation = designation.String
 		}
 		if institution.Valid {
-			expert.Institution = institution.String
+			expert.Affiliation = institution.String
 		}
 		if rating.Valid {
-			expert.Rating = rating.String
+			expert.Rating = int(rating.Int32)
 		}
 		if role.Valid {
 			expert.Role = role.String

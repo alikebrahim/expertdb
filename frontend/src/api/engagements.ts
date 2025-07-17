@@ -1,5 +1,5 @@
 import { request } from './client';
-import { Engagement, EngagementListResponse, ApiResponse } from '../types';
+import { Engagement, EngagementListResponse } from '../types';
 
 export const getEngagements = (limit: number = 10, offset: number = 0, params?: Record<string, string | boolean>) => 
   request<EngagementListResponse>({

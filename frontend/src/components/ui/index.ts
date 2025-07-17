@@ -1,6 +1,8 @@
 // Form components
+export { default as Breadcrumb } from './Breadcrumb';
 export { default as Button } from './Button';
 export { default as Input } from './Input';
+export { default as Select } from './Select';
 export { Form } from './Form';
 export { FormField } from './FormField';
 
@@ -19,3 +21,7 @@ export { Toast, ToastContainer } from './Toast';
 export { LoadingSpinner, LoadingOverlay } from './LoadingSpinner';
 export { Skeleton, SkeletonText, SkeletonCard, SkeletonTable, SkeletonAvatar } from './Skeleton';
 export { ProgressStepper } from './ProgressStepper';
+
+// Data components
+export { ColumnSelector, DEFAULT_COLUMNS } from './ColumnSelector';
+export { Checkbox } from './Checkbox';

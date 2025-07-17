@@ -99,7 +99,7 @@ const LoginForm = () => {
   };
   
   // Helper function to redirect based on role
-  const redirectBasedOnRole = (role: string) => {
+  const redirectBasedOnRole = (_role: string) => {
     // All users go to search page as it's the main function of the app
     navigate('/search');
   };

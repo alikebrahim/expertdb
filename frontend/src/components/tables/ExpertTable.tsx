@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Expert } from '../../types';
 import { useUI } from '../../hooks/useUI';
-import { Table, Button } from '../ui';
+import { Table, Button, ColumnSelector, DEFAULT_COLUMNS } from '../ui';
 import Modal from '../Modal';
+import ExpertProfileModal from '../ExpertProfileModal';
 import { formatDate } from '../../utils/formatters';
+import type { ColumnConfig } from '../ui/ColumnSelector';
 
 export interface SortConfig {
   field: string;
@@ -30,12 +32,13 @@ interface ExpertTableProps {
   pagination?: PaginationProps;
   sortConfig?: SortConfig;
   onSort?: (field: string) => void;
+  showColumnSelector?: boolean;
 }
 
 const ExpertTable = ({ 
   experts, 
-  isLoading, 
-  error, 
+  isLoading = false,
+  error = null,
   onEdit, 
   onDelete,
   enableBatchActions = false,
@@ -44,11 +47,13 @@ const ExpertTable = ({
   onBatchUnpublish,
   pagination,
   sortConfig,
-  onSort
+  onSort,
+  showColumnSelector = false
 }: ExpertTableProps) => {
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const [selectedExperts, setSelectedExperts] = useState<number[]>([]);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [columns, setColumns] = useState<ColumnConfig[]>(DEFAULT_COLUMNS);
   const navigate = useNavigate();
   const { addNotification } = useUI();
   
@@ -144,36 +149,181 @@ const ExpertTable = ({
     );
   }
 
+  const visibleColumns = columns.filter(col => col.visible);
+  
+  const getCellValue = (expert: Expert, columnKey: string) => {
+    switch (columnKey) {
+      case 'id':
+        return expert.id;
+      case 'name':
+        return expert.name;
+      case 'affiliation':
+        return expert.affiliation;
+      case 'specializedArea':
+        return expert.specializedArea;
+      case 'rating':
+        return expert.rating;
+      case 'role':
+        return expert.role;
+      case 'employmentType':
+        return expert.employmentType;
+      case 'generalArea':
+        return expert.generalAreaName || expert.generalArea;
+      case 'phone':
+        return expert.phone || 'N/A';
+      case 'email':
+        return expert.email || 'N/A';
+      case 'cvPath':
+        return expert.cvPath;
+      case 'isAvailable':
+        return expert.isAvailable;
+      case 'nationality':
+        return 'N/A'; // Nationality not available in current Expert type
+      case 'isTrained':
+        return expert.isTrained;
+      case 'created_at':
+        return formatDate(expert.created_at);
+      case 'actions':
+        return null; // Actions column is handled separately
+      default:
+        return expert[columnKey as keyof Expert];
+    }
+  };
+
+  const renderCellContent = (expert: Expert, column: ColumnConfig) => {
+    if (column.key === 'actions') {
+      return (
+        <div className="flex flex-wrap gap-2">
+          <Button 
+            variant="primary"
+            size="sm"
+            onClick={(e: React.MouseEvent) => handleViewExpertDetails(expert, e)}
+          >
+            View
+          </Button>
+          {onEdit && (
+            <Button 
+              variant="secondary"
+              size="sm"
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                onEdit(expert);
+              }}
+            >
+              Edit
+            </Button>
+          )}
+          {onDelete && (
+            <Button 
+              variant="danger"
+              size="sm"
+              onClick={(e: React.MouseEvent) => {
+                e.stopPropagation();
+                onDelete(expert);
+              }}
+            >
+              Delete
+            </Button>
+          )}
+        </div>
+      );
+    }
+    
+    if (column.key === 'rating') {
+      const rating = expert.rating;
+      const displayRating = rating === 0 ? 'N/A' : rating.toString();
+      return (
+        <div className="flex items-center">
+          <span className="mr-1">{displayRating}</span>
+          {rating > 0 && (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+          )}
+        </div>
+      );
+    }
+    
+    if (column.key === 'cvPath' && column.type === 'file') {
+      const cvPath = getCellValue(expert, column.key);
+      if (cvPath) {
+        return (
+          <button
+            className="text-blue-600 hover:text-blue-800 text-sm underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              const link = document.createElement('a');
+              link.href = `/api/documents/download/${cvPath}`;
+              link.download = `${expert.name}_CV.pdf`;
+              link.click();
+            }}
+          >
+            Download
+          </button>
+        );
+      }
+      return <span className="text-gray-400 text-sm">No CV</span>;
+    }
+    
+    if (column.type === 'status') {
+      const value = getCellValue(expert, column.key);
+      return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        }`}>
+          {value ? 'Yes' : 'No'}
+        </span>
+      );
+    }
+    
+    return getCellValue(expert, column.key);
+  };
+
   return (
     <div className="space-y-4">
-      {enableBatchActions && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleBatchExport}
-            disabled={selectedExperts.length === 0}
-          >
-            Export Selected ({selectedExperts.length})
-          </Button>
-          <Button 
-            variant="primary" 
-            size="sm"
-            onClick={handleBatchPublish}
-            disabled={selectedExperts.length === 0}
-          >
-            Publish Selected
-          </Button>
-          <Button 
-            variant="secondary" 
-            size="sm"
-            onClick={handleBatchUnpublish}
-            disabled={selectedExperts.length === 0}
-          >
-            Unpublish Selected
-          </Button>
+      {/* Header with controls */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          {showColumnSelector && (
+            <ColumnSelector 
+              columns={columns}
+              onColumnChange={setColumns}
+            />
+          )}
+          {enableBatchActions && (
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleBatchExport}
+                disabled={selectedExperts.length === 0}
+              >
+                Export Selected ({selectedExperts.length})
+              </Button>
+              <Button 
+                variant="primary" 
+                size="sm"
+                onClick={handleBatchPublish}
+                disabled={selectedExperts.length === 0}
+              >
+                Publish Selected
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="sm"
+                onClick={handleBatchUnpublish}
+                disabled={selectedExperts.length === 0}
+              >
+                Unpublish Selected
+              </Button>
+            </div>
+          )}
         </div>
-      )}
+        
+        <div className="flex items-center gap-4">
+          {/* Right side content can go here if needed */}
+        </div>
+      </div>
       
       {isLoading ? (
         <div className="flex justify-center py-8">
@@ -186,11 +336,11 @@ const ExpertTable = ({
           <p className="text-sm text-neutral-500 mt-1">Try adjusting your search criteria.</p>
         </div>
       ) : (
-        <Table>
+        <Table className="w-auto">
           <Table.Header>
-            {enableBatchActions && (
-              <Table.Row className="bg-neutral-50">
-                <Table.HeaderCell>
+            <Table.Row className="bg-neutral-50">
+              {enableBatchActions && (
+                <Table.HeaderCell className="whitespace-nowrap">
                   <input
                     type="checkbox"
                     onChange={handleSelectAll}
@@ -198,26 +348,39 @@ const ExpertTable = ({
                     className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
                   />
                 </Table.HeaderCell>
-                <Table.HeaderCell>Name</Table.HeaderCell>
-                <Table.HeaderCell>Role</Table.HeaderCell>
-                <Table.HeaderCell>Employment</Table.HeaderCell>
-                <Table.HeaderCell>Affiliation</Table.HeaderCell>
-                <Table.HeaderCell>Rating</Table.HeaderCell>
-                <Table.HeaderCell>Last Updated</Table.HeaderCell>
-                <Table.HeaderCell>Actions</Table.HeaderCell>
-              </Table.Row>
-            )}
-            {!enableBatchActions && (
-              <Table.Row>
-                <Table.HeaderCell>Name</Table.HeaderCell>
-                <Table.HeaderCell>Role</Table.HeaderCell>
-                <Table.HeaderCell>Employment</Table.HeaderCell>
-                <Table.HeaderCell>Affiliation</Table.HeaderCell>
-                <Table.HeaderCell>Contact</Table.HeaderCell>
-                <Table.HeaderCell>Rating</Table.HeaderCell>
-                <Table.HeaderCell>Actions</Table.HeaderCell>
-              </Table.Row>
-            )}
+              )}
+              {visibleColumns.map((column) => (
+                <Table.HeaderCell key={column.key} className="whitespace-nowrap">
+                  {column.sortable && onSort ? (
+                    <button
+                      onClick={() => onSort(column.key)}
+                      className="flex items-center space-x-1 hover:text-primary font-medium whitespace-nowrap"
+                    >
+                      <span>{column.label}</span>
+                      {sortConfig?.field === column.key ? (
+                        <span className="ml-1">
+                          {sortConfig.direction === 'asc' ? (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          )}
+                        </span>
+                      ) : (
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                        </svg>
+                      )}
+                    </button>
+                  ) : (
+                    column.label
+                  )}
+                </Table.HeaderCell>
+              ))}
+            </Table.Row>
           </Table.Header>
           <Table.Body>
             {experts.map((expert) => (
@@ -227,7 +390,7 @@ const ExpertTable = ({
                 onClick={() => handleSelectExpert(expert)}
               >
                 {enableBatchActions && (
-                  <Table.Cell onClick={(e) => e.stopPropagation()}>
+                  <Table.Cell onClick={(e) => e.stopPropagation()} className="whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={selectedExperts.includes(expert.id)}
@@ -236,55 +399,11 @@ const ExpertTable = ({
                     />
                   </Table.Cell>
                 )}
-                <Table.Cell>{expert.name}</Table.Cell>
-                <Table.Cell>{expert.role}</Table.Cell>
-                <Table.Cell>{expert.employmentType}</Table.Cell>
-                <Table.Cell>{expert.affiliation}</Table.Cell>
-                {!enableBatchActions && <Table.Cell>{expert.primaryContact}</Table.Cell>}
-                <Table.Cell>
-                  <div className="flex items-center">
-                    <span className="mr-1">{expert.rating}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  </div>
-                </Table.Cell>
-                {enableBatchActions && <Table.Cell>{formatDate(expert.updated_at || '')}</Table.Cell>}
-                <Table.Cell>
-                  <div className="flex flex-wrap gap-2">
-                    <Button 
-                      variant="primary"
-                      size="sm"
-                      onClick={(e: React.MouseEvent) => handleViewExpertDetails(expert, e)}
-                    >
-                      View
-                    </Button>
-                    {onEdit && (
-                      <Button 
-                        variant="secondary"
-                        size="sm"
-                        onClick={(e: React.MouseEvent) => {
-                          e.stopPropagation();
-                          onEdit(expert);
-                        }}
-                      >
-                        Edit
-                      </Button>
-                    )}
-                    {onDelete && (
-                      <Button 
-                        variant="danger"
-                        size="sm"
-                        onClick={(e: React.MouseEvent) => {
-                          e.stopPropagation();
-                          onDelete(expert);
-                        }}
-                      >
-                        Delete
-                      </Button>
-                    )}
-                  </div>
-                </Table.Cell>
+                {visibleColumns.map((column) => (
+                  <Table.Cell key={column.key} className="whitespace-nowrap">
+                    {renderCellContent(expert, column)}
+                  </Table.Cell>
+                ))}
               </Table.Row>
             ))}
           </Table.Body>
@@ -319,124 +438,11 @@ const ExpertTable = ({
       )}
       
       {/* Expert details modal */}
-      {selectedExpert && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl overflow-hidden">
-            <div className="p-6">
-              <div className="flex justify-between items-start">
-                <h2 className="text-2xl font-bold text-primary">{selectedExpert.name}</h2>
-                <button
-                  onClick={() => setSelectedExpert(null)}
-                  className="text-neutral-500 hover:text-neutral-700"
-                >
-                  <span className="sr-only">Close</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Role</h3>
-                  <p className="mt-1">{selectedExpert.role}</p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Employment Type</h3>
-                  <p className="mt-1">{selectedExpert.employmentType}</p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Affiliation</h3>
-                  <p className="mt-1">{selectedExpert.affiliation}</p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Contact</h3>
-                  <p className="mt-1">{selectedExpert.primaryContact} ({selectedExpert.contactType})</p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Skills</h3>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {selectedExpert.skills.map((skill: string, index: number) => (
-                      <span 
-                        key={index}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary bg-opacity-10 text-primary"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Rating</h3>
-                  <div className="mt-1 flex items-center">
-                    <span className="mr-1">{selectedExpert.rating}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Availability</h3>
-                  <p className="mt-1">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      selectedExpert.availability === 'Available' 
-                        ? 'bg-green-100 text-green-800'
-                        : selectedExpert.availability === 'Limited'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {selectedExpert.availability}
-                    </span>
-                  </p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-500">Origin</h3>
-                  <p className="mt-1">
-                    {selectedExpert.isBahraini ? 'Bahraini' : 'International'}
-                  </p>
-                </div>
-              </div>
-              
-              {selectedExpert.biography && (
-                <div className="mt-6">
-                  <h3 className="text-sm font-medium text-neutral-500">Biography</h3>
-                  <p className="mt-1 text-neutral-800">{selectedExpert.biography}</p>
-                </div>
-              )}
-              
-              <div className="mt-4 text-sm text-neutral-500">
-                <p>Created: {formatDate(selectedExpert.created_at)}</p>
-                <p>Last updated: {formatDate(selectedExpert.updated_at)}</p>
-              </div>
-              
-              <div className="mt-6 flex justify-end space-x-3">
-                <Button 
-                  variant="outline"
-                  onClick={() => setSelectedExpert(null)}
-                >
-                  Close
-                </Button>
-                <Button 
-                  variant="primary"
-                  onClick={(e: React.MouseEvent) => {
-                    setSelectedExpert(null);
-                    handleViewExpertDetails(selectedExpert, e as React.MouseEvent<HTMLButtonElement>);
-                  }}
-                >
-                  View Full Profile
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ExpertProfileModal 
+        expert={selectedExpert}
+        isOpen={!!selectedExpert}
+        onClose={() => setSelectedExpert(null)}
+      />
 
       {/* Export Modal */}
       <Modal

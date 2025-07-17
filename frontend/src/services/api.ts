@@ -152,7 +152,7 @@ export const authApi = {
     
     try {
       const response = await api({
-        url: '/api/auth/login',
+        url: '/auth/login',
         method: 'POST',
         data: { email, password },
       });
@@ -606,15 +606,21 @@ export const phaseApi = {
       data,
     }),
 
-  getPhases: (limit: number = 10, offset: number = 0, params?: Record<string, string | number>) => 
-    request<Phase[]>({
+  getPhases: (page: number = 1, limit: number = 10, params?: Record<string, string | number>) => 
+    request<PaginatedResponse<Phase>>({
       url: '/phases',
       method: 'GET',
       params: {
         ...params,
-        limit,
-        offset
+        page,
+        limit
       },
+    }),
+
+  getPhaseById: (id: string) => 
+    request<Phase>({
+      url: `/phases/${id}`,
+      method: 'GET',
     }),
 
   proposeExperts: (phaseId: number, applicationId: number, data: { expert1: number; expert2: number }) => 

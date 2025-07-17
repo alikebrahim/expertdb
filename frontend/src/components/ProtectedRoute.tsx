@@ -1,9 +1,6 @@
 import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import Header from './layout/Header';
-import Sidebar from './layout/Sidebar';
-import Footer from './layout/Footer';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -54,19 +51,8 @@ const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
     }
   }
 
-  // Render the protected route with layout
-  return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      <div className="flex flex-1">
-        <Sidebar />
-        <main className="flex-1 p-6 bg-neutral-50">
-          {children}
-        </main>
-      </div>
-      <Footer />
-    </div>
-  );
+  // Render the protected route - layout is handled by individual pages
+  return <>{children}</>;
 };
 
 export default ProtectedRoute;

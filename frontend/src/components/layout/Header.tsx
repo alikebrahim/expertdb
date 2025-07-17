@@ -13,12 +13,12 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-white shadow-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+    <header className="bg-secondary shadow-lg border-b-2 border-secondary-dark">
+      <div className="container py-4 flex justify-between items-center">
         <div className="flex items-center">
           <button 
             onClick={toggleSidebar}
-            className="mr-4 text-gray-600 hover:text-gray-900 focus:outline-none"
+            className="mr-4 text-white hover:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 rounded p-1 transition-colors"
             aria-label="Toggle sidebar"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -28,18 +28,18 @@ const Header = () => {
           <img 
             src="/BQA - Horizontal Logo.svg" 
             alt="BQA Logo" 
-            className="h-10"
+            className="h-10 filter brightness-0 invert"
           />
         </div>
         
         {user && (
           <div className="flex items-center space-x-4">
-            <span className="text-primary font-medium">
-              {user.name} ({user.role})
+            <span className="text-white font-medium text-sm">
+              {user.name} <span className="text-neutral-200">({user.role})</span>
             </span>
             <button 
               onClick={handleLogout}
-              className="btn-outline text-sm py-1 px-3"
+              className="bg-white text-secondary hover:bg-neutral-100 hover:text-secondary-dark font-medium py-1 px-3 rounded transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 text-sm"
             >
               Logout
             </button>

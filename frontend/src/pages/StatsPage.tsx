@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { statisticsApi, expertAreasApi } from '../services/api';
 import { NationalityStats, GrowthStats } from '../types';
 import { NationalityChart, GrowthChart, ExpertAreaChart } from '../components/StatsCharts';
+import Layout from '../components/layout/Layout';
 
 const StatsPage = () => {
   // Nationality stats
@@ -93,7 +94,8 @@ const StatsPage = () => {
   }, []);
   
   return (
-    <div>
+    <Layout>
+      <div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-primary">Expert Statistics</h1>
         <p className="text-neutral-600">
@@ -156,7 +158,8 @@ const StatsPage = () => {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </Layout>
   );
 };
 

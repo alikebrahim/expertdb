@@ -83,6 +83,16 @@ type Storage interface {
 	UpdatePhaseApplicationExperts(id int64, expert1ID, expert2ID int64) error
 	UpdatePhaseApplicationStatus(id int64, status, rejectionNotes string) error
 	
+	// Role assignment methods
+	IsUserPlannerForApplication(userID int, applicationID int) (bool, error)
+	IsUserManagerForApplication(userID int, applicationID int) (bool, error)
+	AssignUserToPlannerApplications(userID int, applicationIDs []int) error
+	AssignUserToManagerApplications(userID int, applicationIDs []int) error
+	RemoveUserPlannerAssignments(userID int, applicationIDs []int) error
+	RemoveUserManagerAssignments(userID int, applicationIDs []int) error
+	GetUserPlannerApplications(userID int) ([]int, error)
+	GetUserManagerApplications(userID int) ([]int, error)
+	
 	// General database methods
 	InitDB() error
 	Close() error

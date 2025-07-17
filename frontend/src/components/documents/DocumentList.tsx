@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Document } from '../../types';
-import { formatDate, formatStatusBadge } from '../../utils/formatters';
+import { formatDate } from '../../utils/formatters';
 import Button from '../ui/Button';
 import Modal from '../Modal';
 

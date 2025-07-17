@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm as useHookForm, UseFormProps, FieldValues, UseFormReturn } from 'react-hook-form';
+import { useForm as useHookForm, UseFormReturn, FieldValues, SubmitHandler, UseFormProps } from 'react-hook-form';
 import { ZodSchema, z } from 'zod';
 import { useUI } from './useUI';
 
@@ -17,21 +17,7 @@ export function useZodForm<T extends FieldValues>({
   
   return useHookForm<T>({
     ...formProps,
-    resolver: zodResolver(schema, {
-      errorMap: (error, ctx) => {
-        const message = error.message || `Invalid ${error.path.join('.')}`;
-        if (onError) {
-          onError(message);
-        } else {
-          addNotification({
-            type: 'error',
-            message,
-            duration: 5000,
-          });
-        }
-        return { message };
-      },
-    }),
+    resolver: zodResolver(schema)
   });
 }
 

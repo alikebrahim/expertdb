@@ -6,6 +6,10 @@ import { z } from 'zod';
 import { Form } from './ui/Form';
 import { FormField } from './ui/FormField';
 import { LoadingOverlay } from './ui/LoadingSpinner';
+import { Card, CardHeader, CardContent } from './ui/Card';
+import Button from './ui/Button';
+import BiographyForm from './BiographyForm';
+import { TagInput } from './ui/TagInput';
 
 type ExpertRequestFormData = z.infer<typeof expertRequestSchema>;
 
@@ -23,6 +27,7 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [expertAreas, setExpertAreas] = useState<ExpertArea[]>([]);
   const [loadingAreas, setLoadingAreas] = useState(true);
+  const [skillTags, setSkillTags] = useState<string[]>([]);
   
   // Load expert areas for dropdown
   useEffect(() => {
@@ -43,6 +48,17 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
   }, []);
 
   // Dropdown options
+  const designationOptions = [
+    { value: '', label: 'Select designation' },
+    { value: 'Prof.', label: 'Prof.' },
+    { value: 'Dr.', label: 'Dr.' },
+    { value: 'Mr.', label: 'Mr.' },
+    { value: 'Ms.', label: 'Ms.' },
+    { value: 'Mrs.', label: 'Mrs.' },
+    { value: 'Miss', label: 'Miss' },
+    { value: 'Eng.', label: 'Eng.' }
+  ];
+
   const roleOptions = [
     { value: '', label: 'Select role' },
     { value: 'evaluator', label: 'Evaluator' },
@@ -56,6 +72,15 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
     { value: 'employer', label: 'Employer' }
   ];
 
+  const ratingOptions = [
+    { value: 0, label: 'Select rating' },
+    { value: 1, label: '1 - Basic' },
+    { value: 2, label: '2 - Fair' },
+    { value: 3, label: '3 - Good' },
+    { value: 4, label: '4 - Very Good' },
+    { value: 5, label: '5 - Excellent' }
+  ];
+
   const generalAreaOptions = [
     { value: 0, label: 'Select general area' },
     ...expertAreas.map(area => ({ value: area.id, label: area.name }))
@@ -65,21 +90,24 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
     schema: expertRequestSchema,
     defaultValues: {
       name: '',
-      designation: '',
-      institution: '',
+      designation: undefined,
+      affiliation: '',
       phone: '',
       email: '',
       isBahraini: false,
       isAvailable: false,
-      rating: '',
+      rating: 0,
       role: undefined,
       employmentType: undefined,
       isTrained: false,
       isPublished: false,
       generalArea: 0,
       specializedArea: '',
-      skills: '',
-      biography: '',
+      skills: [],
+      biography: {
+        experience: [],
+        education: []
+      },
       cv: undefined
     },
   });
@@ -98,292 +126,351 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
         e.target.value = ''; // Clear the input
         return;
       }
-      
-      // Validate file size (10MB = 10 * 1024 * 1024 bytes)
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
+
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
         form.setError('cv', {
           type: 'manual',
-          message: 'File size must be less than 10MB'
+          message: 'File size must be less than 5MB'
         });
         setCvFile(null);
         e.target.value = ''; // Clear the input
         return;
       }
-      
-      // Clear any previous errors
-      form.clearErrors('cv');
+
+      // File is valid
       setCvFile(file);
       form.setValue('cv', file);
+      form.clearErrors('cv');
     } else {
       setCvFile(null);
       form.setValue('cv', undefined);
     }
   };
-  
-  const handleFormReset = () => {
-    setCvFile(null);
-    form.setValue('cv', undefined);
+
+  const handleSkillsChange = (skills: string[]) => {
+    setSkillTags(skills);
+    form.setValue('skills', skills);
   };
-  
-  const onSubmit = async (data: ExpertRequestFormData): Promise<void> => {
-    setIsSubmitting(true);
-    
+
+  const onSubmit = async (data: ExpertRequestFormData) => {
     try {
+      setIsSubmitting(true);
+      
       // Create FormData for file upload
       const formData = new FormData();
       
-      // Add all form fields to FormData
+      // Add all form fields
       formData.append('name', data.name);
       formData.append('designation', data.designation);
-      formData.append('institution', data.institution);
+      formData.append('affiliation', data.affiliation);
       formData.append('phone', data.phone);
       formData.append('email', data.email);
       formData.append('isBahraini', data.isBahraini.toString());
       formData.append('isAvailable', data.isAvailable.toString());
-      formData.append('rating', data.rating);
+      formData.append('rating', data.rating.toString());
       formData.append('role', data.role);
       formData.append('employmentType', data.employmentType);
-      formData.append('isTrained', data.isTrained.toString());
-      formData.append('isPublished', data.isPublished.toString());
       formData.append('generalArea', data.generalArea.toString());
       formData.append('specializedArea', data.specializedArea);
-      formData.append('skills', data.skills);
-      formData.append('biography', data.biography);
+      formData.append('isTrained', data.isTrained.toString());
+      formData.append('isPublished', data.isPublished.toString());
+      
+      // Handle skills array
+      formData.append('skills', JSON.stringify(data.skills));
+      
+      // Handle biography object
+      formData.append('biography', JSON.stringify(data.biography));
       
       // Add CV file
       if (cvFile) {
         formData.append('cv', cvFile);
       }
-      
+
       const response = await expertRequestsApi.createExpertRequest(formData);
       
       if (response.success) {
+        onSuccess();
         form.reset();
         setCvFile(null);
-        onSuccess();
-      } else {
-        throw new Error(response.message || 'Failed to submit expert request');
+        setSkillTags([]);
       }
     } catch (error) {
       console.error('Error submitting expert request:', error);
-      throw error;
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  if (loadingAreas) {
+    return <LoadingOverlay isLoading={true}>Loading areas...</LoadingOverlay>;
+  }
+
   return (
-    <LoadingOverlay 
-      isLoading={isSubmitting}
-      className="w-full"
-      label="Submitting expert request..."
-    >
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
       <Form
         form={form}
         onSubmit={onSubmit}
         className="space-y-6"
-        showResetButton={true}
-        resetText="Reset Form"
-        onReset={handleFormReset}
-        submitText="Submit Expert Profile"
       >
-        {/* Section 1: Personal Information */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-primary mb-4">Personal Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              form={form}
-              name="name"
-              label="Expert Name"
-              placeholder="Enter expert's full name"
-              required
-            />
-            
-            <FormField
-              form={form}
-              name="designation"
-              label="Designation"
-              placeholder="Enter professional title"
-              required
-            />
-            
-            <FormField
-              form={form}
-              name="institution"
-              label="Institution"
-              placeholder="Enter affiliated organization"
-              required
-            />
-            
-            <FormField
-              form={form}
-              name="phone"
-              label="Phone Number"
-              placeholder="Enter contact phone"
-              required
-            />
-            
-            <div className="md:col-span-2">
+        {/* Personal Information Section */}
+        <Card>
+          <CardHeader>
+            <h2 className="text-xl font-semibold">Personal Information</h2>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
-                form={form}
-                name="email"
-                label="Email Address"
-                type="email"
-                placeholder="Enter contact email"
+                name="name"
+                label="Full Name"
+                control={form.control}
+                error={form.formState.errors.name}
+                required
+                placeholder="Enter full name"
+              />
+              <FormField
+                name="designation"
+                label="Designation"
+                type="select"
+                options={designationOptions}
+                control={form.control}
+                error={form.formState.errors.designation}
                 required
               />
             </div>
-          </div>
-        </div>
-
-        {/* Section 2: Professional Details */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-primary mb-4">Professional Details</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center space-x-4">
+            
+            <FormField
+              name="affiliation"
+              label="Affiliation"
+              control={form.control}
+              error={form.formState.errors.affiliation}
+              required
+              placeholder="Enter organization or institution"
+            />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
-                form={form}
-                name="isBahraini"
-                label="Bahraini National"
-                type="checkbox"
+                name="phone"
+                label="Phone Number"
+                control={form.control}
+                error={form.formState.errors.phone}
+                required
+                placeholder="+973 XXXX XXXX"
               />
-              
               <FormField
-                form={form}
-                name="isAvailable"
-                label="Currently Available"
-                type="checkbox"
+                name="email"
+                label="Email Address"
+                type="email"
+                control={form.control}
+                error={form.formState.errors.email}
+                required
+                placeholder="email@example.com"
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Professional Details Section */}
+        <Card>
+          <CardHeader>
+            <h2 className="text-xl font-semibold">Professional Details</h2>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center space-x-2">
+                <FormField
+                  name="isBahraini"
+                  label="Bahraini Citizen"
+                  type="checkbox"
+                  control={form.control}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <FormField
+                  name="isAvailable"
+                  label="Currently Available"
+                  type="checkbox"
+                  control={form.control}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <FormField
+                  name="isTrained"
+                  label="BQA Trained"
+                  type="checkbox"
+                  control={form.control}
+                />
+              </div>
+            </div>
             
-            <FormField
-              form={form}
-              name="rating"
-              label="Performance Rating"
-              placeholder="Enter rating/score"
-              required
-            />
-            
-            <FormField
-              form={form}
-              name="role"
-              label="Expert Role"
-              type="select"
-              options={roleOptions}
-              required
-            />
-            
-            <FormField
-              form={form}
-              name="employmentType"
-              label="Employment Type"
-              type="select"
-              options={employmentTypeOptions}
-              required
-            />
-            
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
               <FormField
-                form={form}
-                name="isTrained"
-                label="Training Completed"
-                type="checkbox"
-              />
-              
-              <FormField
-                form={form}
                 name="isPublished"
-                label="Allow Publishing"
+                label="Has Published Work"
                 type="checkbox"
-                hint="Allow profile to be published publicly"
+                control={form.control}
               />
             </div>
-          </div>
-        </div>
-
-        {/* Section 3: Expertise Areas */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-primary mb-4">Expertise Areas</h3>
-          <div className="grid grid-cols-1 gap-4">
-            <FormField
-              form={form}
-              name="generalArea"
-              label="General Area"
-              type="select"
-              options={generalAreaOptions}
-              required
-              disabled={loadingAreas}
-              hint={loadingAreas ? "Loading areas..." : "Select the primary expertise area"}
-            />
             
-            <FormField
-              form={form}
-              name="specializedArea"
-              label="Specialized Area"
-              placeholder="Enter specific field of specialization"
-              required
-            />
-            
-            <FormField
-              form={form}
-              name="skills"
-              label="Skills & Competencies"
-              type="textarea"
-              placeholder="Enter skills separated by commas (e.g., Project Management, Quality Assurance, Data Analysis)"
-              rows={3}
-              required
-              hint="List the expert's key skills and competencies"
-            />
-          </div>
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField
+                name="rating"
+                label="Performance Rating"
+                type="select"
+                options={ratingOptions}
+                control={form.control}
+                error={form.formState.errors.rating}
+                required
+              />
+              <FormField
+                name="role"
+                label="Expert Role"
+                type="select"
+                options={roleOptions}
+                control={form.control}
+                error={form.formState.errors.role}
+                required
+              />
+              <FormField
+                name="employmentType"
+                label="Employment Type"
+                type="select"
+                options={employmentTypeOptions}
+                control={form.control}
+                error={form.formState.errors.employmentType}
+                required
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Section 4: Biography & Documents */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-primary mb-4">Biography & Documents</h3>
-          <div className="space-y-4">
-            <FormField
-              form={form}
-              name="biography"
-              label="Professional Biography"
-              type="textarea"
-              placeholder="Enter a comprehensive professional summary..."
-              rows={6}
-              required
-              hint="Maximum 1000 characters - include education, experience, and achievements"
-            />
+        {/* Expertise Areas Section */}
+        <Card>
+          <CardHeader>
+            <h2 className="text-xl font-semibold">Expertise Areas</h2>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                name="generalArea"
+                label="General Area"
+                type="select"
+                options={generalAreaOptions}
+                control={form.control}
+                error={form.formState.errors.generalArea}
+                required
+              />
+              <FormField
+                name="specializedArea"
+                label="Specialized Area"
+                control={form.control}
+                error={form.formState.errors.specializedArea}
+                required
+                placeholder="Enter specific field of specialization"
+              />
+            </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                CV Document <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Skills & Competencies *
+              </label>
+              <TagInput
+                value={skillTags}
+                onChange={handleSkillsChange}
+                placeholder="Type a skill and press Enter"
+                className="w-full"
+              />
+              {form.formState.errors.skills && (
+                <p className="mt-1 text-sm text-red-600">
+                  {form.formState.errors.skills.message}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Biography Section */}
+        <Card>
+          <CardHeader>
+            <h2 className="text-xl font-semibold">Biography</h2>
+            <p className="text-sm text-gray-600">
+              Add your professional experience and educational background
+            </p>
+          </CardHeader>
+          <CardContent>
+            <BiographyForm
+              control={form.control}
+              setValue={form.setValue}
+              watch={form.watch}
+              errors={form.formState.errors}
+            />
+          </CardContent>
+        </Card>
+
+        {/* CV Upload Section */}
+        <Card>
+          <CardHeader>
+            <h2 className="text-xl font-semibold">CV Upload</h2>
+          </CardHeader>
+          <CardContent>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                CV Document (PDF) *
               </label>
               <input
                 type="file"
                 accept=".pdf"
                 onChange={handleFileChange}
-                className={`w-full px-3 py-2 bg-white border rounded focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary ${
-                  form.formState.errors.cv ? 'border-red-500' : 'border-gray-300'
-                }`}
-                required
+                className="mt-1 block w-full text-sm text-gray-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-full file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-blue-50 file:text-blue-700
+                          hover:file:bg-blue-100"
               />
-              <p className="mt-1 text-sm text-gray-500">
-                Upload expert's CV in PDF format (max 10MB)
-              </p>
+              {cvFile && (
+                <p className="mt-2 text-sm text-green-600">
+                  Selected: {cvFile.name} ({Math.round(cvFile.size / 1024)} KB)
+                </p>
+              )}
               {form.formState.errors.cv && (
                 <p className="mt-1 text-sm text-red-600">
                   {form.formState.errors.cv.message}
                 </p>
               )}
-              {cvFile && !form.formState.errors.cv && (
-                <p className="mt-1 text-sm text-green-600">
-                  File selected: {cvFile.name} ({(cvFile.size / 1024 / 1024).toFixed(2)} MB)
-                </p>
-              )}
+              <p className="mt-1 text-xs text-gray-500">
+                Maximum file size: 5MB. Only PDF files are allowed.
+              </p>
             </div>
-          </div>
+          </CardContent>
+        </Card>
+
+        {/* Submit Button */}
+        <div className="flex justify-end space-x-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              form.reset();
+              setCvFile(null);
+              setSkillTags([]);
+            }}
+            disabled={isSubmitting}
+          >
+            Reset Form
+          </Button>
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="px-8"
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit Expert Request'}
+          </Button>
         </div>
       </Form>
-    </LoadingOverlay>
+      
+      {isSubmitting && <LoadingOverlay isLoading={true}>Submitting...</LoadingOverlay>}
+    </div>
   );
 };
 

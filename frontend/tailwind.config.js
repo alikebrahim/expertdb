@@ -7,20 +7,26 @@ export default {
   theme: {
     extend: {
       colors: {
-        // BQA colors
+        // BQA Design System Colors
         primary: {
-          DEFAULT: '#003366', // Navy blue primary color
-          light: '#0055a4',
-          dark: '#00254d',
+          DEFAULT: '#397b26', // BQA Green - primary brand color, approvals, positive actions
+          light: '#4a9632',
+          dark: '#2d5f1e',
         },
         secondary: {
-          DEFAULT: '#e63946', // Red accent color
-          light: '#ff4d5e',
-          dark: '#c62b38',
+          DEFAULT: '#1c4679', // Deep Blue - navigation, headers, authority elements
+          light: '#2557a0',
+          dark: '#14335c',
         },
         accent: {
-          DEFAULT: '#f0f4f8', // Light blue-gray accent
-          dark: '#d0d8e0',
+          DEFAULT: '#e64125', // Accent Red - call-to-action, warnings, rejections
+          light: '#ff6b47',
+          dark: '#c7341f',
+        },
+        highlight: {
+          DEFAULT: '#e68835', // Orange - secondary actions and highlights
+          light: '#ff9d52',
+          dark: '#cc7429',
         },
         neutral: {
           100: '#f8f9fa',
@@ -35,7 +41,24 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Graphik', 'Segoe UI', 'Helvetica Neue', 'Arial', 'sans-serif'],
+      },
+      fontSize: {
+        'h1': '42px',
+        'h2': '38px',
+        'h3': '35px',
+        'h4': '26px',
+        'body': '16px',
+      },
+      screens: {
+        'xs': '576px',
+        'sm': '576px',
+        'md': '768px',
+        'lg': '992px',
+        'xl': '1200px',
+      },
+      maxWidth: {
+        'container': '1212px',
       },
     },
   },

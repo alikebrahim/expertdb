@@ -1,11 +1,12 @@
 import React from 'react';
-import { FieldValues, UseFormReturn, Path, FieldError } from 'react-hook-form';
+import { FieldValues, UseFormReturn, Path, FieldError, Control, useController } from 'react-hook-form';
 
 interface FormFieldProps<T extends FieldValues> {
-  form: UseFormReturn<T>;
+  form?: UseFormReturn<T>;
+  control?: Control<T>;
   name: Path<T>;
   label: string;
-  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox' | 'radio';
+  type?: 'text' | 'email' | 'password' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'month';
   placeholder?: string;
   className?: string;
   disabled?: boolean;
@@ -14,10 +15,12 @@ interface FormFieldProps<T extends FieldValues> {
   children?: React.ReactNode;
   rows?: number;
   hint?: string;
+  error?: FieldError;
 }
 
 export const FormField = <T extends FieldValues>({
   form,
+  control,
   name,
   label,
   type = 'text',
@@ -29,13 +32,17 @@ export const FormField = <T extends FieldValues>({
   children,
   rows = 3,
   hint,
+  error: externalError,
 }: FormFieldProps<T>) => {
-  const {
-    register,
-    formState: { errors, isSubmitting },
-  } = form;
-
-  const error = errors[name] as FieldError | undefined;
+  // Handle both form and control patterns
+  const usingControl = control && !form;
+  const controllerResult = usingControl ? useController({ name, control }) : null;
+  
+  const register = form?.register;
+  const formState = form?.formState;
+  const isSubmitting = formState?.isSubmitting || false;
+  
+  const error = externalError || (formState?.errors[name] as FieldError | undefined);
   const isCheckboxOrRadio = type === 'checkbox' || type === 'radio';
 
   return (
@@ -59,7 +66,7 @@ export const FormField = <T extends FieldValues>({
           }`}
           placeholder={placeholder}
           disabled={disabled || isSubmitting}
-          {...register(name)}
+          {...(usingControl ? controllerResult!.field : register!(name))}
         />
       ) : type === 'select' ? (
         <select
@@ -68,7 +75,7 @@ export const FormField = <T extends FieldValues>({
             error ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''
           }`}
           disabled={disabled || isSubmitting}
-          {...register(name)}
+          {...(usingControl ? controllerResult!.field : register!(name))}
         >
           {options.map((option) => (
             <option key={option.value} value={option.value}>
@@ -86,7 +93,7 @@ export const FormField = <T extends FieldValues>({
                 error ? 'border-red-500 focus:ring-red-500' : ''
               }`}
               disabled={disabled || isSubmitting}
-              {...register(name)}
+              {...(usingControl ? controllerResult!.field : register!(name))}
             />
           </div>
           <div className="ml-3 text-sm">
@@ -112,7 +119,7 @@ export const FormField = <T extends FieldValues>({
                   error ? 'border-red-500 focus:ring-red-500' : ''
                 }`}
                 disabled={disabled || isSubmitting}
-                {...register(name)}
+                {...(usingControl ? controllerResult!.field : register!(name))}
               />
               <label
                 className="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -133,7 +140,7 @@ export const FormField = <T extends FieldValues>({
             }`}
             placeholder={placeholder}
             disabled={disabled || isSubmitting}
-            {...register(name)}
+            {...(usingControl ? controllerResult!.field : register!(name))}
           />
           {children}
         </>

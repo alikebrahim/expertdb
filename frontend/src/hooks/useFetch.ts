@@ -53,7 +53,7 @@ export function useFetch<T>(
       }
       
       return result;
-    } catch (err) {
+    } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(errorMessage);
       setError(error);
       

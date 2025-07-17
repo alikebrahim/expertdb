@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"expertdb/internal/api/response"
+	"expertdb/internal/documents"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -17,13 +18,15 @@ import (
 
 // ExpertHandler handles expert-related API endpoints
 type ExpertHandler struct {
-	store storage.Storage
+	store           storage.Storage
+	documentService *documents.Service
 }
 
 // NewExpertHandler creates a new expert handler
-func NewExpertHandler(store storage.Storage) *ExpertHandler {
+func NewExpertHandler(store storage.Storage, documentService *documents.Service) *ExpertHandler {
 	return &ExpertHandler{
-		store: store,
+		store:           store,
+		documentService: documentService,
 	}
 }
 
@@ -283,7 +286,7 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 		errors = append(errors, "name is required")
 	}
 	
-	if expert.Institution == "" {
+	if expert.Affiliation == "" {
 		errors = append(errors, "institution is required")
 	}
 	
@@ -346,7 +349,7 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Create expert in database
-	log.Debug("Creating expert: %s, Institution: %s", expert.Name, expert.Institution)
+	log.Debug("Creating expert: %s, Institution: %s", expert.Name, expert.Affiliation)
 	id, err := h.store.CreateExpert(&expert)
 	if err != nil {
 		log.Error("Failed to create expert in database: %v", err)
@@ -462,11 +465,81 @@ func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Reques
 		return fmt.Errorf("failed to check existing expert: %w", err)
 	}
 
-	// Parse update data
+	// Check if this is a multipart form or JSON update
+	contentType := r.Header.Get("Content-Type")
 	var updateExpert domain.Expert
-	if err := json.NewDecoder(r.Body).Decode(&updateExpert); err != nil {
-		log.Warn("Failed to parse expert update request: %v", err)
-		return fmt.Errorf("invalid request body: %w", err)
+	
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// This is a file upload with form data
+		log.Debug("Processing multipart form update for expert ID: %d", id)
+		
+		// Parse multipart form (max 10MB for file)
+		err := r.ParseMultipartForm(10 << 20)
+		if err != nil {
+			log.Warn("Failed to parse multipart form: %v", err)
+			return fmt.Errorf("failed to parse form: %w", err)
+		}
+		
+		// Parse JSON part for the expert data
+		jsonData := r.FormValue("data")
+		if jsonData == "" {
+			log.Warn("Missing JSON data in form")
+			return fmt.Errorf("missing expert data")
+		}
+		
+		if err := json.Unmarshal([]byte(jsonData), &updateExpert); err != nil {
+			log.Warn("Failed to parse JSON data: %v", err)
+			return fmt.Errorf("invalid JSON data: %w", err)
+		}
+		
+		// Process CV file if provided
+		cvFile, cvFileHeader, err := r.FormFile("cvFile")
+		if err == nil {
+			// CV file was provided, upload it
+			defer cvFile.Close()
+			
+			cvDoc, err := h.documentService.CreateDocument(id, cvFile, cvFileHeader, "cv")
+			if err != nil {
+				log.Error("Failed to upload CV file: %v", err)
+				return fmt.Errorf("failed to upload CV: %w", err)
+			}
+			
+			// Update the expert's CV path
+			updateExpert.CVPath = cvDoc.FilePath
+			log.Debug("Updated CV path for expert ID: %d to %s", id, cvDoc.FilePath)
+		} else if err != http.ErrMissingFile {
+			log.Warn("Error accessing CV file: %v", err)
+			return fmt.Errorf("error processing CV file: %w", err)
+		}
+		
+		// Process approval document file if provided
+		approvalFile, approvalFileHeader, err := r.FormFile("approvalDocument")
+		if err == nil {
+			// Approval document file was provided, upload it
+			defer approvalFile.Close()
+			
+			approvalDoc, err := h.documentService.CreateDocument(id, approvalFile, approvalFileHeader, "approval")
+			if err != nil {
+				log.Error("Failed to upload approval document: %v", err)
+				return fmt.Errorf("failed to upload approval document: %w", err)
+			}
+			
+			// Update the expert's approval document path
+			updateExpert.ApprovalDocumentPath = approvalDoc.FilePath
+			log.Debug("Updated approval document path for expert ID: %d to %s", id, approvalDoc.FilePath)
+		} else if err != http.ErrMissingFile {
+			log.Warn("Error accessing approval document file: %v", err)
+			return fmt.Errorf("error processing approval document file: %w", err)
+		}
+		
+	} else {
+		// This is a regular JSON update
+		log.Debug("Processing JSON update for expert ID: %d", id)
+		
+		if err := json.NewDecoder(r.Body).Decode(&updateExpert); err != nil {
+			log.Warn("Failed to parse expert update request: %v", err)
+			return fmt.Errorf("invalid request body: %w", err)
+		}
 	}
 
 	// Ensure ID matches path parameter
@@ -481,8 +554,8 @@ func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Reques
 		if updateExpert.Name == "" {
 			updateExpert.Name = existingExpert.Name
 		}
-		if updateExpert.Institution == "" {
-			updateExpert.Institution = existingExpert.Institution
+		if updateExpert.Affiliation == "" {
+			updateExpert.Affiliation = existingExpert.Affiliation
 		}
 		if updateExpert.Designation == "" {
 			updateExpert.Designation = existingExpert.Designation

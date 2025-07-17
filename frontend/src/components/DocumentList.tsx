@@ -64,11 +64,11 @@ const DocumentList = ({ expertId, onRefreshNeeded }: DocumentListProps) => {
     }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-  };
+  // const formatFileSize = (bytes: number) => {
+  //   if (bytes < 1024) return bytes + ' B';
+  //   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  //   return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  // };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -92,17 +92,17 @@ const DocumentList = ({ expertId, onRefreshNeeded }: DocumentListProps) => {
 
   const getDocumentIcon = (contentType: string) => {
     if (contentType.includes('pdf')) {
-      return '📄';
+      return '\uD83D\uDCC4';
     } else if (contentType.includes('word') || contentType.includes('doc')) {
-      return '📝';
+      return '\uD83D\uDCDD';
     } else if (contentType.includes('excel') || contentType.includes('sheet')) {
-      return '📊';
+      return '\uD83D\uDCCA';
     } else if (contentType.includes('powerpoint') || contentType.includes('presentation')) {
-      return '📑';
+      return '\uD83D\uDCD1';
     } else if (contentType.includes('image')) {
-      return '🖼️';
+      return '\uD83D\uDDBC\uFE0F';
     }
-    return '📁';
+    return '\uD83D\uDCC1';
   };
 
   if (isLoading) {
@@ -195,6 +195,6 @@ const DocumentList = ({ expertId, onRefreshNeeded }: DocumentListProps) => {
       </div>
     </div>
   );
-};
+}
 
 export default DocumentList;

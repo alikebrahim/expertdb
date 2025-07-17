@@ -20,7 +20,7 @@ export const login = async (email: string, password: string) => {
     return {
       success: false,
       message: 'Failed to connect to authentication service',
-      data: null as any,
+      data: null,
     };
   }
 };
@@ -46,14 +46,14 @@ export const refreshToken = async () => {
     return {
       success: false,
       message: 'Failed to refresh token',
-      data: null as any,
+      data: null,
     };
   } catch (error) {
     console.error('Token refresh error:', error);
     return {
       success: false,
       message: 'Failed to refresh authentication token',
-      data: null as any,
+      data: null,
     };
   }
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { useUI } from '../hooks/useUI';
 import * as areasApi from '../api/areas';
@@ -21,12 +21,7 @@ const ExpertAreaManagement = () => {
   const { addNotification } = useUI();
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<ExpertAreaFormData>();
 
-  // Fetch areas on mount
-  useEffect(() => {
-    fetchAreas();
-  }, []);
-
-  const fetchAreas = async () => {
+  const fetchAreas = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await areasApi.getExpertAreas();
@@ -49,7 +44,12 @@ const ExpertAreaManagement = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [addNotification]);
+
+  // Fetch areas on mount
+  useEffect(() => {
+    fetchAreas();
+  }, [fetchAreas]);
 
   const handleCreateArea = async (data: ExpertAreaFormData) => {
     try {

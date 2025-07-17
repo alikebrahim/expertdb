@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -46,83 +45,53 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 		return fmt.Errorf("failed to parse form: %w", err)
 	}
 
-	// Parse JSON part (expert request data)
-	var req domain.ExpertRequest
-	jsonData := r.FormValue("data")
-	if jsonData == "" {
-		log.Warn("Missing JSON data in form")
-		return fmt.Errorf("missing request data")
+	// Create CreateExpertRequest from form data
+	var req domain.CreateExpertRequest
+	
+	// Parse individual form fields
+	req.Name = r.FormValue("name")
+	req.Designation = r.FormValue("designation")
+	req.Affiliation = r.FormValue("affiliation")
+	req.Phone = r.FormValue("phone")
+	req.Email = r.FormValue("email")
+	req.SpecializedArea = r.FormValue("specializedArea")
+	req.Role = r.FormValue("role")
+	req.EmploymentType = r.FormValue("employmentType")
+	
+	// Parse boolean fields
+	req.IsBahraini, _ = strconv.ParseBool(r.FormValue("isBahraini"))
+	req.IsAvailable, _ = strconv.ParseBool(r.FormValue("isAvailable"))
+	req.IsTrained, _ = strconv.ParseBool(r.FormValue("isTrained"))
+	req.IsPublished, _ = strconv.ParseBool(r.FormValue("isPublished"))
+	
+	// Parse numeric fields
+	if generalAreaStr := r.FormValue("generalArea"); generalAreaStr != "" {
+		req.GeneralArea, _ = strconv.ParseInt(generalAreaStr, 10, 64)
 	}
-	if err := json.Unmarshal([]byte(jsonData), &req); err != nil {
-		log.Warn("Failed to parse JSON data: %v", err)
-		return fmt.Errorf("invalid JSON data: %w", err)
+	if ratingStr := r.FormValue("rating"); ratingStr != "" {
+		req.Rating, _ = strconv.Atoi(ratingStr)
+	}
+	
+	// Parse skills array from JSON
+	if skillsJSON := r.FormValue("skills"); skillsJSON != "" {
+		if err := json.Unmarshal([]byte(skillsJSON), &req.Skills); err != nil {
+			log.Warn("Failed to parse skills JSON: %v", err)
+			return fmt.Errorf("invalid skills data: %w", err)
+		}
+	}
+	
+	// Parse biography object from JSON
+	if biographyJSON := r.FormValue("biography"); biographyJSON != "" {
+		if err := json.Unmarshal([]byte(biographyJSON), &req.Biography); err != nil {
+			log.Warn("Failed to parse biography JSON: %v", err)
+			return fmt.Errorf("invalid biography data: %w", err)
+		}
 	}
 
-	// Validate required fields - collect all validation errors
-	errors := []string{}
-	
-	// The following fields are required per SRS
-	if req.Name == "" {
-		errors = append(errors, "name is required")
-	}
-	
-	if req.Email == "" {
-		errors = append(errors, "email is required")
-	} else {
-		// Email validation if provided
-		emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
-		if !emailRegex.MatchString(req.Email) {
-			errors = append(errors, "invalid email format")
-		}
-	}
-	
-	if req.Phone == "" {
-		errors = append(errors, "phone is required")
-	}
-	
-	if req.Biography == "" {
-		errors = append(errors, "biography is required")
-	}
-	
-	if req.Designation == "" {
-		errors = append(errors, "designation is required")
-	}
-	
-	if req.Institution == "" {
-		errors = append(errors, "institution is required")
-	}
-	
-	if req.GeneralArea == 0 {
-		errors = append(errors, "generalArea is required and must be a positive number")
-	}
-	
-	if req.Role == "" {
-		errors = append(errors, "role is required")
-	} else {
-		// Validate role values
-		validRoles := []string{"evaluator", "validator", "evaluator/validator"}
-		if !containsString(validRoles, strings.ToLower(req.Role)) {
-			errors = append(errors, "role must be one of: evaluator, validator, evaluator/validator")
-		}
-	}
-	
-	if req.EmploymentType == "" {
-		errors = append(errors, "employmentType is required")
-	} else {
-		// Validate employment type values
-		validEmploymentTypes := []string{"academic", "employer"}
-		if !containsString(validEmploymentTypes, strings.ToLower(req.EmploymentType)) {
-			errors = append(errors, "employmentType must be one of: academic, employer")
-		}
-	}
-	
-	if req.Rating == "" {
-		errors = append(errors, "rating is required")
-	}
-	
-	if len(errors) > 0 {
-		log.Warn("Expert request validation failed: %v", errors)
-		return response.ValidationError(w, errors)
+	// Validate using the domain validation function
+	if err := domain.ValidateCreateExpertRequest(&req); err != nil {
+		log.Warn("Expert request validation failed: %v", err)
+		return response.ValidationError(w, []string{err.Error()})
 	}
 
 	// Handle CV file - required
@@ -133,18 +102,18 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 	}
 	defer cvFile.Close()
 
-	// Set created_by from JWT context
+	// Get user ID from JWT context
 	claims, ok := auth.GetUserClaimsFromContext(r.Context())
 	if !ok {
 		log.Warn("Failed to get user claims from context")
 		return domain.ErrUnauthorized
 	}
 	
-	// Extract user ID from claims
+	var userID int64
 	if sub, ok := claims["sub"].(string); ok {
-		userID, err := strconv.ParseInt(sub, 10, 64)
+		parsedID, err := strconv.ParseInt(sub, 10, 64)
 		if err == nil {
-			req.CreatedBy = userID
+			userID = parsedID
 		} else {
 			log.Warn("Failed to parse user ID from claims: %v", err)
 			return domain.ErrUnauthorized
@@ -152,14 +121,6 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 	} else {
 		log.Warn("Failed to get user ID from claims")
 		return domain.ErrUnauthorized
-	}
-
-	// Set default values
-	if req.CreatedAt.IsZero() {
-		req.CreatedAt = time.Now()
-	}
-	if req.Status == "" {
-		req.Status = "pending"
 	}
 
 	// Use a temporary negative ID to indicate this is for a request
@@ -175,6 +136,7 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 	
 	// Handle optional approval document file
 	approvalFile, approvalFileHeader, err := r.FormFile("approval_document")
+	var approvalDocPath string
 	if err == nil {
 		// Approval document was provided, upload it
 		defer approvalFile.Close()
@@ -184,15 +146,48 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 			log.Error("Failed to upload approval document: %v", err)
 			return fmt.Errorf("failed to upload approval document: %w", err)
 		}
-		req.ApprovalDocumentPath = approvalDoc.FilePath
-		log.Debug("Approval document uploaded successfully: %s", req.ApprovalDocumentPath)
+		approvalDocPath = approvalDoc.FilePath
+		log.Debug("Approval document uploaded successfully: %s", approvalDocPath)
 	} else {
 		log.Debug("No approval document provided (optional)")
 	}
 
+	// Convert biography struct to JSON string for storage
+	biographyJSON := ""
+	if len(req.Biography.Experience) > 0 || len(req.Biography.Education) > 0 {
+		if data, err := json.Marshal(req.Biography); err == nil {
+			biographyJSON = string(data)
+		}
+	}
+
+	// Create ExpertRequest for storage (with additional fields)
+	// Note: Temporarily mapping Affiliation to Institution until storage layer is updated
+	expertRequest := &domain.ExpertRequest{
+		Name:                 req.Name,
+		Designation:          req.Designation,
+		Affiliation:          req.Affiliation, // This maps to Institution in storage
+		Phone:                req.Phone,
+		Email:                req.Email,
+		IsBahraini:           req.IsBahraini,
+		IsAvailable:          req.IsAvailable,
+		Rating:               req.Rating,
+		Role:                 req.Role,
+		EmploymentType:       req.EmploymentType,
+		GeneralArea:          req.GeneralArea,
+		SpecializedArea:      req.SpecializedArea,
+		IsTrained:            req.IsTrained,
+		IsPublished:          req.IsPublished,
+		CVPath:               req.CVPath,
+		ApprovalDocumentPath: approvalDocPath,
+		Biography:            biographyJSON,
+		Status:               "pending",
+		CreatedAt:            time.Now(),
+		CreatedBy:            userID,
+	}
+
 	// Create request in database
 	log.Debug("Creating expert request for %s", req.Name)
-	id, err := h.store.CreateExpertRequest(&req)
+	id, err := h.store.CreateExpertRequest(expertRequest)
 	if err != nil {
 		log.Error("Failed to create expert request: %v", err)
 		

@@ -234,12 +234,8 @@ const EngagementManagementPage = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             >
               <option value="">All Types</option>
-              <option value="consultation">Consultation</option>
-              <option value="project">Project</option>
-              <option value="workshop">Workshop</option>
-              <option value="training">Training</option>
-              <option value="research">Research</option>
-              <option value="other">Other</option>
+              <option value="validator">Validator</option>
+              <option value="evaluator">Evaluator</option>
             </select>
           </div>
           

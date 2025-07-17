@@ -128,7 +128,7 @@ def transform_row(row, expert_areas, cursor):
         "is_bahraini": 1 if get_value("BH", "No").lower() in ["yes", "y", "true"] else 0,
         "nationality": "Bahraini" if get_value("BH", "No").lower() in ["yes", "y", "true"] else "Non-Bahraini",
         "is_available": 1 if get_value("Available", "No").lower() in ["yes", "y", "true"] else 0,
-        "rating": get_value("Rating", "0"),
+        "rating": 0,  # Force all ratings to 0 (No Rating) by default
         "role": get_value("Validator/ Evaluator", "evaluator").lower(),
         "employment_type": get_value("Academic/Employer", "Unknown"),
         "general_area": general_area_id,

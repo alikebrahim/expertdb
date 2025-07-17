@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import ExpertRequestSubmissionForm from '../components/ExpertRequestSubmissionForm';
+import ExpertRequestForm from '../components/ExpertRequestForm';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Alert } from '../components/ui/Alert';
 import Button from '../components/ui/Button';
@@ -120,7 +120,7 @@ const ExpertApplicationPage: React.FC = () => {
             </Button>
           </div>
           
-          <ExpertRequestSubmissionForm onSuccess={handleSuccess} />
+          <ExpertRequestForm onSuccess={handleSuccess} />
         </div>
       )}
     </div>

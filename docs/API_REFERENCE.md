@@ -329,6 +329,157 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
   - Logs deletion (e.g., "User deleted: ID 18").
   - Updated in Phase 2 for role-based deletion restrictions.
 
+## Role Assignment Endpoints
+
+### POST /api/users/{id}/planner-assignments
+
+- **Purpose**: Assigns a user as planner to multiple applications within phases.
+- **Method**: POST
+- **Path**: `/api/users/{id}/planner-assignments`
+- **Request Headers**:
+  - `Authorization: Bearer <JWT_TOKEN>`
+  - `Content-Type: application/json`
+- **Access Control**: Admin only
+- **Request Payload**:
+  ```json
+  {
+    "application_ids": [1, 2, 3]
+  }
+  ```
+- **Response Payload (Success)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "message": "Planner assignments updated successfully",
+      "user_id": 123,
+      "assigned_applications": 3
+    }
+  }
+  ```
+- **Implementation**:
+  - File: `internal/api/handlers/role_assignments.go`
+  - Replaces existing planner assignments for the user with the new list
+  - Uses batch operations within a database transaction
+- **Notes**:
+  - User must exist in the system
+  - Application IDs must be valid existing applications
+  - Assignment is contextual - limited to specific applications within phases
+
+### POST /api/users/{id}/manager-assignments
+
+- **Purpose**: Assigns a user as manager to multiple applications within phases.
+- **Method**: POST
+- **Path**: `/api/users/{id}/manager-assignments`
+- **Request Headers**:
+  - `Authorization: Bearer <JWT_TOKEN>`
+  - `Content-Type: application/json`
+- **Access Control**: Admin only
+- **Request Payload**:
+  ```json
+  {
+    "application_ids": [1, 2, 3]
+  }
+  ```
+- **Response Payload (Success)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "message": "Manager assignments updated successfully",
+      "user_id": 123,
+      "assigned_applications": 3
+    }
+  }
+  ```
+- **Implementation**:
+  - File: `internal/api/handlers/role_assignments.go`
+  - Replaces existing manager assignments for the user with the new list
+  - Uses batch operations within a database transaction
+- **Notes**:
+  - Manager role provides rating privileges for assigned applications
+  - User can receive requests and provide expert ratings only for assigned applications
+
+### DELETE /api/users/{id}/planner-assignments
+
+- **Purpose**: Removes planner assignments for a user from specific applications.
+- **Method**: DELETE
+- **Path**: `/api/users/{id}/planner-assignments`
+- **Request Headers**:
+  - `Authorization: Bearer <JWT_TOKEN>`
+  - `Content-Type: application/json`
+- **Access Control**: Admin only
+- **Request Payload**:
+  ```json
+  {
+    "application_ids": [1, 2]
+  }
+  ```
+- **Response Payload (Success)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "message": "Planner assignments removed successfully",
+      "user_id": 123,
+      "removed_applications": 2
+    }
+  }
+  ```
+
+### DELETE /api/users/{id}/manager-assignments
+
+- **Purpose**: Removes manager assignments for a user from specific applications.
+- **Method**: DELETE
+- **Path**: `/api/users/{id}/manager-assignments`
+- **Request Headers**:
+  - `Authorization: Bearer <JWT_TOKEN>`
+  - `Content-Type: application/json`
+- **Access Control**: Admin only
+- **Request Payload**:
+  ```json
+  {
+    "application_ids": [1, 2]
+  }
+  ```
+- **Response Payload (Success)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "message": "Manager assignments removed successfully",
+      "user_id": 123,
+      "removed_applications": 2
+    }
+  }
+  ```
+
+### GET /api/users/{id}/assignments
+
+- **Purpose**: Retrieves all planner and manager assignments for a specific user.
+- **Method**: GET
+- **Path**: `/api/users/{id}/assignments`
+- **Request Headers**:
+  - `Authorization: Bearer <JWT_TOKEN>`
+- **Access Control**: Admin only
+- **Response Payload (Success)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "user_id": 123,
+      "planner_applications": [1, 3, 5],
+      "manager_applications": [2, 4, 6]
+    }
+  }
+  ```
+- **Implementation**:
+  - File: `internal/api/handlers/role_assignments.go`
+  - Returns array of application IDs for each role type
+- **Notes**:
+  - Used by admin UI to display current assignments when managing user roles
+  - Applications can be cross-referenced with phase data to show context
+
 ## Expert Management Endpoints
 
 ### POST /api/experts
@@ -521,22 +672,29 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
 ### PUT /api/experts/{id}
 
-- **Purpose**: Updates an expert profile.
+- **Purpose**: Updates an expert profile with support for file uploads.
 - **Method**: PUT
 - **Path**: `/api/experts/{id}`
 - **Request Headers**:
   - `Authorization: Bearer <admin_token>`
+- **Content-Type Support**: 
+  - **JSON Updates**: `application/json` for data-only updates
+  - **File Uploads**: `multipart/form-data` for updates with file attachments
+
+#### JSON Request (Data Only)
+- **Request Headers**:
+  - `Content-Type: application/json`
 - **Request Payload**:
 
   ```json
   {
     "name": "string",
-    "institution": "string",
+    "affiliation": "string",
     "email": "string",
     "designation": "string",
     "isBahraini": boolean,
     "isAvailable": boolean,
-    "rating": "string",
+    "rating": int,
     "role": "string",
     "employmentType": "string",
     "generalArea": int,
@@ -550,6 +708,14 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
     "approvalDocumentPath": "string"
   }
   ```
+
+#### Multipart Request (With File Uploads)
+- **Request Headers**:
+  - `Content-Type: multipart/form-data`
+- **Form Fields**:
+  - `data`: JSON string containing expert data (same structure as JSON request)
+  - `cvFile`: (optional) New CV file (PDF format)
+  - `approvalDocument`: (optional) New approval document file
 - **Response Payload**:
   - **Success (200 OK)**:
 
@@ -569,9 +735,16 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
     ```
 - **Implementation**:
   - File: `internal/api/handlers/expert.go`
-  - Updates specified fields, including `approvalDocumentPath`.
+  - **Smart Content-Type Detection**: Automatically detects JSON vs multipart requests
+  - **JSON Mode**: Direct JSON parsing for data-only updates
+  - **Multipart Mode**: Form parsing with file upload support via document service
+  - **File Handling**: Supports CV (`cvFile`) and approval document (`approvalDocument`) uploads
+  - Updates specified fields with proper type handling (rating as int, skills as array)
 - **Notes**:
-  - Logs updates (e.g., "Expert updated: ID 440").
+  - **Dual Format Support**: Same endpoint handles both JSON and multipart requests
+  - **File Upload**: New CV and approval documents automatically processed and stored
+  - **Backward Compatibility**: Existing JSON-only clients continue to work unchanged
+  - Logs updates (e.g., "Expert updated: ID 440")
 
 ### DELETE /api/experts/{id}
 
@@ -716,7 +889,7 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 
 ### POST /api/expert-requests
 
-- **Purpose**: Submits an expert request with CV upload.
+- **Purpose**: Submits an expert request with CV upload and structured biography.
 - **Method**: POST
 - **Path**: `/api/expert-requests`
 - **Request Headers**:
@@ -724,23 +897,51 @@ Endpoints are grouped by functionality, with most requiring JWT authentication a
 - **Request Payload**: Form-data
 
   ```text
-  name: string           // Required
-  designation: string     // Required
-  institution: string     // Required
-  isBahraini: boolean    // Required
-  isAvailable: boolean   // Required
-  rating: string         // Required
-  role: string           // Required
-  employmentType: string // Required
-  generalArea: int       // Required
-  specializedArea: string// Required
-  isTrained: boolean     // Required
-  phone: string          // Required
-  email: string          // Required
-  biography: string      // Required
-  skills: string         // Required: JSON array
-  isPublished: boolean   // Optional, defaults to false
-  cv: file               // Required: PDF
+  name: string           // Required: Expert's full name (min 2 chars)
+  designation: string    // Required: Professional title - one of: "Prof.", "Dr.", "Mr.", "Ms.", "Mrs.", "Miss", "Eng."
+  affiliation: string    // Required: Organization or institution (min 2 chars)
+  phone: string          // Required: Contact phone number (min 8 chars, format validated)
+  email: string          // Required: Contact email address (email format validated)
+  isBahraini: boolean    // Required: Bahraini citizenship status
+  isAvailable: boolean   // Required: Current availability for assignments
+  rating: int            // Required: Performance rating (1-5 scale)
+  role: string           // Required: Expert role - one of: "evaluator", "validator", "evaluator/validator"
+  employmentType: string // Required: Employment type - one of: "academic", "employer"
+  generalArea: int       // Required: ID referencing expert_areas table
+  specializedArea: string// Required: Specific field of specialization (min 2 chars)
+  isTrained: boolean     // Required: BQA training completion status
+  isPublished: boolean   // Optional: Publication status (defaults to false)
+  skills: string         // Required: JSON array of skills/competencies (min 1 skill)
+  biography: string      // Required: JSON object with structured experience and education
+  cv: file               // Required: CV document (PDF format, max 5MB)
+  ```
+
+  **Biography Structure**: The biography field should contain a JSON string with the following structure:
+  ```json
+  {
+    "experience": [
+      {
+        "start_date": "YYYY-MM",
+        "end_date": "YYYY-MM or 'Present'",
+        "title": "Job Title",
+        "organization": "Organization Name",
+        "description": "Role description and achievements"
+      }
+    ],
+    "education": [
+      {
+        "start_date": "YYYY-MM", 
+        "end_date": "YYYY-MM",
+        "title": "Degree/Qualification",
+        "institution": "Educational Institution"
+      }
+    ]
+  }
+  ```
+
+  **Skills Structure**: The skills field should contain a JSON array of strings:
+  ```json
+  ["Skill 1", "Skill 2", "Skill 3"]
   ```
 - **Response Payload**:
   - **Success (201 Created)**:
