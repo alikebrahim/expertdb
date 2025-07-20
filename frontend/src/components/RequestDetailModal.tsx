@@ -3,6 +3,7 @@ import { ExpertRequest } from '../types';
 import { expertRequestsApi } from '../services/api';
 import Button from './ui/Button';
 import { Alert } from './ui/Alert';
+import FileUpload from './ui/FileUpload';
 
 interface RequestDetailModalProps {
   request: ExpertRequest;
@@ -75,8 +76,7 @@ const RequestDetailModal = ({ request, onClose, onRequestUpdate }: RequestDetail
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
+  const handleFileChange = (file: File | null) => {
     setApprovalFile(file);
     setError(null);
   };
@@ -323,26 +323,18 @@ const RequestDetailModal = ({ request, onClose, onRequestUpdate }: RequestDetail
                   <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                     <h4 className="font-medium text-green-900 mb-4">Approve Request</h4>
                     <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Approval Document <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="file"
-                          accept=".pdf"
-                          onChange={handleFileChange}
-                          className="w-full px-3 py-2 border border-green-300 rounded focus:outline-none focus:ring-1 focus:ring-green-500"
-                          required
-                        />
-                        <p className="text-xs text-green-700 mt-1">
-                          Upload the official approval document (PDF format required)
-                        </p>
-                        {approvalFile && (
-                          <p className="text-sm text-green-600 mt-1">
-                            File selected: {approvalFile.name}
-                          </p>
-                        )}
-                      </div>
+                      <FileUpload
+                        onFileSelect={handleFileChange}
+                        accept=".pdf"
+                        maxSize={20}
+                        currentFile={approvalFile}
+                        error={!approvalFile && error?.includes('document') ? 'Approval document is required' : ''}
+                        label="Approval Document"
+                        required
+                      />
+                      <p className="text-xs text-green-700">
+                        Upload the official approval document (PDF format required)
+                      </p>
                       <Button
                         variant="primary"
                         onClick={handleApprove}

@@ -1,17 +1,11 @@
 import { useState, useEffect } from 'react';
 import { ExpertRequest } from '../types';
-import { expertRequestsApi, expertAreasApi } from '../services/api';
+import { expertRequestsApi } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import ExpertRequestForm from '../components/ExpertRequestForm';
 import ExpertRequestTable from '../components/ExpertRequestTable';
 import Button from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
-import { Alert } from '../components/ui/Alert';
-
-interface ExpertArea {
-  id: number;
-  name: string;
-}
+import Layout from '../components/layout/Layout';
 
 const ExpertRequestPage = () => {
   const { user } = useAuth();
@@ -106,62 +100,64 @@ const ExpertRequestPage = () => {
   };
   
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-primary">Expert Database Management</h1>
-        <p className="text-neutral-600">
-          Submit expert profiles for database inclusion and review your submission history
-        </p>
-      </div>
-      
-      {successMessage && (
-        <div className="bg-green-100 text-green-800 p-4 rounded mb-6">
-          {successMessage}
+    <Layout>
+      <div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-primary">Expert Database Management</h1>
+          <p className="text-neutral-600">
+            Submit expert profiles for database inclusion and review your submission history
+          </p>
         </div>
-      )}
-      
-      {showForm ? (
-        <div className="bg-white rounded-md shadow p-6 mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-primary">
-              {resubmittingRequest ? 'Resubmit Expert Profile' : 'Add Expert to Database'}
-            </h2>
-            <Button
-              variant="outline"
-              onClick={() => setShowForm(false)}
-            >
-              Cancel
+        
+        {successMessage && (
+          <div className="bg-green-100 text-green-800 p-4 rounded mb-6">
+            {successMessage}
+          </div>
+        )}
+        
+        {showForm ? (
+          <div className="bg-white rounded-md shadow p-6 mb-8">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-primary">
+                {resubmittingRequest ? 'Resubmit Expert Profile' : 'Add Expert to Database'}
+              </h2>
+              <Button
+                variant="outline"
+                onClick={() => setShowForm(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+            
+            <ExpertRequestForm onSuccess={handleSuccess} />
+          </div>
+        ) : (
+          <div className="flex justify-end mb-6">
+            <Button onClick={handleNewRequest}>
+              Add Expert Profile
             </Button>
           </div>
-          
-          <ExpertRequestForm onSuccess={handleSuccess} />
-        </div>
-      ) : (
-        <div className="flex justify-end mb-6">
-          <Button onClick={handleNewRequest}>
-            Add Expert Profile
-          </Button>
-        </div>
-      )}
-      
-      <div className="bg-white rounded-md shadow p-6">
-        <h2 className="text-xl font-semibold text-primary mb-4">
-          Your Submission History
-        </h2>
+        )}
         
-        <ExpertRequestTable
-          requests={requests}
-          isLoading={isLoading}
-          error={error}
-          onResubmit={handleResubmit}
-          pagination={{
-            currentPage: page,
-            totalPages: totalPages,
-            onPageChange: handlePageChange
-          }}
-        />
+        <div className="bg-white rounded-md shadow p-6">
+          <h2 className="text-xl font-semibold text-primary mb-4">
+            Your Submission History
+          </h2>
+          
+          <ExpertRequestTable
+            requests={requests}
+            isLoading={isLoading}
+            error={error}
+            onResubmit={handleResubmit}
+            pagination={{
+              currentPage: page,
+              totalPages: totalPages,
+              onPageChange: handlePageChange
+            }}
+          />
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 

@@ -357,6 +357,56 @@ export const expertRequestsApi = {
       },
     });
   },
+
+  // Draft management
+  saveDraft: (data: Partial<any>) => 
+    request<{id: number}>({
+      url: '/expert-requests/draft',
+      method: 'POST',
+      data,
+    }),
+
+  getDraft: (id: string) => 
+    request<any>({
+      url: `/expert-requests/draft/${id}`,
+      method: 'GET',
+    }),
+
+  // Additional admin actions
+  requestAmendment: (id: number, data: { comments: string }) => 
+    request<{
+      success: boolean;
+      message: string;
+    }>({
+      url: `/expert-requests/${id}/request-amendment`,
+      method: 'POST',
+      data,
+    }),
+
+  archiveRequest: (id: number) => 
+    request<{
+      success: boolean;
+      message: string;
+    }>({
+      url: `/expert-requests/${id}/archive`,
+      method: 'POST',
+    }),
+
+  // Batch operations
+  batchReject: (data: { requestIds: number[]; comments: string }) => 
+    request<{
+      success: boolean;
+      message: string;
+      results: Array<{
+        id: number;
+        status: 'success' | 'failed';
+        error?: string;
+      }>;
+    }>({
+      url: '/expert-requests/batch-reject',
+      method: 'POST',
+      data,
+    }),
 };
 
 // Users API

@@ -6,18 +6,15 @@ import Button from './ui/Button';
 import { Card, CardHeader, CardContent } from './ui/Card';
 
 interface ExperienceEntry {
-  start_date: string;
-  end_date: string;
-  title: string;
-  organization: string;
+  dateFrom: string;
+  dateTo: string;
   description: string;
 }
 
 interface EducationEntry {
-  start_date: string;
-  end_date: string;
-  title: string;
-  institution: string;
+  dateFrom: string;
+  dateTo: string;
+  description: string;
 }
 
 interface Biography {
@@ -58,20 +55,17 @@ const BiographyForm: React.FC<BiographyFormProps> = ({
 
   const addExperienceEntry = () => {
     appendExperience({
-      start_date: '',
-      end_date: '',
-      title: '',
-      organization: '',
+      dateFrom: '',
+      dateTo: '',
       description: '',
     });
   };
 
   const addEducationEntry = () => {
     appendEducation({
-      start_date: '',
-      end_date: '',
-      title: '',
-      institution: '',
+      dateFrom: '',
+      dateTo: '',
+      description: '',
     });
   };
 
@@ -125,52 +119,38 @@ const BiographyForm: React.FC<BiographyFormProps> = ({
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
-                    name={`biography.experience.${index}.start_date`}
-                    label="Start Date"
-                    type="month"
+                    name={`biography.experience.${index}.dateFrom`}
+                    label="Start Date (YYYY-MM)"
                     control={control}
-                    error={errors?.biography?.experience?.[index]?.start_date}
+                    error={errors?.biography?.experience?.[index]?.dateFrom}
+                    placeholder="e.g., 2020-01"
                     required
                   />
                   <FormField
-                    name={`biography.experience.${index}.end_date`}
-                    label="End Date"
-                    type="month"
+                    name={`biography.experience.${index}.dateTo`}
+                    label="End Date (YYYY-MM)"
                     control={control}
-                    error={errors?.biography?.experience?.[index]?.end_date}
+                    error={errors?.biography?.experience?.[index]?.dateTo}
+                    placeholder="e.g., 2023-12 or Present"
                     required
-                    placeholder="YYYY-MM or 'Present'"
                   />
                 </div>
                 
                 <FormField
-                  name={`biography.experience.${index}.title`}
-                  label="Job Title"
-                  control={control}
-                  error={errors?.biography?.experience?.[index]?.title}
-                  placeholder="e.g., Senior Software Engineer"
-                  required
-                />
-                
-                <FormField
-                  name={`biography.experience.${index}.organization`}
-                  label="Organization"
-                  control={control}
-                  error={errors?.biography?.experience?.[index]?.organization}
-                  placeholder="e.g., Company Name"
-                  required
-                />
-                
-                <FormField
                   name={`biography.experience.${index}.description`}
-                  label="Description"
+                  label="Experience Description"
                   type="textarea"
                   control={control}
                   error={errors?.biography?.experience?.[index]?.description}
-                  placeholder="Describe your responsibilities and achievements..."
+                  placeholder="Format: Role/Position, Organization, Location/country[optional]"
                   required
-                  rows={3}
+                  rows={2}
                 />
+                
+                <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                  <p><strong>Format:</strong> Role/Position, Organization, Location/country[optional]</p>
+                  <p><strong>Example:</strong> Senior Engineer, Ministry of Works, Bahrain</p>
+                </div>
               </div>
             ))}
           </div>
@@ -215,40 +195,38 @@ const BiographyForm: React.FC<BiographyFormProps> = ({
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
-                    name={`biography.education.${index}.start_date`}
-                    label="Start Date"
-                    type="month"
+                    name={`biography.education.${index}.dateFrom`}
+                    label="Start Date (YYYY-MM)"
                     control={control}
-                    error={errors?.biography?.education?.[index]?.start_date}
+                    error={errors?.biography?.education?.[index]?.dateFrom}
+                    placeholder="e.g., 2015-09"
                     required
                   />
                   <FormField
-                    name={`biography.education.${index}.end_date`}
-                    label="End Date"
-                    type="month"
+                    name={`biography.education.${index}.dateTo`}
+                    label="End Date (YYYY-MM)"
                     control={control}
-                    error={errors?.biography?.education?.[index]?.end_date}
+                    error={errors?.biography?.education?.[index]?.dateTo}
+                    placeholder="e.g., 2018-06"
                     required
                   />
                 </div>
                 
                 <FormField
-                  name={`biography.education.${index}.title`}
-                  label="Degree/Qualification"
+                  name={`biography.education.${index}.description`}
+                  label="Education Description"
+                  type="textarea"
                   control={control}
-                  error={errors?.biography?.education?.[index]?.title}
-                  placeholder="e.g., Master of Science in Computer Science"
+                  error={errors?.biography?.education?.[index]?.description}
+                  placeholder="Format: Degree, Institution, Location/country[optional]"
                   required
+                  rows={2}
                 />
                 
-                <FormField
-                  name={`biography.education.${index}.institution`}
-                  label="Institution"
-                  control={control}
-                  error={errors?.biography?.education?.[index]?.institution}
-                  placeholder="e.g., University Name"
-                  required
-                />
+                <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                  <p><strong>Format:</strong> Degree, Institution, Location/country[optional]</p>
+                  <p><strong>Example:</strong> PhD Civil Engineering, University of Bahrain</p>
+                </div>
               </div>
             ))}
           </div>
@@ -280,35 +258,35 @@ const BiographyPreview: React.FC<BiographyPreviewProps> = ({ watch }) => {
     return <p className="text-gray-500 italic">Biography preview will appear here as you fill in the form.</p>;
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Education Section */}
-      {biography.education?.length > 0 && (
-        <div>
-          <h4 className="font-semibold text-base mb-2">Education</h4>
-          <ul className="space-y-1">
-            {biography.education.map((edu: EducationEntry, index: number) => (
-              <li key={index} className="text-sm">
-                • {edu.start_date} - {edu.end_date} - {edu.title} - {edu.institution}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+  const formatBiography = (biography: Biography): string => {
+    let formatted = '';
+    
+    if (biography.education?.length > 0) {
+      formatted += 'Education:\n';
+      biography.education.forEach((entry: EducationEntry) => {
+        if (entry.dateFrom && entry.dateTo && entry.description) {
+          formatted += `[${entry.dateFrom} - ${entry.dateTo}] ${entry.description}\n`;
+        }
+      });
+    }
+    
+    if (biography.experience?.length > 0) {
+      formatted += '\nExperience:\n';
+      biography.experience.forEach((entry: ExperienceEntry) => {
+        if (entry.dateFrom && entry.dateTo && entry.description) {
+          formatted += `[${entry.dateFrom} - ${entry.dateTo}] ${entry.description}\n`;
+        }
+      });
+    }
+    
+    return formatted;
+  };
 
-      {/* Experience Section */}
-      {biography.experience?.length > 0 && (
-        <div>
-          <h4 className="font-semibold text-base mb-2">Experience</h4>
-          <ul className="space-y-1">
-            {biography.experience.map((exp: ExperienceEntry, index: number) => (
-              <li key={index} className="text-sm">
-                • {exp.start_date} - {exp.end_date} - {exp.title} - {exp.organization} - {exp.description}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+  return (
+    <div className="bg-gray-50 p-4 rounded border">
+      <pre className="whitespace-pre-wrap text-sm font-mono">
+        {formatBiography(biography) || 'Biography preview will appear here as you fill in the form.'}
+      </pre>
     </div>
   );
 };

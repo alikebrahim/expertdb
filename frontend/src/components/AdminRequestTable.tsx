@@ -10,6 +10,10 @@ interface AdminRequestTableProps {
   onViewRequest: (request: ExpertRequest) => void;
   onRequestSelection: (requestId: number, selected: boolean) => void;
   selectedRequests: number[];
+  onStatusFilter?: (status: string | null) => void;
+  currentStatusFilter?: string | null;
+  onBatchApprove?: (requestIds: number[]) => void;
+  onBatchReject?: (requestIds: number[]) => void;
   pagination?: {
     currentPage: number;
     totalPages: number;
@@ -24,6 +28,10 @@ const AdminRequestTable = ({
   onViewRequest,
   onRequestSelection,
   selectedRequests,
+  onStatusFilter,
+  currentStatusFilter,
+  onBatchApprove,
+  onBatchReject,
   pagination
 }: AdminRequestTableProps) => {
   
@@ -80,6 +88,18 @@ const AdminRequestTable = ({
   const isAllSelected = requests.length > 0 && requests.every(request => selectedRequests.includes(request.id));
   const isSomeSelected = requests.some(request => selectedRequests.includes(request.id));
   
+  const statusFilters = [
+    { label: 'All', value: null },
+    { label: 'Pending', value: 'pending' },
+    { label: 'Approved', value: 'approved' },
+    { label: 'Rejected', value: 'rejected' }
+  ];
+
+  const getStatusCount = (status: string | null) => {
+    if (status === null) return requests.length;
+    return requests.filter(request => request.status === status).length;
+  };
+  
   if (error) {
     return (
       <div className="bg-red-50 text-red-800 p-4 rounded border border-red-200">
@@ -90,6 +110,70 @@ const AdminRequestTable = ({
   
   return (
     <div className="space-y-4">
+      {/* Status Filter Tabs */}
+      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+        {statusFilters.map(filter => (
+          <button
+            key={filter.value || 'all'}
+            onClick={() => onStatusFilter?.(filter.value)}
+            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              currentStatusFilter === filter.value 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            {filter.label}
+            <span className="ml-2 bg-gray-200 text-gray-600 px-2 py-1 rounded-full text-xs">
+              {getStatusCount(filter.value)}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Batch Operations */}
+      {selectedRequests.length > 0 && (
+        <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm font-medium text-blue-800">
+              {selectedRequests.length} request{selectedRequests.length > 1 ? 's' : ''} selected
+            </span>
+            <div className="flex space-x-2">
+              {onBatchApprove && (
+                <Button
+                  size="sm"
+                  onClick={() => onBatchApprove(selectedRequests)}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Batch Approve
+                </Button>
+              )}
+              {onBatchReject && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onBatchReject(selectedRequests)}
+                  className="border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  Batch Reject
+                </Button>
+              )}
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => statusFilters.forEach(filter => 
+              requests.forEach(request => {
+                if (selectedRequests.includes(request.id)) {
+                  onRequestSelection(request.id, false);
+                }
+              })
+            )}
+          >
+            Clear Selection
+          </Button>
+        </div>
+      )}
       {isLoading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { expertRequestsApi, expertAreasApi } from '../services/api';
 import { useFormWithNotifications } from '../hooks/useForm';
 import { expertRequestSchema } from '../utils/formSchemas';
@@ -10,6 +10,8 @@ import { Card, CardHeader, CardContent } from './ui/Card';
 import Button from './ui/Button';
 import BiographyForm from './BiographyForm';
 import { TagInput } from './ui/TagInput';
+import { useUI } from '../hooks/useUI';
+import FileUpload from './ui/FileUpload';
 
 type ExpertRequestFormData = z.infer<typeof expertRequestSchema>;
 
@@ -28,6 +30,10 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
   const [expertAreas, setExpertAreas] = useState<ExpertArea[]>([]);
   const [loadingAreas, setLoadingAreas] = useState(true);
   const [skillTags, setSkillTags] = useState<string[]>([]);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const { showNotification } = useUI();
   
   // Load expert areas for dropdown
   useEffect(() => {
@@ -112,39 +118,12 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
     },
   });
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
+  const handleFileChange = (file: File | null) => {
+    setCvFile(file);
+    form.setValue('cv', file || undefined);
     
     if (file) {
-      // Validate file type
-      if (file.type !== 'application/pdf') {
-        form.setError('cv', {
-          type: 'manual',
-          message: 'Only PDF files are allowed'
-        });
-        setCvFile(null);
-        e.target.value = ''; // Clear the input
-        return;
-      }
-
-      // Validate file size (5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        form.setError('cv', {
-          type: 'manual',
-          message: 'File size must be less than 5MB'
-        });
-        setCvFile(null);
-        e.target.value = ''; // Clear the input
-        return;
-      }
-
-      // File is valid
-      setCvFile(file);
-      form.setValue('cv', file);
       form.clearErrors('cv');
-    } else {
-      setCvFile(null);
-      form.setValue('cv', undefined);
     }
   };
 
@@ -152,6 +131,61 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
     setSkillTags(skills);
     form.setValue('skills', skills);
   };
+
+  // Auto-save functionality
+  const saveDraft = useCallback(async () => {
+    if (isAutoSaving) return;
+    
+    setIsAutoSaving(true);
+    try {
+      const formData = form.getValues();
+      const draftData = {
+        ...formData,
+        skills: skillTags,
+        isDraft: true
+      };
+      
+      // Save to localStorage as backup
+      localStorage.setItem('expertRequestDraft', JSON.stringify(draftData));
+      
+      // TODO: Implement API call to save draft
+      // await expertRequestsApi.saveDraft(draftData);
+      
+      setLastSaved(new Date());
+      showNotification('Draft saved automatically', 'success', 2000);
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+    } finally {
+      setIsAutoSaving(false);
+    }
+  }, [form, skillTags, isAutoSaving, showNotification]);
+
+  // Auto-save every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const formData = form.getValues();
+      if (formData.name || formData.email || formData.phone || skillTags.length > 0) {
+        saveDraft();
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [saveDraft]);
+
+  // Load draft on component mount
+  useEffect(() => {
+    const savedDraft = localStorage.getItem('expertRequestDraft');
+    if (savedDraft) {
+      try {
+        const draftData = JSON.parse(savedDraft);
+        form.reset(draftData);
+        setSkillTags(draftData.skills || []);
+        setLastSaved(new Date(draftData.lastSaved || Date.now()));
+      } catch (error) {
+        console.error('Failed to load draft:', error);
+      }
+    }
+  }, [form]);
 
   const onSubmit = async (data: ExpertRequestFormData) => {
     try {
@@ -190,6 +224,11 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
       const response = await expertRequestsApi.createExpertRequest(formData);
       
       if (response.success) {
+        // Clear draft from localStorage
+        localStorage.removeItem('expertRequestDraft');
+        setLastSaved(null);
+        
+        showNotification('Expert request submitted successfully!', 'success');
         onSuccess();
         form.reset();
         setCvFile(null);
@@ -206,8 +245,73 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
     return <LoadingOverlay isLoading={true}>Loading areas...</LoadingOverlay>;
   }
 
+  const sections = [
+    { id: 'personal', title: 'Personal Information', icon: '👤' },
+    { id: 'professional', title: 'Professional Details', icon: '💼' },
+    { id: 'expertise', title: 'Expertise Areas', icon: '🎯' },
+    { id: 'biography', title: 'Biography & Documents', icon: '📄' }
+  ];
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* Progress Stepper */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Submit Expert Request</h1>
+        
+        <div className="flex items-center justify-between mb-6">
+          {sections.map((section, index) => (
+            <div key={section.id} className="flex items-center">
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 text-sm font-semibold ${
+                index <= currentStep 
+                  ? 'bg-blue-600 text-white border-blue-600' 
+                  : 'bg-gray-100 text-gray-400 border-gray-300'
+              }`}>
+                {index < currentStep ? '✓' : index + 1}
+              </div>
+              <div className="ml-3 hidden sm:block">
+                <div className={`text-sm font-medium ${
+                  index <= currentStep ? 'text-blue-600' : 'text-gray-400'
+                }`}>
+                  {section.title}
+                </div>
+              </div>
+              {index < sections.length - 1 && (
+                <div className={`w-16 h-0.5 ml-4 ${
+                  index < currentStep ? 'bg-blue-600' : 'bg-gray-300'
+                }`} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Auto-save status */}
+        <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+          <div className="flex items-center space-x-2">
+            {isAutoSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <span>Saving draft...</span>
+              </>
+            ) : lastSaved ? (
+              <>
+                <span className="text-green-600">✓</span>
+                <span>Auto-saved {new Date(lastSaved).toLocaleTimeString()}</span>
+              </>
+            ) : (
+              <span>Changes will be auto-saved</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={saveDraft}
+            disabled={isAutoSaving}
+            className="text-blue-600 hover:text-blue-800 font-medium"
+          >
+            Save Draft Now
+          </button>
+        </div>
+      </div>
+
       <Form
         form={form}
         onSubmit={onSubmit}
@@ -411,37 +515,20 @@ const ExpertRequestForm = ({ onSuccess }: ExpertRequestFormProps) => {
         <Card>
           <CardHeader>
             <h2 className="text-xl font-semibold">CV Upload</h2>
+            <p className="text-sm text-gray-600">
+              Upload your curriculum vitae (CV) in PDF format
+            </p>
           </CardHeader>
           <CardContent>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                CV Document (PDF) *
-              </label>
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={handleFileChange}
-                className="mt-1 block w-full text-sm text-gray-500
-                          file:mr-4 file:py-2 file:px-4
-                          file:rounded-full file:border-0
-                          file:text-sm file:font-semibold
-                          file:bg-blue-50 file:text-blue-700
-                          hover:file:bg-blue-100"
-              />
-              {cvFile && (
-                <p className="mt-2 text-sm text-green-600">
-                  Selected: {cvFile.name} ({Math.round(cvFile.size / 1024)} KB)
-                </p>
-              )}
-              {form.formState.errors.cv && (
-                <p className="mt-1 text-sm text-red-600">
-                  {form.formState.errors.cv.message}
-                </p>
-              )}
-              <p className="mt-1 text-xs text-gray-500">
-                Maximum file size: 5MB. Only PDF files are allowed.
-              </p>
-            </div>
+            <FileUpload
+              onFileSelect={handleFileChange}
+              accept=".pdf"
+              maxSize={20}
+              currentFile={cvFile}
+              error={form.formState.errors.cv?.message}
+              label="CV Document (PDF)"
+              required
+            />
           </CardContent>
         </Card>
 

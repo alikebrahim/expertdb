@@ -57,3 +57,36 @@ export const batchApprove = (data: FormData) =>
       'Content-Type': 'multipart/form-data',
     },
   });
+
+export const batchReject = (data: { requestIds: number[]; comments: string }) => 
+  request<BatchApproveResponse>({
+    url: '/api/expert-requests/batch-reject',
+    method: 'POST',
+    data,
+  });
+
+export const saveDraft = (data: Partial<any>) => 
+  request<{id: number}>({
+    url: '/api/expert-requests/draft',
+    method: 'POST',
+    data,
+  });
+
+export const getDraft = (id: string) => 
+  request<any>({
+    url: `/api/expert-requests/draft/${id}`,
+    method: 'GET',
+  });
+
+export const requestAmendment = (id: string, data: { comments: string }) => 
+  request<null>({
+    url: `/api/expert-requests/${id}/request-amendment`,
+    method: 'POST',
+    data,
+  });
+
+export const archiveRequest = (id: string) => 
+  request<null>({
+    url: `/api/expert-requests/${id}/archive`,
+    method: 'POST',
+  });
