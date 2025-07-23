@@ -10,7 +10,7 @@ This System Requirements Specification (SRS) defines the functional and non-func
 
 ExpertDB is a lightweight tool for managing expert profiles, requests, engagements, documents, phase planning, and statistics. It supports:
 
-- User management with roles: `super_user`, `admin`, `planner`, `user`.
+- User management with roles: `super_user`, `admin`, `user` with contextual elevations.
 - Expert profile creation, management, and requests with mandatory approval documents.
 - Document uploads (CVs, approval documents).
 - Engagement tracking and phase planning for Qualification Placement (QP) and Institutional Listing (IL) applications.
@@ -24,8 +24,9 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 - **Super User**: A privileged user created during initialization, responsible for creating admin users.
 - **Admin**: A user with full access to manage users, experts, requests, engagements, areas, and phase planning.
-- **Planner User**: A user with regular privileges plus the ability to propose experts for phase planning applications.
-- **User (Regular)**: A user who can submit expert requests and view expert data/documents.
+- **User**: A user who can submit expert requests, view expert data/documents, and view phases. Can be elevated to planner/manager for specific applications.
+- **Planner Elevation**: Contextual privilege allowing a user to propose experts for specific applications within phases.
+- **Manager Elevation**: Contextual privilege allowing a user to provide expert ratings for specific applications when requested by admin.
 - **Expert**: A professional with a profile (e.g., name, institution, skills) in the database.
 - **Expert Request**: A user-submitted proposal to add a new expert, pending admin review (statuses: `pending`, `rejected`, `approved`).
 - **Engagement**: An expert’s assignment to a task (validator or evaluator) tied to QP or IL applications.
@@ -97,15 +98,15 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 #### FR2.1: Create Expert
 
-- **Description**: Admins shall create expert profiles from approved requests, with fields: `expert_id` (auto-generated, `EXP-<sequence>`), `name` (required), `institution` (required), `email` (required, no validation), `designation` (required), `is_bahraini` (required), `is_available` (required), `rating` (required), `role` (required), `employment_type` (required), `general_area` (required, valid ID), `specialized_area` (required), `is_trained` (required), `cv_path` (required), `phone` (required), `is_published` (required, defaults to false), `biography` (required), `skills` (required), `approval_document_path` (required). Admins can edit requests before approval via `PUT /api/expert-requests/{id}/edit`.
+- **Description**: Admins shall create expert profiles from approved requests, with fields: `expert_id` (auto-generated, `EXP-<sequence>`), `name` (required), `institution` (required), `email` (required, no validation), `designation` (required), `is_bahraini` (required), `is_available` (required), `rating` (required), `role` (required), `employment_type` (required), `general_area` (required, valid ID), `specialized_area` (required), `is_trained` (required), `cv_path` (required), `phone` (required), `is_published` (required, defaults to false), `experience_entries` (optional, stored in dedicated table), `education_entries` (optional, stored in dedicated table), `skills` (required), `approval_document_path` (required). Admins can edit requests before approval via `PUT /api/expert-requests/{id}/edit`.
 - **Current Implementation**: Supported via `POST /api/experts`. Bug fixed for `UNIQUE constraint failed` in `sqlite/expert.go:GenerateUniqueExpertID`. `approval_document_path` added to `experts` table. Edit endpoint implemented.
 - **Requirement**: No changes needed.
 - **Priority**: High (core functionality).
 
 #### FR2.2: List Experts
 
-- **Description**: All users shall retrieve a paginated list of experts with filters: `by_nationality` (Bahraini/non-Bahraini), `by_general_area` (area ID), `by_specialized_area` (text), `by_employment_type` (e.g., academic), `by_role` (e.g., evaluator). Sorting supported (e.g., `name`, `rating`, `institution`, `expert_id`, `is_bahraini`, `is_published`).
-- **Current Implementation**: Supported via `GET /api/experts` for all users, with filters and sorting in `sqlite/expert.go`. Pagination metadata included in response and headers (`X-Total-Count`, etc.). Tested via `test_filters.sh`.
+- **Description**: All users shall retrieve a paginated list of experts with filters: `by_nationality` (Bahraini/non-Bahraini), `by_general_area` (area ID), `by_specialized_area` (text search against normalized specialized areas), `by_employment_type` (e.g., academic), `by_role` (e.g., evaluator). Sorting supported (e.g., `name`, `rating`, `institution`, `expert_id`, `is_bahraini`, `is_published`). Specialized areas are stored as comma-separated IDs and searched via normalized lookup.
+- **Current Implementation**: Supported via `GET /api/experts` for all users, with filters and sorting in `sqlite/expert.go`. Pagination metadata included in response and headers (`X-Total-Count`, etc.). ID-based specialized areas normalization implemented with 327 specialized areas. Tested via `test_filters.sh`.
 - **Requirement**: No changes needed.
 - **Priority**: High (core functionality).
 
@@ -134,8 +135,8 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 #### FR3.1: Create Expert Request
 
-- **Description**: Regular and planner users shall submit expert requests with required fields: `name`, `designation`, `institution`, `is_bahraini`, `is_available`, `rating`, `role`, `employment_type`, `general_area` (valid ID), `specialized_area`, `is_trained`, `phone`, `email`, `biography`, `skills`, `cv_path` (file upload). `is_published` is optional (default: `false`). Status defaults to `pending`.
-- **Current Implementation**: Supported via `POST /api/expert-requests` (`api.go`). CV upload implemented (`documents/service.go`).
+- **Description**: Regular and planner users shall submit expert requests with required fields: `name`, `designation`, `institution`, `is_bahraini`, `is_available`, `rating`, `role`, `employment_type`, `general_area` (valid ID), `specialized_area`, `is_trained`, `phone`, `email`, `experience_entries` (optional array), `education_entries` (optional array), `skills`, `cv_path` (file upload). `is_published` is optional (default: `false`). Status defaults to `pending`. Users can select from existing specialized areas or suggest new area names when suitable options don't exist.
+- **Current Implementation**: Supported via `POST /api/expert-requests` (`api.go`). CV upload implemented (`documents/service.go`). Specialized area suggestions stored as JSON array in `suggested_specialized_areas` column.
 - **Requirement**: No changes needed.
 - **Priority**: High (core functionality).
 
@@ -148,15 +149,15 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 #### FR3.3: Retrieve Expert Request Details
 
-- **Description**: Admins shall retrieve a specific request’s details by ID, including `cv_path`.
-- **Current Implementation**: Supported via `GET /api/expert-requests/{id}` (`api.go`).
+- **Description**: Admins shall retrieve a specific request's details by ID, including `cv_path` and `suggested_specialized_areas` for review of user-proposed areas.
+- **Current Implementation**: Supported via `GET /api/expert-requests/{id}` (`api.go`). Returns `suggested_specialized_areas` as JSON array for admin review.
 - **Requirement**: No changes needed.
 - **Priority**: Medium (administrative function).
 
 #### FR3.4: Approve/Reject Expert Request
 
-- **Description**: Admins shall approve (`status: approved`) or reject (`status: rejected`, with optional `rejection_reason`) individual requests, attaching a mandatory approval document for approvals. Approved requests create an expert record with `cv_path` and `approval_document_path`.
-- **Current Implementation**: Supported via `PUT /api/expert-requests/{id}` with document upload (`handlers/expert_request.go`).
+- **Description**: Admins shall approve (`status: approved`) or reject (`status: rejected`, with optional `rejection_reason`) individual requests, attaching a mandatory approval document for approvals. Approved requests create an expert record with `cv_path` and `approval_document_path`. During approval, admin can review `suggested_specialized_areas` and create new specialized areas in the system if appropriate, then assign them to the expert.
+- **Current Implementation**: Supported via `PUT /api/expert-requests/{id}` with document upload (`handlers/expert_request.go`). Suggested areas stored in expert request for admin review.
 - **Requirement**: No changes needed.
 - **Priority**: High (core functionality).
 
@@ -289,26 +290,40 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 ### 3.8 Specialization Area Management
 
-#### FR8.1: List Specialization Areas
+#### FR8.1: List General Areas
 
-- **Description**: All users shall retrieve all specialization areas.
+- **Description**: All users shall retrieve all general specialization areas.
 - **Current Implementation**: Supported via `GET /api/expert/areas` for all users (`auth/middleware.go`).
 - **Requirement**: No changes needed.
 - **Priority**: Medium (user function).
 
-#### FR8.2: Create Specialization Area
+#### FR8.2: List Specialized Areas
 
-- **Description**: Admins shall create new specialization areas with a unique name.
+- **Description**: All users shall retrieve all specialized areas for search functionality.
+- **Current Implementation**: Supported via `GET /api/specialized-areas` for all users. Returns 327 normalized specialized areas with ID-based references.
+- **Requirement**: No changes needed.
+- **Priority**: High (search functionality).
+
+#### FR8.3: Create General Area
+
+- **Description**: Admins shall create new general specialization areas with a unique name.
 - **Current Implementation**: Supported via `POST /api/expert/areas` (`sqlite/area.go`).
 - **Requirement**: No changes needed.
 - **Priority**: Medium (stakeholder requirement).
 
-#### FR8.3: Rename Specialization Area
+#### FR8.4: Rename General Area
 
-- **Description**: Admins shall rename specialization areas, updating associated expert and request records.
+- **Description**: Admins shall rename general specialization areas, updating associated expert and request records.
 - **Current Implementation**: Supported via `PUT /api/expert/areas/{id}` with transactions (`sqlite/area.go`).
 - **Requirement**: No changes needed.
 - **Priority**: Medium (stakeholder requirement).
+
+#### FR8.5: Specialized Areas Data Model
+
+- **Description**: The system shall use normalized specialized areas with ID-based storage for data consistency. Expert records store specialized areas as comma-separated IDs (e.g., "1,4,6") referencing the specialized_areas table.
+- **Current Implementation**: Implemented via specialized_areas table with 327 entries, normalization via py_import.py, ID-based storage in experts table.
+- **Requirement**: No changes needed.
+- **Priority**: High (data integrity).
 
 ### 3.9 Data Import and Backup
 
@@ -330,9 +345,9 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 - **Description**: The system supports structured workflows for expert creation and phase planning to streamline operations.
 - **Workflow 1: Expert Creation**:
-  1. **User Submits Request**: A regular or planner user submits an `expert_request` via `POST /api/expert-requests`, filling a form with required fields and attaching a CV (`cv_path`).
-  2. **Admin Reviews Request**: Admin receives the request (`GET /api/expert-requests`):
-     - **Approve**: Sets `status: approved` via `PUT /api/expert-requests/{id}`, uploads `approval_document`, creates expert in `experts` table.
+  1. **User Submits Request**: A regular or planner user submits an `expert_request` via `POST /api/expert-requests`, filling a form with required fields, attaching a CV (`cv_path`), selecting from existing specialized areas, and optionally suggesting new specialized area names if suitable options don't exist.
+  2. **Admin Reviews Request**: Admin receives the request (`GET /api/expert-requests`) and reviews both expert details and any suggested specialized areas:
+     - **Approve**: Sets `status: approved` via `PUT /api/expert-requests/{id}`, uploads `approval_document`, reviews suggested areas and creates new specialized areas if appropriate, creates expert in `experts` table.
      - **Reject**: Sets `status: rejected` with `rejection_reason`, returns to user for amendment.
      - **Update and Approve**: Edits request via `PUT /api/expert-requests/{id}/edit`, then approves.
 - **Workflow 2: Phase Planning**:
@@ -385,14 +400,14 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 ## 5. Future Considerations
 
-- **Frontend Development**: Status-filtered requests (FR3.2) and area statistics (FR7.5) support UI tabs. Ensure JSON-friendly API responses.
+- **API Development**: Status-filtered requests (FR3.2) and area statistics (FR7.5) support client applications. Ensure JSON-friendly API responses.
 - **Phase Planning**: Validate cascade deletion for planner assignments (FR1.3).
 - **Data Import/Backup API**: Enhance `py_import.py` as an API endpoint.
 - **Testing**: Update `test_api.sh` to cover new endpoints (phase planning, engagement import, area statistics) and workflows.
 
 ## 6. Assumptions
 
-- Users have basic API training (no immediate frontend required).
+- Users have basic API training.
 - CSV imports and backups occur infrequently.
 - Honorarium documents are pre-cleaned (CSV/JSON).
 - Approval documents are validated as type `approval_document`, with flexibility for formats (e.g., PDF, DOC).

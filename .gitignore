@@ -7,12 +7,12 @@ frontend/.env
 frontend/.env.local
 
 # Backend build artifacts
-backend/tmp/
-backend/logs/*.log
-backend/db/sqlite/*.sqlite
-backend/bin/
-backend/testdb/
-backend/data/
+tmp/
+logs/*.log
+db/sqlite/*.sqlite
+bin/
+testdb/
+data/
 tmp/
 
 # Temporary files

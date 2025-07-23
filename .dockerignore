@@ -19,18 +19,18 @@ frontend/.next/
 frontend/coverage/
 
 # Backend development files
-backend/main
-backend/*.exe
-backend/*.test
-backend/coverage.out
-backend/vendor/
+main
+*.exe
+*.test
+coverage.out
+vendor/
 
 # Database files (will be created in container)
-backend/db/sqlite/*.db
-backend/db/sqlite/*.sqlite
+db/sqlite/*.db
+db/sqlite/*.sqlite
 
 # Upload directory (will be created in container)
-backend/data/
+data/
 
 # Logs
 logs/

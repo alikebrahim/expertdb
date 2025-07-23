@@ -24,7 +24,7 @@ ExpertDB is a lightweight internal web application for managing a database of ex
 - Small scale: Designed for 10-12 users, supporting up to 2000 expert entries over 5 years
 - Internal use: Not exposed to the internet, deployed within the organization's security boundaries
 - Performance: Optimized for response times under 2 seconds with modest server requirements
-- Technology: Go backend with SQLite database, React/TypeScript frontend with Tailwind CSS
+- Technology: Go backend with SQLite database
 
 The system enables the organization to:
 - Maintain a centralized database of qualified experts
@@ -33,29 +33,42 @@ The system enables the organization to:
 - Track expert engagements and performance
 - Generate statistics and reports on expert utilization
 
-## User Roles and Permissions //NOTE: Ensure it is reflected clearly that Planner have the same Regular User task/privilages (capabilities), with added Phase/Application Planning
+## User Roles and Permissions
 
-The system implements a role-based access control model with four distinct roles:
+The system implements a role-based access control model with three base roles and contextual elevations:
 
 ### Super User
 - **Capabilities**: Full system access, including all administrative functions
-- **Special Powers**: Can modify user roles, access system configuration
+- **Special Powers**: Can modify user roles, access system configuration, create admin users
+- **Statistics Access**: Complete access to all statistics endpoints (**Enhanced: Now shared with Admin**)
 - **Typical Tasks**: System setup, user provisioning, data recovery
 
 ### Admin
-- **Capabilities**: Review and approve expert requests, manage phases, assign planners
-- **Primary Workflows**: Expert approval, phase creation, final approval of expert assignments
-- **Access Level**: Can view and edit all experts, requests, and phases
+- **Capabilities**: Review and approve expert requests, manage phases, assign users to applications
+- **Primary Workflows**: Expert approval, phase creation, user elevation assignments, final approval of expert assignments
+- **Access Level**: Can view and edit all experts, requests, and phases. Has inherent access to all phase applications.
+- **Statistics Access**: (**New Enhancement**) Full access to statistics dashboard and reports, including new request tracking statistics
 
-### Planner
-- **Capabilities**: Propose experts for applications within assigned phases
-- **Primary Workflows**: Expert selection for qualification reviews
-- **Access Level**: Can view experts and update assigned phase applications
-
-### Regular User
-- **Capabilities**: Submit expert requests, view approved experts
-- **Primary Workflows**: Expert request submission
+### User
+- **Base Capabilities**: Submit expert requests, view approved experts
+- **Primary Workflows**: Expert request submission, viewing expert profiles
 - **Access Level**: Limited to submitting requests and viewing approved expert profiles
+
+### Contextual Elevations
+
+Users can be elevated to have additional privileges for specific applications within phases:
+
+#### Planner Elevation
+- **Additional Capabilities**: Propose experts for assigned applications
+- **Scope**: Limited to specific applications within assigned phases
+- **Access**: Can update expert assignments for applications where they have planner elevation
+- **Assignment**: Managed by admin via `/api/users/{id}/planner-assignments`
+
+#### Manager Elevation
+- **Additional Capabilities**: Rate experts for assigned applications when requested by admin
+- **Scope**: Limited to specific applications within assigned phases
+- **Access**: Can provide expert ratings and evaluations for applications where they have manager elevation
+- **Assignment**: Managed by admin via `/api/users/{id}/manager-assignments`
 
 ## Core Workflows
 
@@ -67,15 +80,17 @@ The expert creation workflow manages how new experts are proposed, reviewed, and
 1. **Request Initiation**
    - User submits a new expert request (`/api/expert-requests` POST)
    - Required information: expert details, CV document upload
+   - **Specialized Areas Selection**: Users can search and select from existing specialized areas, and if no suitable area exists, they can suggest new area names for admin review
    - System assigns "pending" status to the request
 
 2. **Request Review**
    - Admin reviews pending requests (`/api/expert-requests` GET)
    - Admin examines details and attached CV
+   - **Suggested Areas Review**: Admin reviews any suggested specialized areas from users and can create new areas in the system if appropriate
 
 3. **Request Decision**
    - Admin approves or rejects the request (`/api/expert-requests/{id}` PUT)
-   - For approval: Admin uploads approval document
+   - For approval: Admin uploads approval document and can assign newly created specialized areas to the expert
    - For rejection: Admin provides rejection reason
 
 4. **Expert Creation**
@@ -93,15 +108,20 @@ The expert creation workflow manages how new experts are proposed, reviewed, and
      - The resubmitted request will return to "pending" status for admin review
 
 #### Key Features
-- **Structured Biography System**: Template-based professional background collection
-  - Separate Experience and Education sections with structured data entry
-  - Dynamic add/remove functionality for multiple career entries
-  - Real-time preview showing formatted biography output
-  - Standardized data format for consistent admin review
+- **Structured Professional Background System**: Database-driven professional background collection
+  - Separate Experience and Education entry management with relational storage
+  - Individual entry CRUD operations with proper foreign key relationships
+  - Standardized data format stored in dedicated database tables
+  - Enhanced data integrity and query capabilities
 - **Enhanced Form Validation**: Comprehensive field validation with standardized options
   - Designation dropdown with professional titles: Prof., Dr., Mr., Ms., Mrs., Miss, Eng.
   - Performance rating on 1-5 scale with descriptive labels
   - Skills management via tag-based input system
+- **Specialized Areas Management**: Flexible area assignment with user-driven expansion
+  - Users can search and select from existing specialized areas during request creation
+  - Users can suggest new specialized area names when suitable options don't exist
+  - Suggested areas are stored with expert requests for admin review and approval
+  - Admin can create new specialized areas based on user suggestions and assign them to approved experts
 - **File Management**: Robust document handling with validation
   - PDF-only CV upload with 5MB size limit
   - Drag-and-drop interface with progress indication
@@ -113,12 +133,11 @@ The expert creation workflow manages how new experts are proposed, reviewed, and
 
 ### Phase Planning Workflow
 
-The phase planning workflow manages the process of creating review phases, defining applications, assigning experts, and tracking reviews. This workflow is central to the system's purpose, allowing planners to match qualified experts to appropriate applications.
+The phase planning workflow manages the process of creating review phases, defining applications, assigning experts, and tracking reviews. This workflow is central to the system's purpose, allowing users with planner elevations to match qualified experts to appropriate applications.
 
 #### Process Flow
 1. **Phase Creation**
    - Admin creates new phase (`/api/phases` POST) 
-   - Assigns planner user to the phase (via `assignedPlannerId`)
    - Provides phase title and system automatically generates a unique phase ID
    - Sets initial phase status (typically "pending")
 
@@ -129,21 +148,27 @@ The phase planning workflow manages the process of creating review phases, defin
      - Applications are created with "pending" status by default
    - Each phase can contain multiple applications
 
-3. **Expert Assignment**
-   - Planner views assigned phases (`/api/phases?planner_id={id}` GET)
-   - For each application, planner proposes two experts:
+3. **User Elevation Assignment**
+   - Admin assigns users to specific applications within phases:
+     - Planner elevation: Users can propose experts for assigned applications (`/api/users/{id}/planner-assignments`)
+     - Manager elevation: Users can rate experts for assigned applications (`/api/users/{id}/manager-assignments`)
+   - Users only have elevated privileges for applications they are specifically assigned to
+
+4. **Expert Assignment**
+   - Users with planner elevation view applications they're assigned to
+   - For each assigned application, elevated user proposes two experts:
      - Expert 1 (Primary): Required for all applications
      - Expert 2 (Secondary): Optional but recommended for quality assurance
-   - Planner submits expert selections (`/api/phases/{id}/applications/{app_id}` PUT)
+   - User submits expert selections (`/api/phases/{id}/applications/{app_id}` PUT)
    - Application status automatically changes to "assigned" upon submission
 
-4. **Assignment Review**
+5. **Assignment Review**
    - Admin reviews expert assignments (`/api/phases/{id}` GET)
    - Admin approves or rejects each application's expert assignments (`/api/phases/{id}/applications/{app_id}/review` PUT)
    - For rejection: Admin must provide rejection notes explaining why the proposed experts are unsuitable
-   - Rejected applications are returned to the planner for new expert proposals
+   - Rejected applications are returned to the elevated user for new expert proposals
 
-5. **Engagement Creation**
+6. **Engagement Creation**
    - Upon assignment approval, system automatically:
      - Creates engagement records for both assigned experts
      - Sets engagement type strictly based on application type:
@@ -155,8 +180,8 @@ The phase planning workflow manages the process of creating review phases, defin
 
 #### Key Features
 - Role-based workflow with clear separation of responsibilities:
-  - Admins create phases and make final approvals
-  - Planners assign appropriate experts based on expertise
+  - Admins create phases, assign user elevations, and make final approvals
+  - Users with planner elevation assign appropriate experts based on expertise for their assigned applications
 - Application types directly determine engagement types:
   - QP (Qualification Placement) → validator engagements
   - IL (Institutional Listing) → evaluator engagements
@@ -183,21 +208,25 @@ Expert management is the central capability of the system, providing comprehensi
     - Qualifications (specialized area, is_trained)
     - Contact information (phone, email)
     - Nationality tracking (is_bahraini, nationality)
-    - Biography and professional summary
+    - Professional background (experience and education entries stored in relational tables)
 
 - **Expert Discovery**
   - Advanced search and filtering:
     - By name, designation, institution
-    - By specialization area
+    - By specialization area (ID-based normalized system)
     - By employment type 
     - By nationality (Bahraini status)
     - By availability and training status
   - Multi-field sorting capabilities
   - Pagination for large result sets
+  - Specialized areas endpoint (`/api/specialized-areas`) provides searchable master list
 
 - **Expert Classification**
-  - Hierarchical specialization areas
-  - General and specialized area mapping
+  - Hierarchical specialization areas with normalized data model:
+    - General areas: Broad categorization stored in `expert_areas` table
+    - Specialized areas: Detailed expertise stored in `specialized_areas` table with ID-based references
+    - Expert records store specialized areas as comma-separated IDs (e.g., "1,4,6") for data consistency
+    - 327 normalized specialized areas derived from original CSV data normalization
   - Role categorization: Limited to only three options:
     - "evaluator" - For experts who evaluate IL applications
     - "validator" - For experts who validate QP applications
@@ -351,6 +380,60 @@ Data management capabilities ensure data integrity, backup, and maintenance.
   - History tracking
   - Audit fields (created_at, updated_at, created_by)
 
+## Planned Enhancements
+
+The following enhancements are designed and ready for implementation (detailed in ENHANCEMENTS.md):
+
+### Enhanced Statistics System
+
+**Current Status**: Admin users now have access to statistics (previously super_user only)
+
+**New Capabilities**:
+- Request tracking statistics per user
+- Expert creation request trends over time  
+- Edit request statistics (future implementation)
+- Enhanced reporting dashboard for both admin and super_user roles
+
+### Expert Edit Request System
+
+**Planned Feature**: Comprehensive system for managing expert profile changes
+
+**Capabilities**:
+- **User Submission**: Any authenticated user can submit requests to edit existing expert profiles
+- **Change Tracking**: Track all proposed changes including profile data, documents, experience, and education
+- **Approval Workflow**: Admin/super_user review and approval process similar to expert creation requests
+- **Document Updates**: Support for updating CV and approval documents
+- **Comprehensive Validation**: Business rules and validation for all proposed changes
+- **Audit Trail**: Complete history of all edit requests and their outcomes
+
+**Key Features**:
+- Granular change tracking (users can propose changes to specific fields)
+- Experience/education modification support (add, update, delete operations)
+- Document removal capabilities with proper safeguards
+- Status workflow: pending → approved/rejected → applied
+- Role-based access control with contextual permissions
+- Integration with existing document management system
+
+**Benefits**:
+- Maintains expert data accuracy through controlled change process
+- Enables users to contribute to expert profile improvements
+- Provides administrators with visibility into all proposed changes
+- Maintains complete audit trail of profile modifications
+
+### Implementation Roadmap
+
+1. **Phase 1**: Statistics access parity (✅ Completed - Admin users now have access)
+2. **Phase 2**: Enhanced statistics endpoints (Ready for implementation)
+3. **Phase 3**: Expert edit request database schema (Designed and ready)
+4. **Phase 4**: Expert edit request API endpoints (Fully specified)
+
+**Technical Readiness**: All backend components are designed and ready for implementation with:
+- Complete database migrations (2 new migration files)
+- Detailed API specifications (5 new endpoints)
+- Comprehensive validation and business logic
+- Role-based security model
+- Integration with existing systems
+
 ---
 
-This document provides a high-level overview of the capabilities and workflows supported by the ExpertDB application. Developers should refer to the API Reference and codebase for implementation details.
+This document provides a high-level overview of the capabilities and workflows supported by the ExpertDB application, including planned enhancements. Developers should refer to the API Reference, ENHANCEMENTS.md, and codebase for implementation details.
