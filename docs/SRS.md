@@ -98,8 +98,8 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 #### FR2.1: Create Expert
 
-- **Description**: Admins shall create expert profiles from approved requests, with fields: `expert_id` (auto-generated, `EXP-<sequence>`), `name` (required), `institution` (required), `email` (required, no validation), `designation` (required), `is_bahraini` (required), `is_available` (required), `rating` (required), `role` (required), `employment_type` (required), `general_area` (required, valid ID), `specialized_area` (required), `is_trained` (required), `cv_path` (required), `phone` (required), `is_published` (required, defaults to false), `experience_entries` (optional, stored in dedicated table), `education_entries` (optional, stored in dedicated table), `skills` (required), `approval_document_path` (required). Admins can edit requests before approval via `PUT /api/expert-requests/{id}/edit`.
-- **Current Implementation**: Supported via `POST /api/experts`. Bug fixed for `UNIQUE constraint failed` in `sqlite/expert.go:GenerateUniqueExpertID`. `approval_document_path` added to `experts` table. Edit endpoint implemented.
+- **Description**: Admins shall create expert profiles from approved requests, with fields: `expert_id` (auto-generated, `EXP-<sequence>`), `name` (required), `affiliation` (required), `email` (required, no validation), `designation` (required), `is_bahraini` (required), `is_available` (required), `rating` (set to 0 by default), `role` (required), `employment_type` (required), `general_area` (required, valid ID), `specialized_area` (required), `is_trained` (required), `cv_document_id` (required, references expert_documents table), `phone` (required), `is_published` (required, defaults to false), `experience_entries` (optional, stored in dedicated table), `education_entries` (optional, stored in dedicated table), `skills` (required), `approval_document_id` (required, references expert_documents table). Admins can edit requests before approval via `PUT /api/expert-requests/{id}/edit`.
+- **Current Implementation**: Supported via `POST /api/experts`. Bug fixed for `UNIQUE constraint failed` in `sqlite/expert.go:GenerateUniqueExpertID`. Document management system implemented with `expert_documents` table for centralized file management. Edit endpoint implemented.
 - **Requirement**: No changes needed.
 - **Priority**: High (core functionality).
 
@@ -112,7 +112,7 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 #### FR2.3: Retrieve Expert Details
 
-- **Description**: All users shall retrieve a specific expert’s details by ID, including `approval_document_path`.
+- **Description**: All users shall retrieve a specific expert's details by ID, including `approval_document_id` for document reference.
 - **Current Implementation**: Supported via `GET /api/experts/{id}` for all users (`expert.go`).
 - **Requirement**: No changes needed.
 - **Priority**: Medium (user function).
@@ -135,7 +135,7 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 #### FR3.1: Create Expert Request
 
-- **Description**: Regular and planner users shall submit expert requests with required fields: `name`, `designation`, `institution`, `is_bahraini`, `is_available`, `rating`, `role`, `employment_type`, `general_area` (valid ID), `specialized_area`, `is_trained`, `phone`, `email`, `experience_entries` (optional array), `education_entries` (optional array), `skills`, `cv_path` (file upload). `is_published` is optional (default: `false`). Status defaults to `pending`. Users can select from existing specialized areas or suggest new area names when suitable options don't exist.
+- **Description**: Regular and planner users shall submit expert requests with required fields: `name`, `designation`, `affiliation`, `is_bahraini`, `is_available`, `role`, `employment_type`, `general_area` (valid ID), `specialized_area`, `is_trained`, `phone`, `email`, `experience_entries` (optional array), `education_entries` (optional array), `skills`, `cv_document_id` (document reference after file upload). `is_published` is optional (default: `false`). Status defaults to `pending`. Users can select from existing specialized areas or suggest new area names when suitable options don't exist. Rating is set to 0 by default when expert is created from approved request.
 - **Current Implementation**: Supported via `POST /api/expert-requests` (`api.go`). CV upload implemented (`documents/service.go`). Specialized area suggestions stored as JSON array in `suggested_specialized_areas` column.
 - **Requirement**: No changes needed.
 - **Priority**: High (core functionality).
@@ -149,14 +149,14 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 #### FR3.3: Retrieve Expert Request Details
 
-- **Description**: Admins shall retrieve a specific request's details by ID, including `cv_path` and `suggested_specialized_areas` for review of user-proposed areas.
+- **Description**: Admins shall retrieve a specific request's details by ID, including `cv_document_id` (document reference) and `suggested_specialized_areas` for review of user-proposed areas.
 - **Current Implementation**: Supported via `GET /api/expert-requests/{id}` (`api.go`). Returns `suggested_specialized_areas` as JSON array for admin review.
 - **Requirement**: No changes needed.
 - **Priority**: Medium (administrative function).
 
 #### FR3.4: Approve/Reject Expert Request
 
-- **Description**: Admins shall approve (`status: approved`) or reject (`status: rejected`, with optional `rejection_reason`) individual requests, attaching a mandatory approval document for approvals. Approved requests create an expert record with `cv_path` and `approval_document_path`. During approval, admin can review `suggested_specialized_areas` and create new specialized areas in the system if appropriate, then assign them to the expert.
+- **Description**: Admins shall approve (`status: approved`) or reject (`status: rejected`, with optional `rejection_reason`) individual requests, attaching a mandatory approval document for approvals. Approved requests create an expert record with `cv_document_id` and `approval_document_id` referencing documents in the expert_documents table. During approval, admin can review `suggested_specialized_areas` and create new specialized areas in the system if appropriate, then assign them to the expert.
 - **Current Implementation**: Supported via `PUT /api/expert-requests/{id}` with document upload (`handlers/expert_request.go`). Suggested areas stored in expert request for admin review.
 - **Requirement**: No changes needed.
 - **Priority**: High (core functionality).
@@ -345,7 +345,7 @@ The tool uses Go, SQLite, and JWT authentication, emphasizing simplicity, intern
 
 - **Description**: The system supports structured workflows for expert creation and phase planning to streamline operations.
 - **Workflow 1: Expert Creation**:
-  1. **User Submits Request**: A regular or planner user submits an `expert_request` via `POST /api/expert-requests`, filling a form with required fields, attaching a CV (`cv_path`), selecting from existing specialized areas, and optionally suggesting new specialized area names if suitable options don't exist.
+  1. **User Submits Request**: A regular or planner user submits an `expert_request` via `POST /api/expert-requests`, filling a form with required fields, uploading a CV (stored via document service with `cv_document_id` reference), selecting from existing specialized areas, and optionally suggesting new specialized area names if suitable options don't exist.
   2. **Admin Reviews Request**: Admin receives the request (`GET /api/expert-requests`) and reviews both expert details and any suggested specialized areas:
      - **Approve**: Sets `status: approved` via `PUT /api/expert-requests/{id}`, uploads `approval_document`, reviews suggested areas and creates new specialized areas if appropriate, creates expert in `experts` table.
      - **Reject**: Sets `status: rejected` with `rejection_reason`, returns to user for amendment.

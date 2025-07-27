@@ -75,6 +75,24 @@ func IsSuperUser(ctx context.Context) bool {
 	return ok && role == RoleSuperUser
 }
 
+// GetUserIDFromRequest extracts user ID from request context with proper error handling
+func GetUserIDFromRequest(r *http.Request) (int64, error) {
+	userID, ok := GetUserIDFromContext(r.Context())
+	if !ok {
+		return 0, domain.ErrUnauthorized
+	}
+	return userID, nil
+}
+
+// GetUserRoleFromRequest extracts user role from request context with proper error handling
+func GetUserRoleFromRequest(r *http.Request) (string, error) {
+	role, ok := GetUserRoleFromContext(r.Context())
+	if !ok {
+		return "", domain.ErrUnauthorized
+	}
+	return role, nil
+}
+
 
 // SetUserClaimsInContext adds user claims to the request context
 func SetUserClaimsInContext(ctx context.Context, claims map[string]interface{}) context.Context {

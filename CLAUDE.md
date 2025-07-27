@@ -49,8 +49,8 @@ Technical characteristics:
 ## Tool Usage
 - Always use `bash -c "command"` syntax with Bash tool to avoid zoxide integration issues
 - For authentication testing, use these test credentials:
-  - Admin: admin@expertdb.com / adminpassword
-  - Regular User: user@expertdb.com / userpassword
+  - Admin: a@db.com / password
+  - Regular User: ali@db.com / ali5101990
   - Note: Users can be elevated to planner/manager for specific applications via admin assignment
 
 ## Core Entities and Relationships

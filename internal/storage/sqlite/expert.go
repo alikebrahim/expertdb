@@ -23,14 +23,14 @@ func (s *SQLiteStore) CreateExpert(expert *domain.Expert) (int64, error) {
 
 	query := `
 		INSERT INTO experts (
-			name, designation, institution, is_bahraini, is_available, rating,
+			name, designation, affiliation, is_bahraini, is_available, rating,
 			role, employment_type, general_area, specialized_area, is_trained,
-			cv_path, approval_document_path, phone, email, is_published, created_at, updated_at
+			cv_document_id, approval_document_id, phone, email, is_published, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	if expert.CreatedAt.IsZero() {
-		expert.CreatedAt = time.Now().UTC()
+		expert.CreatedAt = time.Now()
 		expert.UpdatedAt = expert.CreatedAt
 	}
 
@@ -39,7 +39,7 @@ func (s *SQLiteStore) CreateExpert(expert *domain.Expert) (int64, error) {
 		expert.Name, expert.Designation, expert.Affiliation,
 		expert.IsBahraini, expert.IsAvailable, expert.Rating,
 		expert.Role, expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
-		expert.IsTrained, expert.CVPath, expert.ApprovalDocumentPath, expert.Phone, expert.Email, expert.IsPublished,
+		expert.IsTrained, expert.CVDocumentID, expert.ApprovalDocumentID, expert.Phone, expert.Email, expert.IsPublished,
 		expert.CreatedAt, expert.UpdatedAt,
 	)
 
@@ -83,7 +83,7 @@ func (s *SQLiteStore) CreateExpert(expert *domain.Expert) (int64, error) {
 				expert_id, organization, position, start_date, end_date, is_current, country, description, created_at, updated_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`
-		_, err = tx.Exec(expQuery, id, exp.Organization, exp.Position, exp.StartDate, exp.EndDate, exp.IsCurrent, exp.Country, exp.Description, time.Now().UTC(), time.Now().UTC())
+		_, err = tx.Exec(expQuery, id, exp.Organization, exp.Position, exp.StartDate, exp.EndDate, exp.IsCurrent, exp.Country, exp.Description, time.Now(), time.Now())
 		if err != nil {
 			return 0, fmt.Errorf("failed to insert experience entry: %w", err)
 		}
@@ -96,7 +96,7 @@ func (s *SQLiteStore) CreateExpert(expert *domain.Expert) (int64, error) {
 				expert_id, institution, degree, field_of_study, graduation_year, country, description, created_at, updated_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`
-		_, err = tx.Exec(eduQuery, id, edu.Institution, edu.Degree, edu.FieldOfStudy, edu.GraduationYear, edu.Country, edu.Description, time.Now().UTC(), time.Now().UTC())
+		_, err = tx.Exec(eduQuery, id, edu.Institution, edu.Degree, edu.FieldOfStudy, edu.GraduationYear, edu.Country, edu.Description, time.Now(), time.Now())
 		if err != nil {
 			return 0, fmt.Errorf("failed to insert education entry: %w", err)
 		}
@@ -113,10 +113,10 @@ func (s *SQLiteStore) CreateExpert(expert *domain.Expert) (int64, error) {
 // GetExpert retrieves an expert by their ID
 func (s *SQLiteStore) GetExpert(id int64) (*domain.Expert, error) {
 	query := `
-		SELECT e.id, e.name, e.designation, e.institution, 
+		SELECT e.id, e.name, e.designation, e.affiliation, 
 		       e.is_bahraini, e.is_available, e.rating, e.role, 
 		       e.employment_type, e.general_area, ea.name as general_area_name, 
-		       e.specialized_area, e.is_trained, e.cv_path, e.approval_document_path, e.phone, e.email, 
+		       e.specialized_area, e.is_trained, e.cv_document_id, e.approval_document_id, e.phone, e.email, 
 		       e.is_published, e.created_at, e.updated_at,
 		       COALESCE(
 		           (SELECT GROUP_CONCAT(sa.name, ', ')
@@ -134,8 +134,8 @@ func (s *SQLiteStore) GetExpert(id int64) (*domain.Expert, error) {
 	var expert domain.Expert
 	var generalAreaName sql.NullString
 	var specializedAreaNames sql.NullString
-	var cvPath sql.NullString
-	var approvalDocumentPath sql.NullString
+	var cvDocumentID sql.NullInt64
+	var approvalDocumentID sql.NullInt64
 	var createdAt sql.NullTime
 	var updatedAt sql.NullTime
 
@@ -143,7 +143,7 @@ func (s *SQLiteStore) GetExpert(id int64) (*domain.Expert, error) {
 		&expert.ID, &expert.Name, &expert.Designation, &expert.Affiliation,
 		&expert.IsBahraini, &expert.IsAvailable, &expert.Rating, &expert.Role,
 		&expert.EmploymentType, &expert.GeneralArea, &generalAreaName,
-		&expert.SpecializedArea, &expert.IsTrained, &cvPath, &approvalDocumentPath, &expert.Phone, &expert.Email,
+		&expert.SpecializedArea, &expert.IsTrained, &cvDocumentID, &approvalDocumentID, &expert.Phone, &expert.Email,
 		&expert.IsPublished, &createdAt, &updatedAt,
 		&specializedAreaNames,
 	)
@@ -163,12 +163,12 @@ func (s *SQLiteStore) GetExpert(id int64) (*domain.Expert, error) {
 		expert.SpecializedAreaNames = specializedAreaNames.String
 	}
 
-	if cvPath.Valid {
-		expert.CVPath = cvPath.String
+	if cvDocumentID.Valid {
+		expert.CVDocumentID = &cvDocumentID.Int64
 	}
 
-	if approvalDocumentPath.Valid {
-		expert.ApprovalDocumentPath = approvalDocumentPath.String
+	if approvalDocumentID.Valid {
+		expert.ApprovalDocumentID = &approvalDocumentID.Int64
 	}
 
 	if createdAt.Valid {
@@ -178,6 +178,10 @@ func (s *SQLiteStore) GetExpert(id int64) (*domain.Expert, error) {
 	if updatedAt.Valid {
 		expert.UpdatedAt = updatedAt.Time
 	}
+
+	// Resolve document references
+	expert.ResolveCVDocument(s.GetDocument)
+	expert.ResolveApprovalDocument(s.GetDocument)
 
 	// Populate bio data
 	err = s.populateBioData(&expert)
@@ -218,10 +222,10 @@ func (s *SQLiteStore) GetExpert(id int64) (*domain.Expert, error) {
 // GetExpertByEmail retrieves an expert by their email address
 func (s *SQLiteStore) GetExpertByEmail(email string) (*domain.Expert, error) {
 	query := `
-		SELECT e.id, e.name, e.designation, e.institution, 
+		SELECT e.id, e.name, e.designation, e.affiliation, 
 		       e.is_bahraini, e.is_available, e.rating, e.role, 
 		       e.employment_type, e.general_area, ea.name as general_area_name, 
-		       e.specialized_area, e.is_trained, e.cv_path, e.approval_document_path, e.phone, e.email, 
+		       e.specialized_area, e.is_trained, e.cv_document_id, e.approval_document_id, e.phone, e.email, 
 		       e.is_published, e.created_at, e.updated_at,
 		       COALESCE(
 		           (SELECT GROUP_CONCAT(sa.name, ', ')
@@ -239,12 +243,14 @@ func (s *SQLiteStore) GetExpertByEmail(email string) (*domain.Expert, error) {
 	var expert domain.Expert
 	var generalAreaName sql.NullString
 	var specializedAreaNames sql.NullString
+	var cvDocumentID sql.NullInt64
+	var approvalDocumentID sql.NullInt64
 
 	err := s.db.QueryRow(query, email).Scan(
 		&expert.ID, &expert.Name, &expert.Designation, &expert.Affiliation,
 		&expert.IsBahraini, &expert.IsAvailable, &expert.Rating, &expert.Role,
 		&expert.EmploymentType, &expert.GeneralArea, &generalAreaName,
-		&expert.SpecializedArea, &expert.IsTrained, &expert.CVPath, &expert.ApprovalDocumentPath, &expert.Phone, &expert.Email,
+		&expert.SpecializedArea, &expert.IsTrained, &cvDocumentID, &approvalDocumentID, &expert.Phone, &expert.Email,
 		&expert.IsPublished, &expert.CreatedAt, &expert.UpdatedAt,
 		&specializedAreaNames,
 	)
@@ -263,6 +269,18 @@ func (s *SQLiteStore) GetExpertByEmail(email string) (*domain.Expert, error) {
 	if specializedAreaNames.Valid {
 		expert.SpecializedAreaNames = specializedAreaNames.String
 	}
+
+	if cvDocumentID.Valid {
+		expert.CVDocumentID = &cvDocumentID.Int64
+	}
+
+	if approvalDocumentID.Valid {
+		expert.ApprovalDocumentID = &approvalDocumentID.Int64
+	}
+
+	// Resolve document references
+	expert.ResolveCVDocument(s.GetDocument)
+	expert.ResolveApprovalDocument(s.GetDocument)
 
 	// Fetch experience entries
 	expQuery := `
@@ -350,11 +368,11 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 	if expert.SpecializedArea == "" {
 		expert.SpecializedArea = currentExpert.SpecializedArea
 	}
-	if expert.CVPath == "" {
-		expert.CVPath = currentExpert.CVPath
+	if expert.CVDocumentID == nil {
+		expert.CVDocumentID = currentExpert.CVDocumentID
 	}
-	if expert.ApprovalDocumentPath == "" {
-		expert.ApprovalDocumentPath = currentExpert.ApprovalDocumentPath
+	if expert.ApprovalDocumentID == nil {
+		expert.ApprovalDocumentID = currentExpert.ApprovalDocumentID
 	}
 	if expert.Phone == "" {
 		expert.Phone = currentExpert.Phone
@@ -363,7 +381,7 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 		expert.Email = currentExpert.Email
 	}
 
-	expert.UpdatedAt = time.Now().UTC()
+	expert.UpdatedAt = time.Now()
 
 	// Begin transaction for atomic operations
 	tx, err := s.db.Begin()
@@ -374,10 +392,10 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 
 	query := `
 		UPDATE experts SET
-			name = ?, designation = ?, institution = ?, is_bahraini = ?,
+			name = ?, designation = ?, affiliation = ?, is_bahraini = ?,
 			is_available = ?, rating = ?, role = ?,
 			employment_type = ?, general_area = ?, specialized_area = ?,
-			is_trained = ?, cv_path = ?, approval_document_path = ?, phone = ?, email = ?,
+			is_trained = ?, cv_document_id = ?, approval_document_id = ?, phone = ?, email = ?,
 			is_published = ?, updated_at = ?
 		WHERE id = ?
 	`
@@ -387,7 +405,7 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 		expert.Name, expert.Designation, expert.Affiliation, expert.IsBahraini,
 		expert.IsAvailable, expert.Rating, expert.Role,
 		expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
-		expert.IsTrained, expert.CVPath, expert.ApprovalDocumentPath, expert.Phone, expert.Email,
+		expert.IsTrained, expert.CVDocumentID, expert.ApprovalDocumentID, expert.Phone, expert.Email,
 		expert.IsPublished, expert.UpdatedAt,
 		expert.ID,
 	)
@@ -422,7 +440,7 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 					expert_id, organization, position, start_date, end_date, is_current, country, description, created_at, updated_at
 				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`
-			_, err = tx.Exec(expQuery, expert.ID, exp.Organization, exp.Position, exp.StartDate, exp.EndDate, exp.IsCurrent, exp.Country, exp.Description, time.Now().UTC(), time.Now().UTC())
+			_, err = tx.Exec(expQuery, expert.ID, exp.Organization, exp.Position, exp.StartDate, exp.EndDate, exp.IsCurrent, exp.Country, exp.Description, time.Now(), time.Now())
 			if err != nil {
 				return fmt.Errorf("failed to insert experience entry: %w", err)
 			}
@@ -444,7 +462,7 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 					expert_id, institution, degree, field_of_study, graduation_year, country, description, created_at, updated_at
 				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`
-			_, err = tx.Exec(eduQuery, expert.ID, edu.Institution, edu.Degree, edu.FieldOfStudy, edu.GraduationYear, edu.Country, edu.Description, time.Now().UTC(), time.Now().UTC())
+			_, err = tx.Exec(eduQuery, expert.ID, edu.Institution, edu.Degree, edu.FieldOfStudy, edu.GraduationYear, edu.Country, edu.Description, time.Now(), time.Now())
 			if err != nil {
 				return fmt.Errorf("failed to insert education entry: %w", err)
 			}
@@ -510,27 +528,8 @@ func (s *SQLiteStore) DeleteExpert(id int64) error {
 		}
 	}
 	
-	// Delete CV file if exists
-	if expert.CVPath != "" {
-		if _, err := os.Stat(expert.CVPath); err == nil {
-			if err := os.Remove(expert.CVPath); err != nil {
-				logger.Get().Warn("Failed to delete CV file: %s - %v", expert.CVPath, err)
-			} else {
-				logger.Get().Debug("Deleted CV file: %s", expert.CVPath)
-			}
-		}
-	}
-	
-	// Delete approval document if exists
-	if expert.ApprovalDocumentPath != "" {
-		if _, err := os.Stat(expert.ApprovalDocumentPath); err == nil {
-			if err := os.Remove(expert.ApprovalDocumentPath); err != nil {
-				logger.Get().Warn("Failed to delete approval document: %s - %v", expert.ApprovalDocumentPath, err)
-			} else {
-				logger.Get().Debug("Deleted approval document: %s", expert.ApprovalDocumentPath)
-			}
-		}
-	}
+	// Document files are managed by the document service
+	// The document records will be cleaned up when the expert is deleted
 	
 	// Now delete the expert record
 	result, err := tx.Exec("DELETE FROM experts WHERE id = ?", id)
@@ -563,10 +562,10 @@ func (s *SQLiteStore) DeleteExpert(id int64) error {
 func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset int) ([]*domain.Expert, error) {
 	// Build the query with filters
 	queryBase := `
-		SELECT e.id, e.name, e.designation, e.institution, 
+		SELECT e.id, e.name, e.designation, e.affiliation, 
 		       e.is_bahraini, e.is_available, e.rating, e.role, 
 		       e.employment_type, e.general_area, ea.name as general_area_name, 
-		       e.specialized_area, e.is_trained, e.cv_path, e.approval_document_path, e.phone, e.email, 
+		       e.specialized_area, e.is_trained, e.cv_document_id, e.approval_document_id, e.phone, e.email, 
 		       e.is_published, e.created_at, e.updated_at,
 		       COALESCE(
 		           (SELECT GROUP_CONCAT(sa.name, ', ')
@@ -599,7 +598,7 @@ func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset 
 		allowedSortFields := map[string]string{
 			"name":            "e.name",
 			"id":              "e.id",
-			"institution":     "e.institution",
+			"affiliation":     "e.affiliation",
 			"designation":     "e.designation",
 			"role":            "e.role",
 			"employment_type": "e.employment_type",
@@ -642,23 +641,23 @@ func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset 
 		var specializedAreaNames sql.NullString
 		var name sql.NullString
 		var designation sql.NullString
-		var institution sql.NullString
+		var affiliation sql.NullString
 		var rating sql.NullInt32
 		var role sql.NullString
 		var employmentType sql.NullString
 		var specializedArea sql.NullString
-		var cvPath sql.NullString
-		var approvalDocumentPath sql.NullString
+		var cvDocumentID sql.NullInt64
+		var approvalDocumentID sql.NullInt64
 		var phone sql.NullString
 		var email sql.NullString
 		var createdAt sql.NullTime
 		var updatedAt sql.NullTime
 
 		err := rows.Scan(
-			&expert.ID, &name, &designation, &institution,
+			&expert.ID, &name, &designation, &affiliation,
 			&expert.IsBahraini, &expert.IsAvailable, &rating, &role,
 			&employmentType, &expert.GeneralArea, &generalAreaName,
-			&specializedArea, &expert.IsTrained, &cvPath, &approvalDocumentPath, &phone, &email,
+			&specializedArea, &expert.IsTrained, &cvDocumentID, &approvalDocumentID, &phone, &email,
 			&expert.IsPublished, &createdAt, &updatedAt,
 			&specializedAreaNames,
 		)
@@ -682,8 +681,8 @@ func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset 
 		if designation.Valid {
 			expert.Designation = designation.String
 		}
-		if institution.Valid {
-			expert.Affiliation = institution.String
+		if affiliation.Valid {
+			expert.Affiliation = affiliation.String
 		}
 		if rating.Valid {
 			expert.Rating = int(rating.Int32)
@@ -697,11 +696,13 @@ func (s *SQLiteStore) ListExperts(filters map[string]interface{}, limit, offset 
 		if specializedArea.Valid {
 			expert.SpecializedArea = specializedArea.String
 		}
-		if cvPath.Valid {
-			expert.CVPath = cvPath.String
+		if cvDocumentID.Valid {
+			cvDocID := cvDocumentID.Int64
+			expert.CVDocumentID = &cvDocID
 		}
-		if approvalDocumentPath.Valid {
-			expert.ApprovalDocumentPath = approvalDocumentPath.String
+		if approvalDocumentID.Valid {
+			approvalDocID := approvalDocumentID.Int64
+			expert.ApprovalDocumentID = &approvalDocID
 		}
 		if phone.Valid {
 			expert.Phone = phone.String
@@ -950,7 +951,7 @@ func buildWhereClauseForExpertFilters(filters map[string]interface{}) (string, [
 
 	// Text-based filters with LIKE matching
 	likeMatchFilters := map[string]string{
-		"institution":      "e.institution",
+		"affiliation":      "e.affiliation",
 		"specialized_area": "e.specialized_area",
 	}
 
@@ -988,6 +989,48 @@ func buildWhereClauseForExpertFilters(filters map[string]interface{}) (string, [
 	}
 
 	return whereClause, params
+}
+
+// UpdateExpertCVDocument updates the CV document reference for an expert
+func (s *SQLiteStore) UpdateExpertCVDocument(expertID, documentID int64) error {
+	query := `UPDATE experts SET cv_document_id = ? WHERE id = ?`
+	
+	result, err := s.db.Exec(query, documentID, expertID)
+	if err != nil {
+		return fmt.Errorf("failed to update expert CV document: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	
+	return nil
+}
+
+// UpdateExpertApprovalDocument updates the approval document reference for an expert
+func (s *SQLiteStore) UpdateExpertApprovalDocument(expertID, documentID int64) error {
+	query := `UPDATE experts SET approval_document_id = ? WHERE id = ?`
+	
+	result, err := s.db.Exec(query, documentID, expertID)
+	if err != nil {
+		return fmt.Errorf("failed to update expert approval document: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	
+	return nil
 }
 
 // NOTE: ListAreas and GetArea implementations are in area.go

@@ -60,11 +60,11 @@ func (s *SQLiteStore) ListExpertEditRequests(filters map[string]interface{}, lim
 
 	query := `
 		SELECT 
-			eer.id, eer.expert_id, eer.name, eer.designation, eer.institution,
+			eer.id, eer.expert_id, eer.name, eer.designation, eer.affiliation,
 			eer.phone, eer.email, eer.is_bahraini, eer.is_available, eer.rating,
 			eer.role, eer.employment_type, eer.general_area, eer.specialized_area,
-			eer.is_trained, eer.is_published, eer.biography, eer.suggested_specialized_areas,
-			eer.new_cv_path, eer.new_approval_document_path, eer.remove_cv, eer.remove_approval_document,
+			eer.is_trained, eer.is_published, eer.rating, eer.suggested_specialized_areas,
+			eer.new_cv_document_id, eer.new_approval_document_id, eer.remove_cv, eer.remove_approval_document,
 			eer.change_summary, eer.change_reason, eer.fields_changed,
 			eer.status, eer.rejection_reason, eer.admin_notes,
 			eer.created_at, eer.reviewed_at, eer.applied_at, eer.created_by, eer.reviewed_by,
@@ -157,11 +157,11 @@ func (s *SQLiteStore) GetExpertEditRequest(id int64) (*domain.ExpertEditRequest,
 
 	query := `
 		SELECT 
-			eer.id, eer.expert_id, eer.name, eer.designation, eer.institution,
+			eer.id, eer.expert_id, eer.name, eer.designation, eer.affiliation,
 			eer.phone, eer.email, eer.is_bahraini, eer.is_available, eer.rating,
 			eer.role, eer.employment_type, eer.general_area, eer.specialized_area,
-			eer.is_trained, eer.is_published, eer.biography, eer.suggested_specialized_areas,
-			eer.new_cv_path, eer.new_approval_document_path, eer.remove_cv, eer.remove_approval_document,
+			eer.is_trained, eer.is_published, eer.rating, eer.suggested_specialized_areas,
+			eer.new_cv_document_id, eer.new_approval_document_id, eer.remove_cv, eer.remove_approval_document,
 			eer.change_summary, eer.change_reason, eer.fields_changed,
 			eer.status, eer.rejection_reason, eer.admin_notes,
 			eer.created_at, eer.reviewed_at, eer.applied_at, eer.created_by, eer.reviewed_by,
@@ -221,10 +221,10 @@ func (s *SQLiteStore) CreateExpertEditRequest(req *domain.ExpertEditRequest) (in
 	// Insert main expert edit request
 	query := `
 		INSERT INTO expert_edit_requests (
-			expert_id, name, designation, institution, phone, email,
+			expert_id, name, designation, affiliation, phone, email,
 			is_bahraini, is_available, rating, role, employment_type,
-			general_area, specialized_area, is_trained, is_published, biography,
-			suggested_specialized_areas, new_cv_path, new_approval_document_path,
+			general_area, specialized_area, is_trained, is_published, rating,
+			suggested_specialized_areas, new_cv_document_id, new_approval_document_id,
 			remove_cv, remove_approval_document, change_summary, change_reason,
 			fields_changed, status, created_at, created_by
 		) VALUES (
@@ -254,8 +254,8 @@ func (s *SQLiteStore) CreateExpertEditRequest(req *domain.ExpertEditRequest) (in
 		boolPtrToInterface(req.IsPublished),
 		stringPtrToInterface(req.Biography),
 		string(suggestedAreasJSON),
-		stringPtrToInterface(req.NewCVPath),
-		stringPtrToInterface(req.NewApprovalDocumentPath),
+		int64PtrToInterface(req.NewCVDocumentID),
+		int64PtrToInterface(req.NewApprovalDocumentID),
 		req.RemoveCV,
 		req.RemoveApprovalDocument,
 		req.ChangeSummary,
@@ -355,10 +355,10 @@ func (s *SQLiteStore) UpdateExpertEditRequest(req *domain.ExpertEditRequest) err
 	// Update main expert edit request
 	query := `
 		UPDATE expert_edit_requests SET
-			name = ?, designation = ?, institution = ?, phone = ?, email = ?,
+			name = ?, designation = ?, affiliation = ?, phone = ?, email = ?,
 			is_bahraini = ?, is_available = ?, rating = ?, role = ?, employment_type = ?,
-			general_area = ?, specialized_area = ?, is_trained = ?, is_published = ?, biography = ?,
-			suggested_specialized_areas = ?, new_cv_path = ?, new_approval_document_path = ?,
+			general_area = ?, specialized_area = ?, is_trained = ?, is_published = ?, rating = ?,
+			suggested_specialized_areas = ?, new_cv_document_id = ?, new_approval_document_id = ?,
 			remove_cv = ?, remove_approval_document = ?, change_summary = ?, change_reason = ?,
 			fields_changed = ?
 		WHERE id = ?`
@@ -380,8 +380,8 @@ func (s *SQLiteStore) UpdateExpertEditRequest(req *domain.ExpertEditRequest) err
 		boolPtrToInterface(req.IsPublished),
 		stringPtrToInterface(req.Biography),
 		string(suggestedAreasJSON),
-		stringPtrToInterface(req.NewCVPath),
-		stringPtrToInterface(req.NewApprovalDocumentPath),
+		int64PtrToInterface(req.NewCVDocumentID),
+		int64PtrToInterface(req.NewApprovalDocumentID),
 		req.RemoveCV,
 		req.RemoveApprovalDocument,
 		req.ChangeSummary,
@@ -529,20 +529,20 @@ func (s *SQLiteStore) scanExpertEditRequest(row interface{ Scan(dest ...interfac
 	var createdAt, reviewedAt, appliedAt sql.NullTime
 	
 	// Use NullString and NullBool for nullable fields
-	var name, designation, institution, phone, email, role, employmentType, specializedArea, biography sql.NullString
-	var newCVPath, newApprovalDocumentPath sql.NullString
+	var name, designation, affiliation, phone, email, role, employmentType, specializedArea sql.NullString
+	var newCVDocumentID, newApprovalDocumentID sql.NullInt64
 	var isBahraini, isAvailable, isTrained, isPublished sql.NullBool
 	var rating sql.NullInt64
 	var generalArea sql.NullInt64
 
 	err := row.Scan(
 		&req.ID, &req.ExpertID,
-		&name, &designation, &institution, &phone, &email,
+		&name, &designation, &affiliation, &phone, &email,
 		&isBahraini, &isAvailable, &rating,
 		&role, &employmentType, &generalArea, &specializedArea,
-		&isTrained, &isPublished, &biography,
+		&isTrained, &isPublished, &rating,
 		&suggestedAreasJSON,
-		&newCVPath, &newApprovalDocumentPath,
+		&newCVDocumentID, &newApprovalDocumentID,
 		&req.RemoveCV, &req.RemoveApprovalDocument,
 		&req.ChangeSummary, &req.ChangeReason, &fieldsChangedJSON,
 		&req.Status, &req.RejectionReason, &req.AdminNotes,
@@ -561,8 +561,8 @@ func (s *SQLiteStore) scanExpertEditRequest(row interface{ Scan(dest ...interfac
 	if designation.Valid {
 		req.Designation = &designation.String
 	}
-	if institution.Valid {
-		req.Institution = &institution.String
+	if affiliation.Valid {
+		req.Institution = &affiliation.String
 	}
 	if phone.Valid {
 		req.Phone = &phone.String
@@ -598,14 +598,15 @@ func (s *SQLiteStore) scanExpertEditRequest(row interface{ Scan(dest ...interfac
 	if isPublished.Valid {
 		req.IsPublished = &isPublished.Bool
 	}
-	if biography.Valid {
-		req.Biography = &biography.String
+	if rating.Valid {
+		ratingInt := int(rating.Int64)
+		req.Rating = &ratingInt
 	}
-	if newCVPath.Valid {
-		req.NewCVPath = &newCVPath.String
+	if newCVDocumentID.Valid {
+		req.NewCVDocumentID = &newCVDocumentID.Int64
 	}
-	if newApprovalDocumentPath.Valid {
-		req.NewApprovalDocumentPath = &newApprovalDocumentPath.String
+	if newApprovalDocumentID.Valid {
+		req.NewApprovalDocumentID = &newApprovalDocumentID.Int64
 	}
 
 	// Handle timestamps
@@ -661,7 +662,7 @@ func (s *SQLiteStore) loadEditRequestChanges(req *domain.ExpertEditRequest) erro
 
 	// Load education changes
 	eduQuery := `
-		SELECT id, action, education_id, institution, degree, field_of_study, graduation_year, country, description
+		SELECT id, action, education_id, affiliation, degree, field_of_study, graduation_year, country, description
 		FROM expert_edit_request_education WHERE expert_edit_request_id = ?
 		ORDER BY id`
 
@@ -707,7 +708,7 @@ func (s *SQLiteStore) insertExperienceChange(tx *sql.Tx, exp *domain.ExpertEditR
 func (s *SQLiteStore) insertEducationChange(tx *sql.Tx, edu *domain.ExpertEditRequestEducationEntry) error {
 	query := `
 		INSERT INTO expert_edit_request_education (
-			expert_edit_request_id, action, education_id, institution, degree,
+			expert_edit_request_id, action, education_id, affiliation, degree,
 			field_of_study, graduation_year, country, description
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
@@ -734,13 +735,6 @@ func boolPtrToInterface(b *bool) interface{} {
 	return *b
 }
 
-func intPtrToInterface(i *int) interface{} {
-	if i == nil {
-		return nil
-	}
-	return *i
-}
-
 func int64PtrToInterface(i *int64) interface{} {
 	if i == nil {
 		return nil
@@ -748,6 +742,12 @@ func int64PtrToInterface(i *int64) interface{} {
 	return *i
 }
 
+func intPtrToInterface(i *int) interface{} {
+	if i == nil {
+		return nil
+	}
+	return *i
+}
 
 // Helper functions to apply changes to expert
 func (s *SQLiteStore) applyChangesToExpert(expert *domain.Expert, editRequest *domain.ExpertEditRequest) {
@@ -798,16 +798,20 @@ func (s *SQLiteStore) applyChangesToExpert(expert *domain.Expert, editRequest *d
 	}
 
 	// Handle document changes
-	if editRequest.NewCVPath != nil {
-		expert.CVPath = *editRequest.NewCVPath
+	if editRequest.NewCVDocumentID != nil {
+		// Update expert's CV document reference
+		expert.CVDocumentID = editRequest.NewCVDocumentID
 	} else if editRequest.RemoveCV {
-		expert.CVPath = ""
+		// Remove CV document reference
+		expert.CVDocumentID = nil
 	}
 
-	if editRequest.NewApprovalDocumentPath != nil {
-		expert.ApprovalDocumentPath = *editRequest.NewApprovalDocumentPath
+	if editRequest.NewApprovalDocumentID != nil {
+		// Update expert's approval document reference
+		expert.ApprovalDocumentID = editRequest.NewApprovalDocumentID
 	} else if editRequest.RemoveApprovalDocument {
-		expert.ApprovalDocumentPath = ""
+		// Remove approval document reference
+		expert.ApprovalDocumentID = nil
 	}
 
 	expert.UpdatedAt = time.Now()
@@ -816,17 +820,17 @@ func (s *SQLiteStore) applyChangesToExpert(expert *domain.Expert, editRequest *d
 func (s *SQLiteStore) updateExpertInTransaction(tx *sql.Tx, expert *domain.Expert) error {
 	query := `
 		UPDATE experts SET
-			name = ?, designation = ?, institution = ?, phone = ?, email = ?,
+			name = ?, designation = ?, affiliation = ?, phone = ?, email = ?,
 			is_bahraini = ?, is_available = ?, rating = ?, role = ?, employment_type = ?,
 			general_area = ?, specialized_area = ?, is_trained = ?, is_published = ?,
-			cv_path = ?, approval_document_path = ?, updated_at = ?
+			cv_document_id = ?, approval_document_id = ?, updated_at = ?
 		WHERE id = ?`
 
 	_, err := tx.Exec(query,
 		expert.Name, expert.Designation, expert.Affiliation, expert.Phone, expert.Email,
 		expert.IsBahraini, expert.IsAvailable, expert.Rating, expert.Role, expert.EmploymentType,
 		expert.GeneralArea, expert.SpecializedArea, expert.IsTrained, expert.IsPublished,
-		expert.CVPath, expert.ApprovalDocumentPath, expert.UpdatedAt,
+		expert.CVDocumentID, expert.ApprovalDocumentID, expert.UpdatedAt,
 		expert.ID,
 	)
 	return err
@@ -884,7 +888,7 @@ func (s *SQLiteStore) applyEducationChanges(tx *sql.Tx, expertID int64, changes 
 		case "add":
 			query := `
 				INSERT INTO expert_education (
-					expert_id, institution, degree, field_of_study, graduation_year,
+					expert_id, affiliation, degree, field_of_study, graduation_year,
 					country, description, created_at, updated_at
 				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			
@@ -900,7 +904,7 @@ func (s *SQLiteStore) applyEducationChanges(tx *sql.Tx, expertID int64, changes 
 		case "update":
 			query := `
 				UPDATE expert_education SET
-					institution = ?, degree = ?, field_of_study = ?, graduation_year = ?,
+					affiliation = ?, degree = ?, field_of_study = ?, graduation_year = ?,
 					country = ?, description = ?, updated_at = ?
 				WHERE id = ? AND expert_id = ?`
 			

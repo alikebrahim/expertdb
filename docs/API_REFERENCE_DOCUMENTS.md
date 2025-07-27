@@ -23,11 +23,11 @@
 
 ## Overview
 
-The document management system in ExpertDB provides secure file upload, storage, and retrieval capabilities for expert-related documents. It supports various document types including CVs, approval documents, certificates, and publications. The system uses multipart form-data for file uploads and stores files locally with metadata tracked in the SQLite database.
+The document management system in ExpertDB provides secure file upload, storage, and retrieval capabilities for expert-related documents. It supports two document types: CVs and approval documents. The system uses multipart form-data for file uploads and stores files locally with metadata tracked in the SQLite database.
 
 ### Key Features
 - Multipart form-data file upload support
-- Multiple document types (CV, approval, certificate, publication, other)
+- Two document types (CV and approval)
 - Secure file storage with unique naming
 - Document metadata tracking
 - Integration with expert profiles and requests
@@ -42,7 +42,7 @@ The document management system in ExpertDB provides secure file upload, storage,
 interface Document {
   id: number;
   expertId: number;
-  documentType: string;      // "cv", "approval", "certificate", "publication", "other"
+  documentType: string;      // "cv" or "approval"
   filename: string;          // Original filename
   filePath: string;          // Storage path
   contentType: string;       // MIME type
@@ -75,9 +75,6 @@ The system supports the following document types:
 |------|-------------|------------------|
 | `cv` | Curriculum Vitae | Expert's professional resume |
 | `approval` | Approval Documents | Administrative approval records |
-| `certificate` | Certificates | Professional certifications, training certificates |
-| `publication` | Publications | Research papers, articles, books |
-| `other` | Other Documents | Any other relevant documentation |
 
 ## File Storage
 
@@ -88,16 +85,14 @@ uploads/
 │   ├── {expertId}/
 │   │   ├── cv/
 │   │   │   └── {timestamp}_{originalFilename}
-│   │   ├── approval/
-│   │   │   └── {timestamp}_{originalFilename}
-│   │   └── {documentType}/
+│   │   └── approval/
 │   │       └── {timestamp}_{originalFilename}
 ```
 
 ### Naming Convention
 - Files are stored with timestamp prefix to ensure uniqueness
 - Original filename is preserved for user reference
-- Directory structure organized by expert ID and document type
+- Directory structure organized by expert ID and document type (cv or approval)
 
 ## API Endpoints
 
@@ -118,7 +113,7 @@ Content-Type: multipart/form-data
 #### Request Payload (Form-data)
 ```text
 file: file                    // Required: The file to upload
-documentType: string          // Required: One of "cv", "approval", "certificate", "publication", "other"
+documentType: string          // Required: One of "cv" or "approval"
 expertId: int                 // Required: ID of the expert
 ```
 
@@ -196,7 +191,7 @@ Authorization: Bearer <token>
   "success": true,
   "data": {
     "expertId": 456,
-    "count": 3,
+    "count": 2,
     "documents": [
       {
         "id": 123,
@@ -217,16 +212,6 @@ Authorization: Bearer <token>
         "contentType": "application/pdf",
         "fileSize": 123456,
         "uploadDate": "2025-07-22T14:31:02Z"
-      },
-      {
-        "id": 125,
-        "expertId": 456,
-        "documentType": "certificate",
-        "filename": "phd_certificate.pdf",
-        "filePath": "uploads/documents/456/certificate/1737553403_phd_certificate.pdf",
-        "contentType": "application/pdf",
-        "fileSize": 334567,
-        "uploadDate": "2025-07-22T14:32:03Z"
       }
     ]
   }
@@ -461,7 +446,7 @@ The API uses Go's standard `multipart` package for handling file uploads:
 1. **Invalid Document Type**
    - Status: 400 Bad Request
    - Message: "Invalid document type"
-   - Solution: Use one of the allowed types: cv, approval, certificate, publication, other
+   - Solution: Use one of the allowed types: cv, approval
 
 2. **Missing Required Fields**
    - Status: 400 Bad Request

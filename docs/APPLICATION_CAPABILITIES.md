@@ -115,7 +115,7 @@ The expert creation workflow manages how new experts are proposed, reviewed, and
   - Enhanced data integrity and query capabilities
 - **Enhanced Form Validation**: Comprehensive field validation with standardized options
   - Designation dropdown with professional titles: Prof., Dr., Mr., Ms., Mrs., Miss, Eng.
-  - Performance rating on 1-5 scale with descriptive labels
+  - Performance rating is set to 0 by default when expert is created from approved request
   - Skills management via tag-based input system
 - **Specialized Areas Management**: Flexible area assignment with user-driven expansion
   - Users can search and select from existing specialized areas during request creation
@@ -237,7 +237,7 @@ Expert management is the central capability of the system, providing comprehensi
 
 - **Expert Lifecycle Management**
   - Availability status updates
-  - Performance rating tracking
+  - Performance rating tracking (defaults to 0 for new experts, can be updated via expert edit requests)
   - Publication status control (is_published) //NOTE: is published pertains to expert profile being published on another website. Ensure the implementation does not handle this as being published in the database
   - Record update history (created_at, updated_at)
 
@@ -249,8 +249,6 @@ Document management enables secure storage and retrieval of expert-related docum
 - **Document Types**
   - CV documents: Expert qualifications and history
   - Approval documents: Official system approval
-  - Certificates: Qualifications and credentials
-  - Publications: Research papers and articles
 
 - **Document Operations**
   - Upload: Secure document storage with metadata

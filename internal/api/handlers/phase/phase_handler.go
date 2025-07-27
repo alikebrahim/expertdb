@@ -283,8 +283,8 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 		AssignedPlannerID: req.AssignedPlannerID,
 		Status:            req.Status,
 		Applications:      make([]domain.PhaseApplication, len(req.Applications)),
-		CreatedAt:         time.Now().UTC(),
-		UpdatedAt:         time.Now().UTC(),
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
 	}
 	
 	// Set default status if not provided
@@ -309,8 +309,8 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 			Expert1:           appReq.Expert1,
 			Expert2:           appReq.Expert2,
 			Status:            appReq.Status,
-			CreatedAt:         time.Now().UTC(),
-			UpdatedAt:         time.Now().UTC(),
+			CreatedAt:         time.Now(),
+			UpdatedAt:         time.Now(),
 		}
 		
 		// Set default status if not provided
@@ -434,7 +434,7 @@ func (h *Handler) HandleUpdatePhase(w http.ResponseWriter, r *http.Request) erro
 	}
 	
 	// Update timestamp
-	phase.UpdatedAt = time.Now().UTC()
+	phase.UpdatedAt = time.Now()
 	
 	// Update phase in store
 	err = h.store.UpdatePhase(phase)

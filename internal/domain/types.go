@@ -82,7 +82,7 @@ type CreateExpertRequest struct {
 	GeneralArea               int64    `json:"generalArea"`               // ID referencing expert_areas table
 	SpecializedAreaIds        []int64  `json:"specializedAreaIds"`        // Selected existing area IDs
 	SuggestedSpecializedAreas []string `json:"suggestedSpecializedAreas"` // User-suggested area names
-	CVPath                    string   `json:"cvPath"`                    // Path to the expert's CV file
+	CVDocumentID              *int64   `json:"cvDocumentId,omitempty"`    // Reference to CV document
 	ExperienceEntries []ExpertRequestExperienceEntry `json:"experienceEntries"` // Professional experience entries
 	EducationEntries  []ExpertRequestEducationEntry  `json:"educationEntries"`  // Educational background entries
 	IsBahraini      bool       `json:"isBahraini"`      // Flag indicating if expert is Bahraini citizen
@@ -117,8 +117,10 @@ type Expert struct {
 	SpecializedAreaNames string   `json:"specializedAreaNames"` // Comma-separated specialized area names (e.g., "Software Engineering, Database Design")
 	SpecializedAreasResolved []*SpecializedArea `json:"specialized_areas_resolved,omitempty" db:"-"` // Resolved specialized area names
 	IsTrained           bool      `json:"isTrained"`       // Indicates if expert has completed required training
-	CVPath              string    `json:"cvPath"`          // Path to the expert's CV file
-	ApprovalDocumentPath string    `json:"approvalDocumentPath,omitempty"` // Path to the approval document
+	CVDocumentID        *int64    `json:"cvDocumentId,omitempty"`     // Reference to CV document
+	ApprovalDocumentID  *int64    `json:"approvalDocumentId,omitempty"` // Reference to approval document
+	CVDocument          *Document `json:"cvDocument,omitempty"`       // Resolved CV document
+	ApprovalDocument    *Document `json:"approvalDocument,omitempty"` // Resolved approval document
 	Phone               string    `json:"phone"`           // Contact phone number
 	Email               string    `json:"email"`           // Contact email address
 	IsPublished         bool      `json:"isPublished"`     // Indicates if expert profile should be publicly visible
@@ -154,7 +156,6 @@ type ExpertRequest struct {
 	Email                string    `json:"email"`                // Contact email address
 	IsBahraini           bool      `json:"isBahraini"`           // Flag indicating if expert is Bahraini citizen
 	IsAvailable          bool      `json:"isAvailable"`          // Current availability status for assignments
-	Rating               int       `json:"rating"`               // Performance rating (1-5 scale)
 	Role                 string    `json:"role"`                 // Expert's role: "evaluator", "validator", or "evaluator/validator"
 	EmploymentType       string    `json:"employmentType"`       // Type of employment: "academic" or "employer"
 	GeneralArea               int64    `json:"generalArea"`               // ID referencing expert_areas table
@@ -162,16 +163,60 @@ type ExpertRequest struct {
 	SuggestedSpecializedAreas []string `json:"suggestedSpecializedAreas"` // User-suggested area names
 	IsTrained                 bool     `json:"isTrained"`                 // Indicates if expert has completed required training
 	IsPublished          bool      `json:"isPublished"`          // Indicates if expert profile should be publicly visible
-	CVPath               string    `json:"cvPath"`               // Path to the expert's CV file
-	ApprovalDocumentPath string    `json:"approvalDocumentPath,omitempty"` // Path to the approval document
-	ExperienceEntries    []ExpertRequestExperienceEntry `json:"experienceEntries,omitempty"` // Professional experience entries
-	EducationEntries     []ExpertRequestEducationEntry  `json:"educationEntries,omitempty"`  // Educational background entries
+	CVDocumentID         *int64    `json:"cvDocumentId,omitempty"`        // Reference to CV document
+	ApprovalDocumentID   *int64    `json:"approvalDocumentId,omitempty"`  // Reference to approval document
+	CVDocument           *Document `json:"cvDocument,omitempty"`          // Resolved CV document
+	ApprovalDocument     *Document `json:"approvalDocument,omitempty"`    // Resolved approval document
+	ExperienceEntries    []ExpertRequestExperienceEntry `json:"experienceEntries"` // Professional experience entries
+	EducationEntries     []ExpertRequestEducationEntry  `json:"educationEntries"`  // Educational background entries
 	Status               string    `json:"status"`               // Request status: "pending", "approved", "rejected"
 	RejectionReason      string    `json:"rejectionReason,omitempty"` // Reason for rejection if status is "rejected"
 	CreatedAt            time.Time `json:"createdAt"`            // Timestamp when request was submitted
 	ReviewedAt           time.Time `json:"reviewedAt,omitempty"` // Timestamp when request was reviewed
 	ReviewedBy           int64     `json:"reviewedBy,omitempty"` // ID of admin who reviewed the request
 	CreatedBy            int64     `json:"createdBy,omitempty"`  // ID of user who created the request
+}
+
+// Document resolution methods for Expert
+func (e *Expert) ResolveCVDocument(getDocument func(int64) (*Document, error)) error {
+	if e.CVDocumentID != nil {
+		doc, err := getDocument(*e.CVDocumentID)
+		if err == nil {
+			e.CVDocument = doc
+		}
+	}
+	return nil
+}
+
+func (e *Expert) ResolveApprovalDocument(getDocument func(int64) (*Document, error)) error {
+	if e.ApprovalDocumentID != nil {
+		doc, err := getDocument(*e.ApprovalDocumentID)
+		if err == nil {
+			e.ApprovalDocument = doc
+		}
+	}
+	return nil
+}
+
+// Document resolution methods for ExpertRequest
+func (er *ExpertRequest) ResolveCVDocument(getDocument func(int64) (*Document, error)) error {
+	if er.CVDocumentID != nil {
+		doc, err := getDocument(*er.CVDocumentID)
+		if err == nil {
+			er.CVDocument = doc
+		}
+	}
+	return nil
+}
+
+func (er *ExpertRequest) ResolveApprovalDocument(getDocument func(int64) (*Document, error)) error {
+	if er.ApprovalDocumentID != nil {
+		doc, err := getDocument(*er.ApprovalDocumentID)
+		if err == nil {
+			er.ApprovalDocument = doc
+		}
+	}
+	return nil
 }
 
 // User represents a system user
@@ -190,7 +235,7 @@ type User struct {
 type Document struct {
 	ID           int64     `json:"id"`           // Primary key identifier
 	ExpertID     int64     `json:"expertId"`     // Foreign key reference to expert
-	DocumentType string    `json:"documentType"` // Type of document: "cv", "certificate", "publication", etc.
+	DocumentType string    `json:"documentType"` // Type of document: "cv" or "approval"
 	Filename     string    `json:"filename"`     // Original filename as uploaded
 	FilePath     string    `json:"filePath"`     // Path where file is stored on server
 	ContentType  string    `json:"contentType"`  // MIME type of the document
@@ -260,7 +305,7 @@ type ExpertStat struct {
 // DocumentUploadRequest represents a request to upload a document
 type DocumentUploadRequest struct {
 	ExpertID     int64  `json:"expertId"`     // ID of the expert to associate the document with
-	DocumentType string `json:"documentType"` // Type of document: "cv", "certificate", "publication", etc.
+	DocumentType string `json:"documentType"` // Type of document: "cv" or "approval"
 }
 
 // Phase represents a collection of qualification applications to be processed
@@ -379,8 +424,8 @@ type ExpertEditRequest struct {
 	SuggestedSpecializedAreas []string `json:"suggestedSpecializedAreas,omitempty"` // User-suggested area names
 	
 	// Document updates (nil/null = no change proposed)
-	NewCVPath                *string   `json:"newCvPath,omitempty"`                // Path to updated CV file
-	NewApprovalDocumentPath  *string   `json:"newApprovalDocumentPath,omitempty"`  // Path to updated approval document
+	NewCVDocumentID          *int64    `json:"newCvDocumentId,omitempty"`          // ID of new CV document
+	NewApprovalDocumentID    *int64    `json:"newApprovalDocumentId,omitempty"`    // ID of new approval document
 	RemoveCV                 bool      `json:"removeCv"`                           // Flag to indicate CV should be removed
 	RemoveApprovalDocument   bool      `json:"removeApprovalDocument"`             // Flag to indicate approval document should be removed
 	
@@ -469,12 +514,12 @@ func NewExpert(req CreateExpertRequest) *Expert {
 		EmploymentType:  req.EmploymentType,
 		GeneralArea:     req.GeneralArea,
 		SpecializedArea: specializedAreaStr,
-		CVPath:          req.CVPath,
+		CVDocumentID:    req.CVDocumentID,
 		IsBahraini:      req.IsBahraini,
 		IsTrained:       req.IsTrained,
 		IsPublished:     req.IsPublished,
 		Rating:          req.Rating,
-		CreatedAt:       time.Now().UTC(),
+		CreatedAt:       time.Now(),
 	}
 }
 

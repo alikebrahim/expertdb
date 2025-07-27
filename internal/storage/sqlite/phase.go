@@ -247,7 +247,7 @@ func (s *SQLiteStore) CreatePhase(phase *domain.Phase) (int64, error) {
 	}
 	
 	// Set timestamps
-	now := time.Now().UTC()
+	now := time.Now()
 	phase.CreatedAt = now
 	phase.UpdatedAt = now
 	
@@ -358,7 +358,7 @@ func (s *SQLiteStore) UpdatePhase(phase *domain.Phase) error {
 	}
 	
 	// Update phase
-	phase.UpdatedAt = time.Now().UTC()
+	phase.UpdatedAt = time.Now()
 	_, err = s.db.Exec(
 		"UPDATE phases SET title = ?, assigned_planner_id = ?, status = ?, updated_at = ? WHERE id = ?",
 		phase.Title,
@@ -637,7 +637,7 @@ func (s *SQLiteStore) CreatePhaseApplication(app *domain.PhaseApplication) (int6
 	}
 	
 	// Set timestamps
-	now := time.Now().UTC()
+	now := time.Now()
 	app.CreatedAt = now
 	app.UpdatedAt = now
 	
@@ -714,7 +714,7 @@ func (s *SQLiteStore) UpdatePhaseApplication(app *domain.PhaseApplication) error
 	}
 	
 	// Update the application
-	app.UpdatedAt = time.Now().UTC()
+	app.UpdatedAt = time.Now()
 	_, err = s.db.Exec(
 		`UPDATE phase_applications 
 		SET type = ?, institution_name = ?, qualification_name = ?, 
@@ -778,7 +778,7 @@ func (s *SQLiteStore) UpdatePhaseApplicationExperts(id int64, expert1ID, expert2
 	}
 	
 	// Update the experts
-	now := time.Now().UTC()
+	now := time.Now()
 	_, err = s.db.Exec(
 		"UPDATE phase_applications SET expert_1 = ?, expert_2 = ?, status = ?, updated_at = ? WHERE id = ?",
 		nullableInt64(expert1ID),
@@ -838,7 +838,7 @@ func (s *SQLiteStore) UpdatePhaseApplicationStatus(id int64, status, rejectionNo
 	}()
 	
 	// Update the status
-	now := time.Now().UTC()
+	now := time.Now()
 	result, err := tx.Exec(
 		"UPDATE phase_applications SET status = ?, rejection_notes = ?, updated_at = ? WHERE id = ?",
 		status,

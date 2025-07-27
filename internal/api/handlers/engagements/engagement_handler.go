@@ -465,7 +465,7 @@ func parseCSVEngagements(file io.Reader) ([]*domain.Engagement, error) {
 			EngagementType: engagementType,
 			StartDate:      startDate,
 			Status:         "active", // Default status for imports
-			CreatedAt:      time.Now().UTC(),
+			CreatedAt:      time.Now(),
 		}
 
 		// Optional fields

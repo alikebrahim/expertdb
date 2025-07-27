@@ -58,7 +58,7 @@ func (s *SQLiteStore) CreateUser(user *domain.User) (int64, error) {
 
 	// Initialize with current time if not set
 	if user.CreatedAt.IsZero() {
-		user.CreatedAt = time.Now().UTC()
+		user.CreatedAt = time.Now()
 	}
 	
 	// Handle NULL last_login
@@ -261,7 +261,7 @@ func (s *SQLiteStore) UpdateUser(user *domain.User) error {
 // UpdateUserLastLogin updates the last login timestamp for a user
 func (s *SQLiteStore) UpdateUserLastLogin(id int64) error {
 	query := "UPDATE users SET last_login = ? WHERE id = ?"
-	result, err := s.db.Exec(query, time.Now().UTC(), id)
+	result, err := s.db.Exec(query, time.Now(), id)
 	if err != nil {
 		return fmt.Errorf("failed to update user last login: %w", err)
 	}
@@ -302,8 +302,8 @@ func (s *SQLiteStore) EnsureSuperUserExists(email, name, passwordHash string) er
 		PasswordHash: passwordHash,
 		Role:         "super_user",
 		IsActive:     true,
-		CreatedAt:    time.Now().UTC(),
-		LastLogin:    time.Now().UTC(),
+		CreatedAt:    time.Now(),
+		LastLogin:    time.Now(),
 	}
 	
 	_, err = s.CreateUser(superUser)

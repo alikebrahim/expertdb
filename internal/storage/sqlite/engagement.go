@@ -167,7 +167,7 @@ func (s *SQLiteStore) CreateEngagement(engagement *domain.Engagement) (int64, er
 	
 	// Set default values
 	if engagement.CreatedAt.IsZero() {
-		engagement.CreatedAt = time.Now().UTC()
+		engagement.CreatedAt = time.Now()
 	}
 	
 	if engagement.Status == "" {
@@ -361,7 +361,7 @@ func (s *SQLiteStore) ImportEngagements(engagements []*domain.Engagement) (int, 
 		
 		// Set default values
 		if engagement.CreatedAt.IsZero() {
-			engagement.CreatedAt = time.Now().UTC()
+			engagement.CreatedAt = time.Now()
 		}
 		
 		if engagement.Status == "" {

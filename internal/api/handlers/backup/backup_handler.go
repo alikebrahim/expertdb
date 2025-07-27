@@ -139,7 +139,7 @@ func (h *Handler) addExpertsToZip(zipWriter *zip.Writer, tempDir string) error {
 		"ID", "Name", "Designation", "Affiliation", "IsBahraini", 
 		"IsAvailable", "Rating", "Role", "EmploymentType",
 		"GeneralArea", "GeneralAreaName", "SpecializedArea", "IsTrained",
-		"CVPath", "ApprovalDocumentPath", "Phone", "Email", "IsPublished", 
+		"CVDocumentID", "ApprovalDocumentID", "Phone", "Email", "IsPublished", 
 		"CreatedAt", "UpdatedAt", "OriginalRequestID",
 	}
 	if err := writer.Write(header); err != nil {
@@ -148,6 +148,16 @@ func (h *Handler) addExpertsToZip(zipWriter *zip.Writer, tempDir string) error {
 
 	// Write data rows
 	for _, expert := range experts {
+		// Convert document IDs to strings
+		cvDocumentID := ""
+		if expert.CVDocumentID != nil {
+			cvDocumentID = strconv.FormatInt(*expert.CVDocumentID, 10)
+		}
+		approvalDocumentID := ""
+		if expert.ApprovalDocumentID != nil {
+			approvalDocumentID = strconv.FormatInt(*expert.ApprovalDocumentID, 10)
+		}
+		
 		row := []string{
 			strconv.FormatInt(expert.ID, 10),
 			expert.Name,
@@ -162,8 +172,8 @@ func (h *Handler) addExpertsToZip(zipWriter *zip.Writer, tempDir string) error {
 			expert.GeneralAreaName,
 			expert.SpecializedArea,
 			strconv.FormatBool(expert.IsTrained),
-			expert.CVPath,
-			expert.ApprovalDocumentPath,
+			cvDocumentID,
+			approvalDocumentID,
 			expert.Phone,
 			expert.Email,
 			strconv.FormatBool(expert.IsPublished),
@@ -205,7 +215,7 @@ func (h *Handler) addExpertRequestsToZip(zipWriter *zip.Writer, tempDir string) 
 	header := []string{
 		"ID", "Name", "Designation", "Affiliation", "IsBahraini", 
 		"IsAvailable", "Rating", "Role", "EmploymentType", "GeneralArea",
-		"SpecializedArea", "IsTrained", "CVPath", "ApprovalDocumentPath",
+		"SpecializedArea", "IsTrained", "CVDocumentID", "ApprovalDocumentID",
 		"Phone", "Email", "IsPublished", "Status", "RejectionReason",
 		"CreatedAt", "ReviewedAt", "ReviewedBy", "CreatedBy",
 	}
@@ -226,6 +236,16 @@ func (h *Handler) addExpertRequestsToZip(zipWriter *zip.Writer, tempDir string) 
 			reviewedAt = req.ReviewedAt.Format(time.RFC3339)
 		}
 		
+		// Convert document IDs to strings
+		cvDocumentID := ""
+		if req.CVDocumentID != nil {
+			cvDocumentID = strconv.FormatInt(*req.CVDocumentID, 10)
+		}
+		approvalDocumentID := ""
+		if req.ApprovalDocumentID != nil {
+			approvalDocumentID = strconv.FormatInt(*req.ApprovalDocumentID, 10)
+		}
+		
 		row := []string{
 			strconv.FormatInt(req.ID, 10),
 			req.Name,
@@ -233,14 +253,13 @@ func (h *Handler) addExpertRequestsToZip(zipWriter *zip.Writer, tempDir string) 
 			req.Affiliation,
 			strconv.FormatBool(req.IsBahraini),
 			strconv.FormatBool(req.IsAvailable),
-			strconv.Itoa(req.Rating),
 			req.Role,
 			req.EmploymentType,
 			strconv.FormatInt(req.GeneralArea, 10),
 			req.SpecializedArea,
 			strconv.FormatBool(req.IsTrained),
-			req.CVPath,
-			req.ApprovalDocumentPath,
+			cvDocumentID,
+			approvalDocumentID,
 			req.Phone,
 			req.Email,
 			strconv.FormatBool(req.IsPublished),

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 	
 	"expertdb/internal/api"
 	"expertdb/internal/auth"
@@ -16,6 +17,17 @@ import (
 )
 
 func main() {
+	// Set timezone to Bahrain for the entire application
+	loc, err := time.LoadLocation("Asia/Bahrain")
+	if err != nil {
+		l := logger.Get()
+		l.Warn("Could not load Bahrain timezone, falling back to system timezone: %v", err)
+	} else {
+		time.Local = loc
+		l := logger.Get()
+		l.Info("Application timezone set to: %s", loc.String())
+	}
+	
 	// Load configuration
 	cfg := config.LoadConfig()
 	

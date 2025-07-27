@@ -182,8 +182,8 @@ func (h *ExpertEditRequestHandler) HandleCreateExpertEditRequest(w http.Response
 				log.Error("Failed to upload CV: %v", err)
 				return fmt.Errorf("failed to upload CV: %w", err)
 			}
-			editRequest.NewCVPath = &cvDoc.FilePath
-			log.Debug("CV uploaded successfully for edit request: %s", cvDoc.FilePath)
+			editRequest.NewCVDocumentID = &cvDoc.ID
+			log.Debug("CV uploaded successfully for edit request, document ID: %d", cvDoc.ID)
 		}
 
 		// Handle approval document upload
@@ -196,8 +196,8 @@ func (h *ExpertEditRequestHandler) HandleCreateExpertEditRequest(w http.Response
 				log.Error("Failed to upload approval document: %v", err)
 				return fmt.Errorf("failed to upload approval document: %w", err)
 			}
-			editRequest.NewApprovalDocumentPath = &approvalDoc.FilePath
-			log.Debug("Approval document uploaded successfully for edit request: %s", approvalDoc.FilePath)
+			editRequest.NewApprovalDocumentID = &approvalDoc.ID
+			log.Debug("Approval document uploaded successfully for edit request, document ID: %d", approvalDoc.ID)
 		}
 	}
 
@@ -525,14 +525,14 @@ func (h *ExpertEditRequestHandler) calculateChangedFields(existing *domain.Exper
 		changedFields = append(changedFields, "isPublished")
 	}
 
-	if editRequest.NewCVPath != nil {
-		changedFields = append(changedFields, "cvPath")
+	if editRequest.NewCVDocumentID != nil {
+		changedFields = append(changedFields, "cvDocument")
 	}
 	if editRequest.RemoveCV {
 		changedFields = append(changedFields, "removeCv")
 	}
-	if editRequest.NewApprovalDocumentPath != nil {
-		changedFields = append(changedFields, "approvalDocumentPath")
+	if editRequest.NewApprovalDocumentID != nil {
+		changedFields = append(changedFields, "approvalDocument")
 	}
 	if editRequest.RemoveApprovalDocument {
 		changedFields = append(changedFields, "removeApprovalDocument")

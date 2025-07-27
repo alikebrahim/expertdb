@@ -1,8 +1,8 @@
 # Expert Management API Reference
 
 **Date**: January 22, 2025  
-**Version**: 1.0  
-**Context**: This document provides comprehensive API documentation for all Expert Management endpoints in the ExpertDB system, extracted from the main API_REFERENCE.md file.
+**Version**: 1.1 (Updated for Document Management System)  
+**Context**: This document provides comprehensive API documentation for all Expert Management endpoints in the ExpertDB system, extracted from the main API_REFERENCE.md file. Updated to reflect the migration from file path-based document storage to a centralized document management system using foreign key relationships.
 
 ## Table of Contents
 
@@ -36,7 +36,7 @@ The Expert Management system in ExpertDB provides comprehensive functionality fo
 - **Multi-Value Filtering**: Support for comma-separated values in filter parameters (v1.5 update)
 - **Normalized Data Model**: Specialized areas are stored as IDs with separate lookup table
 - **Dual Content-Type Support**: Expert updates support both JSON and multipart/form-data
-- **Comprehensive Metadata**: Includes professional experience, education, skills, and documents
+- **Comprehensive Metadata**: Includes professional experience, education, and documents
 
 ### Authentication & Authorization
 
@@ -57,22 +57,20 @@ The expert entity includes the following fields:
   "expertId": "string",           // Business ID (e.g., "EXP-0001")
   "name": "string",               // Expert's full name
   "designation": "string",        // Professional title
-  "institution": "string",        // Organization/affiliation
+  "affiliation": "string",        // Organization/affiliation
   "isBahraini": boolean,          // Nationality flag
   "isAvailable": boolean,         // Availability status
-  "rating": "string",             // Performance rating
+  "rating": int,                  // Performance rating (1-5)
   "role": "string",               // Expert role (validator/evaluator)
   "employmentType": "string",     // Employment category
   "generalAreaName": "string",    // General specialization area name
   "specializedAreaNames": "string", // Comma-separated specialized area names
   "isTrained": boolean,           // BQA training status
-  "cvPath": "string",             // Path to CV document
+  "cvDocumentId": int,            // CV document reference ID
   "phone": "string",              // Contact phone
   "email": "string",              // Contact email
   "isPublished": boolean,         // Publication status
-  "biography": "string",          // Professional biography
-  "skills": ["string"],           // Array of skills/competencies
-  "approvalDocumentPath": "string", // Path to approval document
+  "approvalDocumentId": int,      // Approval document reference ID
   "experienceEntries": [...],     // Professional experience array
   "educationEntries": [...],      // Educational background array
   "createdAt": "string",          // Creation timestamp
@@ -146,7 +144,7 @@ Retrieves a paginated list of experts with enhanced multi-value filtering and so
 
 **Multi-Value Filtering (supports comma-separated values):**
 - `general_area` - General area ID(s) (e.g., `3` or `3,5,12`)
-- `institution` - Institution/affiliation text search (e.g., `University` or `University,Polytechnic`)
+- `affiliation` - Institution/affiliation text search (e.g., `University` or `University,Polytechnic`)
 - `role` - Expert role(s) (e.g., `validator` or `validator,evaluator`)
 - `employment_type` - Employment type(s) (e.g., `Academic` or `Academic,Employer`)
 - `specialized_area` - Specialized area text search (supports multiple comma-separated values)
@@ -167,7 +165,7 @@ Retrieves a paginated list of experts with enhanced multi-value filtering and so
 # Single value filters
 GET /api/experts?general_area=3
 GET /api/experts?role=validator
-GET /api/experts?institution=University
+GET /api/experts?affiliation=University
 
 # Multi-value filters (OR within field)
 GET /api/experts?role=validator,evaluator
@@ -176,7 +174,7 @@ GET /api/experts?employment_type=Academic,Employer
 
 # Combined filters (AND between fields)
 GET /api/experts?role=validator&general_area=3
-GET /api/experts?role=validator,evaluator&institution=University&is_available=true
+GET /api/experts?role=validator,evaluator&affiliation=University&is_available=true
 
 # With sorting and pagination
 GET /api/experts?role=validator&sort_by=rating&sort_order=desc&limit=20&offset=0
@@ -204,16 +202,16 @@ GET /api/experts?role=validator&sort_by=rating&sort_order=desc&limit=20&offset=0
         "expertId": "EXP-0001",
         "name": "Dr. John Smith",
         "designation": "Professor",
-        "institution": "University of Bahrain",
+        "affiliation": "University of Bahrain",
         "isBahraini": true,
         "isAvailable": true,
-        "rating": "5",
+        "rating": 5,
         "role": "validator",
         "employmentType": "Academic",
         "generalAreaName": "Business - Management & Marketing",
         "specializedAreaNames": "Software Engineering, Database Design",
         "isTrained": true,
-        "cvPath": "/uploads/experts/cv_12345.pdf",
+        "cvDocumentId": 123,
         "phone": "+973 12345678",
         "email": "john.smith@example.com",
         "isPublished": true,
@@ -244,7 +242,7 @@ GET /api/experts?role=validator&sort_by=rating&sort_order=desc&limit=20&offset=0
             "updatedAt": "2025-01-20T10:00:00Z"
           }
         ],
-        "approvalDocumentPath": "/uploads/approval/doc_12345.pdf",
+        "approvalDocumentId": 124,
         "createdAt": "2025-01-20T10:00:00Z",
         "updatedAt": "2025-01-21T15:30:00Z"
       }
@@ -300,21 +298,20 @@ Retrieves detailed information for a specific expert.
     "expertId": "EXP-0001",
     "name": "Dr. John Smith",
     "designation": "Professor",
-    "institution": "University of Bahrain",
+    "affiliation": "University of Bahrain",
     "isBahraini": true,
     "isAvailable": true,
-    "rating": "5",
+    "rating": 5,
     "role": "validator",
     "employmentType": "Academic",
     "generalAreaName": "Business - Management & Marketing",
     "specializedAreaNames": "Software Engineering, Database Design",
     "isTrained": true,
-    "cvPath": "/uploads/experts/cv_12345.pdf",
+    "cvDocumentId": 123,
     "phone": "+973 12345678",
     "email": "john.smith@example.com",
     "isPublished": true,
-    "biography": "Distinguished professor with 20 years of experience...",
-    "approvalDocumentPath": "/uploads/approval/doc_12345.pdf",
+    "approvalDocumentId": 124,
     "createdAt": "2025-01-20T10:00:00Z",
     "updatedAt": "2025-01-21T15:30:00Z"
   }
@@ -345,7 +342,7 @@ Creates a new expert profile.
 ```json
 {
   "name": "Dr. Jane Doe",              // Required
-  "institution": "Tech University",     // Required
+  "affiliation": "Tech University",     // Required
   "email": "jane.doe@example.com",     // Required
   "designation": "Associate Professor", // Required
   "isBahraini": false,                 // Required
@@ -356,7 +353,7 @@ Creates a new expert profile.
   "generalArea": 3,                    // Required (area ID)
   "specializedArea": "1,4,6",          // Required (comma-separated IDs)
   "isTrained": true,                   // Required
-  "cvPath": "/uploads/cv_temp.pdf",    // Required
+  "cvDocumentId": 123,                 // Required (document reference ID)
   "phone": "+973 87654321",            // Required
   "isPublished": false,                // Required
   "experienceEntries": [               // Optional
@@ -380,8 +377,7 @@ Creates a new expert profile.
       "description": "Research in distributed systems"
     }
   ],
-  "skills": ["Teaching", "Research", "Python", "Machine Learning"], // Required
-  "approvalDocumentPath": "/uploads/approval_temp.pdf" // Required
+  "approvalDocumentId": 124           // Required (document reference ID)
 }
 ```
 
@@ -463,12 +459,10 @@ The endpoint supports two content types:
   "generalArea": 5,
   "specializedArea": "2,5,8",
   "isTrained": true,
-  "cvPath": "/uploads/cv_12345.pdf",
+  "cvDocumentId": 123,
   "phone": "+973 87654321",
   "isPublished": true,
-  "biography": "Updated biography text...",
-  "skills": ["Updated", "Skill", "List"],
-  "approvalDocumentPath": "/uploads/approval_12345.pdf"
+  "approvalDocumentId": 124
 }
 ```
 
@@ -479,8 +473,8 @@ The endpoint supports two content types:
 
 **Form Fields:**
 - `data` - JSON string containing expert data (same structure as JSON request)
-- `cvFile` - (optional) New CV file (PDF format)
-- `approvalDocument` - (optional) New approval document file
+- `cvFile` - (optional) New CV file (PDF format) - creates new document record
+- `approvalDocument` - (optional) New approval document file - creates new document record
 
 **Example:**
 ```bash
@@ -521,9 +515,10 @@ curl -X PUT http://api.example.com/api/experts/442 \
 #### Implementation Notes
 
 - **Smart Content-Type Detection**: Automatically detects JSON vs multipart requests
-- **File Handling**: New files automatically processed via document service
+- **File Handling**: New files automatically processed via document service and document IDs updated
+- **Document References**: Uses document IDs instead of file paths for data integrity
 - **Partial Updates**: Only provided fields are updated
-- **Type Conversion**: Handles rating as int, skills as array
+- **Type Conversion**: Handles rating as int
 - **Backward Compatibility**: JSON-only clients continue to work unchanged
 
 ### DELETE /api/experts/{id}
@@ -761,7 +756,7 @@ The following parameter names are no longer supported:
 GET /api/experts?by_role=validator&by_general_area=3&name=University
 
 # NEW PARAMETERS (v1.5) - REQUIRED FORMAT  
-GET /api/experts?role=validator&general_area=3&institution=University
+GET /api/experts?role=validator&general_area=3&affiliation=University
 ```
 
 ### Parameter Mapping
@@ -771,7 +766,7 @@ GET /api/experts?role=validator&general_area=3&institution=University
 | `by_role` | `role` | Now supports multi-value |
 | `by_general_area` | `general_area` | Now supports multi-value |
 | `by_employment_type` | `employment_type` | Now supports multi-value |
-| `name` | `institution` | Fixed: now searches institution field |
+| `name` | `affiliation` | Fixed: now searches affiliation field |
 
 ### New Multi-Value Capabilities
 
@@ -782,7 +777,7 @@ GET /api/experts?role=validator
 # But now you can use comma-separated values
 GET /api/experts?role=validator,evaluator
 GET /api/experts?general_area=3,5,12
-GET /api/experts?institution=University,College,Institute
+GET /api/experts?affiliation=University,College,Institute
 ```
 
 ## Performance Considerations

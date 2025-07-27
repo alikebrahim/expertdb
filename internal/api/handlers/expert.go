@@ -462,9 +462,8 @@ func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Reques
 				return fmt.Errorf("failed to upload CV: %w", err)
 			}
 			
-			// Update the expert's CV path
-			updateExpert.CVPath = cvDoc.FilePath
-			log.Debug("Updated CV path for expert ID: %d to %s", id, cvDoc.FilePath)
+			// Document reference already updated by CreateDocumentForExpert
+			log.Debug("Updated CV document for expert ID: %d to document ID: %d", id, cvDoc.ID)
 		} else if err != http.ErrMissingFile {
 			log.Warn("Error accessing CV file: %v", err)
 			return fmt.Errorf("error processing CV file: %w", err)
@@ -482,9 +481,8 @@ func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Reques
 				return fmt.Errorf("failed to upload approval document: %w", err)
 			}
 			
-			// Update the expert's approval document path
-			updateExpert.ApprovalDocumentPath = approvalDoc.FilePath
-			log.Debug("Updated approval document path for expert ID: %d to %s", id, approvalDoc.FilePath)
+			// Document reference already updated by CreateDocumentForExpert
+			log.Debug("Updated approval document for expert ID: %d to document ID: %d", id, approvalDoc.ID)
 		} else if err != http.ErrMissingFile {
 			log.Warn("Error accessing approval document file: %v", err)
 			return fmt.Errorf("error processing approval document file: %w", err)

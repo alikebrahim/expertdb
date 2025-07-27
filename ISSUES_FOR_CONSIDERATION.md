@@ -39,3 +39,37 @@ This document tracks implementation issues and configuration decisions that need
 - Handling weekends and holidays
 - Manager notification preferences
 - Escalation path for overdue ratings
+
+## 4. Honorarium PDF Generation
+**Context:** Account managers need to generate honorarium reports for applications
+**Requirements:**
+- Create a facility for account managers to generate honorarium.pdf for applications
+- Button interface to generate reports including panel details
+- Calculate remuneration based on provided schedule
+
+**Considerations:**
+- PDF generation library selection
+- Remuneration schedule configuration and storage
+- Report template design and branding
+- Panel member data aggregation
+- Payment calculation logic based on roles and time commitments
+- File generation and download handling
+
+## 5. Documents and Database Backup Mechanism
+**Context:** System needs automated backup capabilities for documents and database with super_user configuration
+**Requirements:**
+- Automated backup mechanism for SQLite database and document files
+- API endpoints for super_user to configure backup schedules
+- Interface for super_user to view backup files and status
+- Integration with system settings in the admin panel for backup configuration
+- Configurable backup retention policies
+
+**Considerations:**
+- Backup storage location (local, cloud storage integration)
+- Backup frequency configuration (daily, weekly, monthly)
+- Compression and encryption of backup files
+- Database consistency during backup operations
+- Document file synchronization with database backups
+- Backup verification and integrity checks
+- API design for backup configuration and monitoring
+- Backup restoration procedures and testing

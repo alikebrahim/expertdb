@@ -93,7 +93,6 @@ phone: string                      // Required: Contact phone (min 8 chars, form
 email: string                      // Required: Contact email (email format validated)
 isBahraini: boolean               // Required: Bahraini citizenship status
 isAvailable: boolean              // Required: Current availability for assignments
-rating: int                       // Required: Performance rating (1-5 scale)
 role: string                      // Required: Expert role
                                   // Options: "evaluator", "validator", "evaluator/validator"
 employmentType: string            // Required: Employment type
@@ -105,8 +104,6 @@ suggestedSpecializedAreas: string // Optional: JSON array of new area suggestion
                                   // Example: ["Machine Learning", "Blockchain"]
 isTrained: boolean                // Required: BQA training completion status
 isPublished: boolean              // Optional: Publication status (defaults to false)
-skills: string                    // Required: JSON array of skills (min 1 skill)
-                                  // Example: ["Leadership", "Research", "Teaching"]
 experienceEntries: string         // Optional: JSON array of experience entries
 educationEntries: string          // Optional: JSON array of education entries
 cv: file                          // Required: CV document (PDF format, max 5MB)
@@ -210,13 +207,12 @@ formData.append('suggestedSpecializedAreas', '["Machine Learning", "Blockchain T
         "id": 26,
         "name": "Dr. John Smith",
         "status": "pending",
-        "cvPath": "/documents/cv_26.pdf",
-        "approvalDocumentPath": null,
+        "cvDocumentId": 345,
+        "approvalDocumentId": null,
         "designation": "Dr.",
-        "institution": "University of Bahrain",
+        "affiliation": "University of Bahrain",
         "isBahraini": true,
         "isAvailable": true,
-        "rating": "4",
         "role": "evaluator",
         "employmentType": "academic",
         "generalArea": 3,
@@ -252,7 +248,6 @@ formData.append('suggestedSpecializedAreas', '["Machine Learning", "Blockchain T
             "updatedAt": "2025-07-22T10:00:00Z"
           }
         ],
-        "skills": ["Machine Learning", "Research", "Teaching"],
         "isPublished": false,
         "createdAt": "2025-07-22T10:00:00Z",
         "updatedAt": "2025-07-22T10:00:00Z"
@@ -539,14 +534,9 @@ When an admin approves an edit proposal (status = "approved"), the system automa
 4. **Employment Type Options**:
    - Must be one of: "academic", "employer"
 
-5. **Rating Range**:
-   - Must be integer between 1 and 5
-
-6. **General Area**:
+5. **General Area**:
    - Must be valid ID from expert_areas table
 
-7. **Skills**:
-   - Must provide at least one skill
 
 ### Edit Request Validation
 

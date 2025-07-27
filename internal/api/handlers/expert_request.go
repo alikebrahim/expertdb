@@ -9,6 +9,7 @@ import (
 	"time"
 	
 	"expertdb/internal/api/response"
+	"expertdb/internal/api/utils"
 	"expertdb/internal/auth"
 	"expertdb/internal/documents"
 	"expertdb/internal/domain"
@@ -31,12 +32,10 @@ func NewExpertRequestHandler(store storage.Storage, documentService *documents.S
 	}
 }
 
-// Use existing writeJSON function from expert.go
 
 // HandleCreateExpertRequest handles POST /api/expert-requests requests
 func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, r *http.Request) error {
 	log := logger.Get()
-	log.Debug("Processing POST /api/expert-requests request")
 
 	// Parse multipart form (max 10MB for file)
 	err := r.ParseMultipartForm(10 << 20)
@@ -68,13 +67,11 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 	if generalAreaStr := r.FormValue("generalArea"); generalAreaStr != "" {
 		req.GeneralArea, _ = strconv.ParseInt(generalAreaStr, 10, 64)
 	}
-	if ratingStr := r.FormValue("rating"); ratingStr != "" {
-		req.Rating, _ = strconv.Atoi(ratingStr)
-	}
 	
 	
 	// Parse experience entries from JSON
-	if experienceJSON := r.FormValue("experienceEntries"); experienceJSON != "" {
+	experienceJSON := r.FormValue("experienceEntries")
+	if experienceJSON != "" {
 		if err := json.Unmarshal([]byte(experienceJSON), &req.ExperienceEntries); err != nil {
 			log.Warn("Failed to parse experience entries JSON: %v", err)
 			return fmt.Errorf("invalid experience entries data: %w", err)
@@ -82,7 +79,8 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 	}
 	
 	// Parse education entries from JSON
-	if educationJSON := r.FormValue("educationEntries"); educationJSON != "" {
+	educationJSON := r.FormValue("educationEntries")
+	if educationJSON != "" {
 		if err := json.Unmarshal([]byte(educationJSON), &req.EducationEntries); err != nil {
 			log.Warn("Failed to parse education entries JSON: %v", err)
 			return fmt.Errorf("invalid education entries data: %w", err)
@@ -119,58 +117,13 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 	}
 	defer cvFile.Close()
 
-	// Get user ID from JWT context
-	claims, ok := auth.GetUserClaimsFromContext(r.Context())
-	if !ok {
-		log.Warn("Failed to get user claims from context")
-		return domain.ErrUnauthorized
-	}
-	
-	var userID int64
-	if sub, ok := claims["sub"].(string); ok {
-		parsedID, err := strconv.ParseInt(sub, 10, 64)
-		if err == nil {
-			userID = parsedID
-		} else {
-			log.Warn("Failed to parse user ID from claims: %v", err)
-			return domain.ErrUnauthorized
-		}
-	} else {
-		log.Warn("Failed to get user ID from claims")
-		return domain.ErrUnauthorized
-	}
-
-	// Use a temporary negative ID to indicate this is for a request
-	tempExpertID := int64(-1) 
-	
-	// Upload CV using document service
-	cvDoc, err := h.documentService.CreateDocument(tempExpertID, cvFile, cvFileHeader, "cv")
+	// Get user ID from JWT context using the new utility
+	userID, err := auth.GetUserIDFromRequest(r)
 	if err != nil {
-		log.Error("Failed to upload CV: %v", err)
-		return fmt.Errorf("failed to upload CV: %w", err)
-	}
-	req.CVPath = cvDoc.FilePath
-	
-	// Handle optional approval document file
-	approvalFile, approvalFileHeader, err := r.FormFile("approval_document")
-	var approvalDocPath string
-	if err == nil {
-		// Approval document was provided, upload it
-		defer approvalFile.Close()
-		
-		approvalDoc, err := h.documentService.CreateDocument(tempExpertID, approvalFile, approvalFileHeader, "approval")
-		if err != nil {
-			log.Error("Failed to upload approval document: %v", err)
-			return fmt.Errorf("failed to upload approval document: %w", err)
-		}
-		approvalDocPath = approvalDoc.FilePath
-		log.Debug("Approval document uploaded successfully: %s", approvalDocPath)
-	} else {
-		log.Debug("No approval document provided (optional)")
+		log.Warn("Failed to get user ID from request context")
+		return err
 	}
 
-	// Experience and education entries are handled directly in the struct
-	
 	// Convert specialized area IDs to comma-separated string for storage compatibility
 	specializedAreaStr := ""
 	if len(req.SpecializedAreaIds) > 0 {
@@ -181,75 +134,72 @@ func (h *ExpertRequestHandler) HandleCreateExpertRequest(w http.ResponseWriter, 
 		specializedAreaStr = strings.Join(idStrings, ",")
 	}
 
-	// Create ExpertRequest for storage (with additional fields)
-	// Note: Temporarily mapping Affiliation to Institution until storage layer is updated
+	// Create ExpertRequest for storage (without file paths initially)
 	expertRequest := &domain.ExpertRequest{
-		Name:                 req.Name,
-		Designation:          req.Designation,
-		Affiliation:          req.Affiliation, // This maps to Institution in storage
-		Phone:                req.Phone,
-		Email:                req.Email,
-		IsBahraini:           req.IsBahraini,
-		IsAvailable:          req.IsAvailable,
-		Rating:               req.Rating,
-		Role:                     req.Role,
-		EmploymentType:           req.EmploymentType,
-		GeneralArea:              req.GeneralArea,
-		SpecializedArea:          specializedAreaStr,
+		Name:                      req.Name,
+		Designation:               req.Designation,
+		Affiliation:               req.Affiliation,
+		Phone:                     req.Phone,
+		Email:                     req.Email,
+		IsBahraini:                req.IsBahraini,
+		IsAvailable:               req.IsAvailable,
+		Role:                      req.Role,
+		EmploymentType:            req.EmploymentType,
+		GeneralArea:               req.GeneralArea,
+		SpecializedArea:           specializedAreaStr,
 		SuggestedSpecializedAreas: req.SuggestedSpecializedAreas,
-		IsTrained:                req.IsTrained,
-		IsPublished:              req.IsPublished,
-		CVPath:               req.CVPath,
-		ApprovalDocumentPath: approvalDocPath,
-		ExperienceEntries:    req.ExperienceEntries,
-		EducationEntries:     req.EducationEntries,
-		Status:               "pending",
-		CreatedAt:            time.Now(),
-		CreatedBy:            userID,
+		IsTrained:                 req.IsTrained,
+		IsPublished:               req.IsPublished,
+		ExperienceEntries:         req.ExperienceEntries,
+		EducationEntries:          req.EducationEntries,
+		Status:                    "pending",
+		CreatedAt:                 time.Now(),
+		CreatedBy:                 userID,
 	}
 
-	// Create request in database
-	log.Debug("Creating expert request for %s", req.Name)
-	id, err := h.store.CreateExpertRequest(expertRequest)
+	// Transaction-based approach: Create request -> Upload CV -> Update paths
+	
+	// Step 1: Create expert request record and get ID
+	requestID, err := h.store.CreateExpertRequestWithoutPaths(expertRequest)
 	if err != nil {
 		log.Error("Failed to create expert request: %v", err)
-		
-		// Use the new error parser for user-friendly errors
 		userErr := errs.ParseSQLiteError(err, "expert request")
-		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"error": userErr.Error(),
-			"suggestion": "Please check your input and try again",
-		})
+		return utils.RespondWithError(w, userErr)
 	}
 
-	// Return success response
-	log.Info("Expert request created successfully with ID: %d", id)
-	responseData := map[string]interface{}{
-		"id": id,
+	// Step 2: Upload CV file using the actual request ID
+	cvDoc, err := h.documentService.CreateDocumentForExpertRequest(requestID, cvFile, cvFileHeader)
+	if err != nil {
+		log.Error("Failed to upload CV for request %d: %v", requestID, err)
+		// TODO: Consider rolling back the request creation here
+		return fmt.Errorf("failed to upload CV: %w", err)
 	}
-	return response.Success(w, http.StatusCreated, "Expert request created successfully", responseData)
+
+	// Step 3: Document reference already updated by CreateDocumentForExpertRequest
+	log.Debug("Expert request %d created successfully with CV document %d", requestID, cvDoc.ID)
+
+	// Return success response
+	return utils.RespondWithCreated(w, requestID, "Expert request created successfully")
 }
 
 // HandleGetExpertRequests handles GET /api/expert-requests requests
 func (h *ExpertRequestHandler) HandleGetExpertRequests(w http.ResponseWriter, r *http.Request) error {
 	log := logger.Get()
-	log.Debug("Processing GET /api/expert-requests request")
 	
-	// Get user context for access control
-	claims, ok := auth.GetUserClaimsFromContext(r.Context())
-	if !ok {
-		log.Warn("Failed to get user claims from context")
-		return domain.ErrUnauthorized
+	// Get user context for access control using the new utility
+	userID, err := auth.GetUserIDFromRequest(r)
+	if err != nil {
+		log.Warn("Failed to get user ID from request context")
+		return err
 	}
 	
-	// DEBUG: Log all claims
-	log.Debug("=== USER CLAIMS DEBUG ===")
-	for key, value := range claims {
-		log.Debug("Claim '%s': %v", key, value)
+	userRole, err := auth.GetUserRoleFromRequest(r)
+	if err != nil {
+		log.Warn("Failed to get user role from request context")
+		return err
 	}
-	log.Debug("=== END USER CLAIMS ===")
 	
-	userRole, _ := claims["role"].(string)
+	// Check if user is admin for access control
 	isAdmin := userRole == "admin" || userRole == "super_user"
 	
 	// Parse query parameters for filtering
@@ -258,36 +208,17 @@ func (h *ExpertRequestHandler) HandleGetExpertRequests(w http.ResponseWriter, r 
 		log.Debug("Filtering expert requests by status: %s", status)
 	}
 	
-	// Parse pagination parameters
-	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
-	if err != nil || limit <= 0 {
-		limit = 100 // Default limit for requests
-	}
-	
-	offset, err := strconv.Atoi(r.URL.Query().Get("offset"))
-	if err != nil || offset < 0 {
-		offset = 0 // Default offset
-	}
+	// Parse pagination parameters using the new utility
+	pagination := utils.ParsePaginationParams(r, 100) // Default limit of 100 for requests
 	
 	var requests []*domain.ExpertRequest
 	
 	if isAdmin {
 		// Admin users can see all requests
-		log.Debug("Admin user retrieving all expert requests")
-		requests, err = h.store.ListExpertRequests(status, limit, offset)
+		requests, err = h.store.ListExpertRequests(status, pagination.Limit, pagination.Offset)
 	} else {
 		// Regular users can only see their own requests
-		userID, err := strconv.ParseInt(claims["sub"].(string), 10, 64)
-		if err != nil {
-			log.Error("Failed to parse user ID from claims: %v", err)
-			return domain.ErrUnauthorized
-		}
-		
-		log.Debug("Regular user (ID: %d) retrieving own expert requests with status: '%s', limit: %d, offset: %d", userID, status, limit, offset)
-		requests, err = h.store.ListExpertRequestsByUser(userID, status, limit, offset)
-		
-		// DEBUG: Log the storage method call result
-		log.Debug("Storage method returned %d requests, error: %v", len(requests), err)
+		requests, err = h.store.ListExpertRequestsByUser(userID, status, pagination.Limit, pagination.Offset)
 	}
 	
 	if err != nil {
@@ -295,15 +226,12 @@ func (h *ExpertRequestHandler) HandleGetExpertRequests(w http.ResponseWriter, r 
 		return fmt.Errorf("failed to retrieve expert requests: %w", err)
 	}
 	
-	// Return requests as JSON
-	log.Debug("Returning %d expert requests", len(requests))
-	
 	// Create response with pagination metadata
 	responseData := map[string]interface{}{
 		"requests": requests,
 		"pagination": map[string]interface{}{
-			"limit": limit,
-			"offset": offset,
+			"limit": pagination.Limit,
+			"offset": pagination.Offset,
 			"count": len(requests),
 		},
 	}
@@ -315,11 +243,9 @@ func (h *ExpertRequestHandler) HandleGetExpertRequests(w http.ResponseWriter, r 
 func (h *ExpertRequestHandler) HandleGetExpertRequest(w http.ResponseWriter, r *http.Request) error {
 	log := logger.Get()
 	
-	// Extract and validate expert request ID from path
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
+	// Extract and validate expert request ID from path using the new utility
+	id, err := utils.ExtractIDFromPath(r, "id", "expert request")
 	if err != nil {
-		log.Warn("Invalid expert request ID provided: %s", idStr)
 		return fmt.Errorf("invalid request ID: %w", err)
 	}
 	
@@ -338,7 +264,7 @@ func (h *ExpertRequestHandler) HandleGetExpertRequest(w http.ResponseWriter, r *
 	
 	// Return expert request data
 	log.Debug("Successfully retrieved expert request: ID: %d, Name: %s", request.ID, request.Name)
-	return response.Success(w, http.StatusOK, "", request)
+	return utils.RespondWithSuccess(w, "", request)
 }
 
 // HandleUpdateExpertRequest handles PUT /api/expert-requests/{id} requests
@@ -393,9 +319,9 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 	}
 	
 	// Check permissions:
-	// 1. Admins can edit any request
+	// 1. Admins and super users can edit any request
 	// 2. Regular users can edit only their own rejected requests
-	isAdmin := role == auth.RoleAdmin
+	isAdmin := role == auth.RoleAdmin || role == auth.RoleSuperUser
 	isOwner := existingRequest.CreatedBy == userID
 	isRejected := existingRequest.Status == "rejected"
 	
@@ -423,13 +349,25 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 		// Parse JSON part for the request data
 		jsonData := r.FormValue("data")
 		if jsonData == "" {
-			log.Warn("Missing JSON data in form")
-			return fmt.Errorf("missing request data")
-		}
-		
-		if err := json.Unmarshal([]byte(jsonData), &updateRequest); err != nil {
-			log.Warn("Failed to parse JSON data: %v", err)
-			return fmt.Errorf("invalid JSON data: %w", err)
+			// No JSON data provided, try to handle as simple form fields
+			// Check for status field directly
+			if status := r.FormValue("status"); status != "" {
+				updateRequest.Status = status
+			}
+			if rejectionReason := r.FormValue("rejection_reason"); rejectionReason != "" {
+				updateRequest.RejectionReason = rejectionReason
+			}
+			
+			// If still no data, return error
+			if updateRequest.Status == "" {
+				log.Warn("Missing JSON data and status in form")
+				return fmt.Errorf("missing request data")
+			}
+		} else {
+			if err := json.Unmarshal([]byte(jsonData), &updateRequest); err != nil {
+				log.Warn("Failed to parse JSON data: %v", err)
+				return fmt.Errorf("invalid JSON data: %w", err)
+			}
 		}
 		
 		// Process CV file if provided
@@ -441,13 +379,13 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 			// Use a temporary negative ID to indicate this is for a request
 			tempExpertID := int64(-1)
 			
-			cvDoc, err := h.documentService.CreateDocument(tempExpertID, cvFile, cvFileHeader, "cv")
+			_, err := h.documentService.CreateDocument(tempExpertID, cvFile, cvFileHeader, "cv")
 			if err != nil {
 				log.Error("Failed to upload updated CV: %v", err)
 				return fmt.Errorf("failed to upload CV: %w", err)
 			}
-			updateRequest.CVPath = cvDoc.FilePath
-			log.Debug("CV updated successfully for request ID %d: %s", id, updateRequest.CVPath)
+			// Document reference already updated by CreateDocument
+			log.Debug("CV updated successfully for request ID %d", id)
 		}
 		
 		// Process approval document if provided
@@ -457,13 +395,16 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 			defer approvalFile.Close()
 			
 			tempExpertID := int64(-1)
-			approvalDoc, err := h.documentService.CreateDocument(tempExpertID, approvalFile, approvalFileHeader, "approval")
+			doc, err := h.documentService.CreateDocument(tempExpertID, approvalFile, approvalFileHeader, "approval")
 			if err != nil {
 				log.Error("Failed to upload approval document: %v", err)
 				return fmt.Errorf("failed to upload approval document: %w", err)
 			}
-			updateRequest.ApprovalDocumentPath = approvalDoc.FilePath
-			log.Debug("Approval document updated successfully for request ID %d: %s", id, updateRequest.ApprovalDocumentPath)
+			
+			// Update the request with the document ID
+			updateRequest.ApprovalDocumentID = &doc.ID
+			
+			log.Debug("Approval document updated successfully for request ID %d", id)
 		}
 	} else {
 		// This is a regular JSON update
@@ -492,15 +433,11 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 		// If approving the request, require an approval document
 		if updateRequest.Status == "approved" {
 			// Check if the request has an approval document
-			hasApprovalDoc := existingRequest.ApprovalDocumentPath != "" || updateRequest.ApprovalDocumentPath != ""
+			hasApprovalDoc := existingRequest.ApprovalDocumentID != nil || updateRequest.ApprovalDocumentID != nil
 			
 			if !hasApprovalDoc {
 				log.Warn("Attempted to approve request without approval document: %d", id)
-				return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-					"error": "Approval document is required",
-					"details": "An approval document must be uploaded before approving a request",
-					"suggestion": "Please upload an approval document and try again",
-				})
+				return response.BadRequest(w, "Approval document is required before approving a request")
 			}
 			
 			log.Debug("Approval document verified for request ID: %d", id)
@@ -511,11 +448,7 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 			
 			// Use the new error parser for user-friendly errors
 			userErr := errs.ParseSQLiteError(err, "expert request")
-			return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-				"error": userErr.Error(),
-				"details": "There was an issue updating the expert request status",
-				"suggestion": "Please check your input and try again",
-			})
+			return utils.RespondWithError(w, userErr)
 		}
 	} else {
 		// If not a status update or if user is not admin, update the request fields
@@ -523,11 +456,11 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 		updateRequest.CreatedBy = existingRequest.CreatedBy
 		
 		// If CV or approval document wasn't updated, keep the existing one
-		if updateRequest.CVPath == "" {
-			updateRequest.CVPath = existingRequest.CVPath
+		if updateRequest.CVDocumentID == nil {
+			updateRequest.CVDocumentID = existingRequest.CVDocumentID
 		}
-		if updateRequest.ApprovalDocumentPath == "" {
-			updateRequest.ApprovalDocumentPath = existingRequest.ApprovalDocumentPath
+		if updateRequest.ApprovalDocumentID == nil {
+			updateRequest.ApprovalDocumentID = existingRequest.ApprovalDocumentID
 		}
 		
 		// Regular users shouldn't be able to change status
@@ -543,11 +476,7 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 			
 			// Use the new error parser for user-friendly errors
 			userErr := errs.ParseSQLiteError(err, "expert request")
-			return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-				"error": userErr.Error(),
-				"details": "There was an issue updating the expert request",
-				"suggestion": "Please check your input and try again",
-			})
+			return utils.RespondWithError(w, userErr)
 		}
 	}
 	
@@ -627,17 +556,32 @@ func (h *ExpertRequestHandler) HandleBatchApproveExpertRequests(w http.ResponseW
 	}
 	defer approvalFile.Close()
 	
-	// Upload the approval document
-	tempExpertID := int64(-1) // Use a temporary negative ID
-	approvalDoc, err := h.documentService.CreateDocument(tempExpertID, approvalFile, approvalFileHeader, "approval")
+	// Call the storage method for batch approval with file moving
+	log.Debug("Batch approving %d expert requests with file moving", len(batchRequest.RequestIDs))
+	approved, expertIDs, errors := h.store.BatchApproveExpertRequestsWithFileMove(batchRequest.RequestIDs, userID, h.documentService)
 	if err != nil {
-		log.Error("Failed to upload approval document: %v", err)
-		return fmt.Errorf("failed to upload approval document: %w", err)
+		log.Error("Failed during batch approval: %v", err)
+		return fmt.Errorf("failed during batch approval: %w", err)
 	}
 	
-	// Call the storage method for batch approval
-	log.Debug("Batch approving %d expert requests", len(batchRequest.RequestIDs))
-	approved, errors := h.store.BatchApproveExpertRequests(batchRequest.RequestIDs, approvalDoc.FilePath, userID)
+	// Upload the approval document for the successfully approved experts
+	var approvalDoc *domain.Document
+	if len(expertIDs) > 0 {
+		log.Debug("Creating approval document for %d experts", len(expertIDs))
+		approvalDoc, err = h.documentService.CreateApprovalDocument(expertIDs, approvalFile, approvalFileHeader)
+		if err != nil {
+			log.Error("Failed to upload approval document: %v", err)
+			return fmt.Errorf("failed to upload approval document: %w", err)
+		}
+		log.Debug("Approval document created: %s", approvalDoc.FilePath)
+		
+		// Update all approved experts with the approval document path
+		err = h.store.UpdateExpertsApprovalPath(expertIDs, approvalDoc.FilePath)
+		if err != nil {
+			log.Error("Failed to update experts with approval path: %v", err)
+			return fmt.Errorf("failed to update experts with approval path: %w", err)
+		}
+	}
 	
 	// Prepare response data
 	responseData := map[string]interface{}{
@@ -743,11 +687,6 @@ func (h *ExpertRequestHandler) HandleEditExpertRequest(w http.ResponseWriter, r 
 	if isAvailableStr := r.FormValue("isAvailable"); isAvailableStr != "" {
 		updatedRequest.IsAvailable = isAvailableStr == "true"
 	}
-	if ratingStr := r.FormValue("rating"); ratingStr != "" {
-		if rating, err := strconv.Atoi(ratingStr); err == nil {
-			updatedRequest.Rating = rating
-		}
-	}
 	if role := r.FormValue("role"); role != "" {
 		updatedRequest.Role = role
 	}
@@ -776,13 +715,13 @@ func (h *ExpertRequestHandler) HandleEditExpertRequest(w http.ResponseWriter, r 
 	if cvFile, cvHeader, err := r.FormFile("cv"); err == nil {
 		defer cvFile.Close()
 		
-		// Upload new CV
-		cvDoc, err := h.documentService.CreateDocument(requestID, cvFile, cvHeader, "cv")
+		// Upload new CV for expert
+		_, err := h.documentService.CreateDocumentForExpert(requestID, cvFile, cvHeader, "cv")
 		if err != nil {
 			log.Error("Failed to upload CV: %v", err)
 			return fmt.Errorf("failed to upload CV: %w", err)
 		}
-		updatedRequest.CVPath = cvDoc.FilePath
+		// Document reference already updated by CreateDocumentForExpert
 	}
 	
 	// Reset status to pending if user edited a rejected request
