@@ -175,7 +175,6 @@ func (s *SQLiteStore) CreateExpertRequestWithoutPaths(req *domain.ExpertRequest)
 	return id, nil
 }
 
-// Note: UpdateExpertRequestPaths method removed - no longer needed with document-centric approach
 
 // GetExpertRequest retrieves an expert request by ID
 func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) {
@@ -1101,48 +1100,6 @@ func (s *SQLiteStore) moveCVFileToExpertDirectory(oldPath string, expertID int64
 	return nil
 }
 
-// TransferExpertRequestToExpert transfers documents from expert request to expert
-func (s *SQLiteStore) TransferExpertRequestToExpert(requestID, expertID int64) error {
-	log := logger.Get()
-	log.Debug("Transferring documents from request %d to expert %d", requestID, expertID)
-	
-	tx, err := s.db.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	// 1. Update expert_documents: expert_id = -requestID → expertID
-	_, err = tx.Exec(`
-		UPDATE expert_documents 
-		SET expert_id = ? 
-		WHERE expert_id = ?
-	`, expertID, -requestID)
-	if err != nil {
-		return fmt.Errorf("failed to update document expert_id: %w", err)
-	}
-
-	// 2. Get document IDs for the transferred documents
-	var cvDocID, approvalDocID sql.NullInt64
-	err = tx.QueryRow(`
-		SELECT 
-			(SELECT id FROM expert_documents WHERE expert_id = ? AND document_type = 'cv' LIMIT 1),
-			(SELECT id FROM expert_documents WHERE expert_id = ? AND document_type = 'approval' LIMIT 1)
-	`, expertID, expertID).Scan(&cvDocID, &approvalDocID)
-	
-	// 3. Update expert record with document references
-	_, err = tx.Exec(`
-		UPDATE experts 
-		SET cv_document_id = ?, approval_document_id = ?, updated_at = ?
-		WHERE id = ?
-	`, cvDocID, approvalDocID, time.Now(), expertID)
-	if err != nil {
-		return fmt.Errorf("failed to update expert document references: %w", err)
-	}
-
-	log.Debug("Document transfer completed successfully")
-	return tx.Commit()
-}
 
 // UpdateExpertRequestCVDocument updates the CV document reference for an expert request
 func (s *SQLiteStore) UpdateExpertRequestCVDocument(requestID, documentID int64) error {
@@ -1165,23 +1122,3 @@ func (s *SQLiteStore) UpdateExpertRequestCVDocument(requestID, documentID int64)
 	return nil
 }
 
-// UpdateExpertRequestApprovalDocument updates the approval document reference for an expert request
-func (s *SQLiteStore) UpdateExpertRequestApprovalDocument(requestID, documentID int64) error {
-	query := `UPDATE expert_requests SET approval_document_id = ? WHERE id = ?`
-	
-	result, err := s.db.Exec(query, documentID, requestID)
-	if err != nil {
-		return fmt.Errorf("failed to update expert request approval document: %w", err)
-	}
-	
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	
-	if rowsAffected == 0 {
-		return domain.ErrNotFound
-	}
-	
-	return nil
-}

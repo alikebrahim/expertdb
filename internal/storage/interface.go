@@ -26,14 +26,12 @@ type Storage interface {
 	UpdateExpertRequest(req *domain.ExpertRequest) error
 	ApproveExpertRequestWithDocument(requestID, reviewedBy int64, documentService interface{}) (int64, error)
 	BatchApproveExpertRequestsWithFileMove(requestIDs []int64, reviewedBy int64, documentService interface{}) ([]int64, []int64, map[int64]error)
-	TransferExpertRequestToExpert(requestID, expertID int64) error
 	UpdateExpertsApprovalPath(expertIDs []int64, approvalPath string) error
 	
 	// Document reference methods
 	UpdateExpertCVDocument(expertID, documentID int64) error
 	UpdateExpertApprovalDocument(expertID, documentID int64) error
 	UpdateExpertRequestCVDocument(requestID, documentID int64) error
-	UpdateExpertRequestApprovalDocument(requestID, documentID int64) error
 	
 	// Expert edit request methods
 	ListExpertEditRequests(filters map[string]interface{}, limit, offset int) ([]*domain.ExpertEditRequest, error)
