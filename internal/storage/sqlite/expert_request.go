@@ -179,6 +179,8 @@ func (s *SQLiteStore) CreateExpertRequestWithoutPaths(req *domain.ExpertRequest)
 
 // GetExpertRequest retrieves an expert request by ID
 func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) {
+	log := logger.Get()
+	log.Debug("DEBUG: INDIVIDUAL APPROVAL STORAGE - GetExpertRequest called for ID: %d", id)
 	query := `
 		SELECT 
 			id, name, designation, affiliation, is_bahraini, 
@@ -189,6 +191,7 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) 
 		FROM expert_requests
 		WHERE id = ?
 	`
+	log.Debug("DEBUG: INDIVIDUAL APPROVAL STORAGE - Executing GetExpertRequest query for ID: %d", id)
 	
 	var req domain.ExpertRequest
 	var reviewedAt sql.NullTime
@@ -207,6 +210,8 @@ func (s *SQLiteStore) GetExpertRequest(id int64) (*domain.ExpertRequest, error) 
 		&req.IsPublished, &suggestedAreasJSON, &req.Status, &rejectionReason, 
 		&req.CreatedAt, &reviewedAt, &reviewedBy, &createdBy,
 	)
+	log.Debug("DEBUG: INDIVIDUAL APPROVAL STORAGE - GetExpertRequest scan completed - Name='%s', Email='%s', Phone='%s', Designation='%s', Affiliation='%s', Status='%s'", 
+		req.Name, req.Email, req.Phone, req.Designation, req.Affiliation, req.Status)
 	
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -514,6 +519,8 @@ func (s *SQLiteStore) ListExpertRequestsByUser(userID int64, status string, limi
 
 // UpdateExpertRequestStatus updates the status of an expert request
 func (s *SQLiteStore) UpdateExpertRequestStatus(id int64, status, rejectionReason string, reviewedBy int64) error {
+	log := logger.Get()
+	log.Debug("DEBUG: INDIVIDUAL APPROVAL STORAGE - UpdateExpertRequestStatus called for ID: %d, status: '%s'", id, status)
 	query := `
 		UPDATE expert_requests
 		SET status = ?, rejection_reason = ?, reviewed_at = ?, reviewed_by = ?
@@ -540,11 +547,15 @@ func (s *SQLiteStore) UpdateExpertRequestStatus(id int64, status, rejectionReaso
 	
 	// If approved, automatically create expert
 	if status == "approved" {
+		log.Debug("DEBUG: INDIVIDUAL APPROVAL STORAGE - Status is approved, creating expert record for request ID: %d", id)
 		// Retrieve the request
 		req, err := s.GetExpertRequest(id)
 		if err != nil {
+			log.Debug("DEBUG: INDIVIDUAL APPROVAL STORAGE - Failed to retrieve request for expert creation: %v", err)
 			return fmt.Errorf("failed to retrieve request for expert creation: %w", err)
 		}
+		log.Debug("DEBUG: INDIVIDUAL APPROVAL STORAGE - Retrieved request data: Name='%s', Email='%s', Phone='%s', Designation='%s', Affiliation='%s'", 
+			req.Name, req.Email, req.Phone, req.Designation, req.Affiliation)
 		
 		// Create expert
 		expert := &domain.Expert{
@@ -586,6 +597,8 @@ func (s *SQLiteStore) UpdateExpertRequestStatus(id int64, status, rejectionReaso
 
 // UpdateExpertRequest updates an expert request with new data
 func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
+	log := logger.Get()
+	log.Debug("DEBUG: CORRUPTION INVESTIGATION - UpdateExpertRequest called with: ID=%d, Name='%s', Email='%s', Phone='%s', Designation='%s', Affiliation='%s'", req.ID, req.Name, req.Email, req.Phone, req.Designation, req.Affiliation)
 	query := `
 		UPDATE expert_requests
 		SET name = ?, designation = ?, affiliation = ?, is_bahraini = ?,
@@ -631,6 +644,7 @@ func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
 	suggestedAreasJSON := s.serializeSuggestedAreas(req.SuggestedSpecializedAreas)
 	
 	// Execute update
+	log.Debug("DEBUG: CORRUPTION INVESTIGATION - Executing UPDATE with values: Name='%s', Email='%s', Phone='%s', Designation='%s', Affiliation='%s'", req.Name, req.Email, req.Phone, req.Designation, req.Affiliation)
 	result, err := s.db.Exec(
 		query,
 		req.Name, req.Designation, req.Affiliation, req.IsBahraini,
@@ -656,185 +670,10 @@ func (s *SQLiteStore) UpdateExpertRequest(req *domain.ExpertRequest) error {
 		return domain.ErrNotFound
 	}
 	
+	log.Debug("DEBUG: CORRUPTION INVESTIGATION - UpdateExpertRequest completed successfully for ID: %d", req.ID)
 	return nil
 }
 
-// BatchApproveExpertRequests approves multiple expert requests in a single transaction
-// Returns a list of successfully approved request IDs and a map of errors for failed approvals
-func (s *SQLiteStore) BatchApproveExpertRequests(requestIDs []int64, approvalDocumentID int64, reviewedBy int64) ([]int64, map[int64]error) {
-	successIDs := []int64{}
-	errors := make(map[int64]error)
-	
-	// Begin transaction
-	tx, err := s.db.Begin()
-	if err != nil {
-		// If we can't even start a transaction, return error for all IDs
-		for _, id := range requestIDs {
-			errors[id] = fmt.Errorf("failed to begin transaction: %w", err)
-		}
-		return successIDs, errors
-	}
-	
-	// Defer rollback in case of error - this will be a no-op if we commit
-	defer tx.Rollback()
-	
-	// Prepare update statement
-	now := time.Now()
-	updateStmt, err := tx.Prepare(`
-		UPDATE expert_requests
-		SET status = ?, rejection_reason = ?, reviewed_at = ?, reviewed_by = ?, approval_document_id = ?
-		WHERE id = ? AND status = 'pending'
-	`)
-	if err != nil {
-		for _, id := range requestIDs {
-			errors[id] = fmt.Errorf("failed to prepare statement: %w", err)
-		}
-		return successIDs, errors
-	}
-	defer updateStmt.Close()
-	
-	// Process each request
-	for _, id := range requestIDs {
-		// Update the status
-		result, err := updateStmt.Exec("approved", "", now, reviewedBy, approvalDocumentID, id)
-		if err != nil {
-			errors[id] = fmt.Errorf("failed to update request status: %w", err)
-			continue
-		}
-		
-		// Check if a row was affected
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			errors[id] = fmt.Errorf("failed to get rows affected: %w", err)
-			continue
-		}
-		
-		if rowsAffected == 0 {
-			// This could be because the request doesn't exist or was not in pending status
-			// Get the request to find out
-			var status string
-			err := tx.QueryRow("SELECT status FROM expert_requests WHERE id = ?", id).Scan(&status)
-			
-			if err != nil {
-				if err == sql.ErrNoRows {
-					errors[id] = domain.ErrNotFound
-				} else {
-					errors[id] = fmt.Errorf("failed to check request status: %w", err)
-				}
-				continue
-			}
-			
-			if status != "pending" {
-				errors[id] = fmt.Errorf("request is not in pending status (current: %s)", status)
-				continue
-			}
-			
-			errors[id] = fmt.Errorf("request not updated for unknown reason")
-			continue
-		}
-		
-		// Get the request data for expert creation
-		var req domain.ExpertRequest
-		var cvDocumentID sql.NullInt64
-		query := `
-			SELECT 
-				id, name, designation, affiliation, is_bahraini, 
-				is_available, rating, role, employment_type, general_area, 
-				specialized_area, is_trained, cv_document_id, phone, email, 
-				is_published, status, created_by
-			FROM expert_requests
-			WHERE id = ?
-		`
-		
-		err = tx.QueryRow(query, id).Scan(
-			&req.ID, &req.Name, &req.Designation, &req.Affiliation, 
-			&req.IsBahraini, &req.IsAvailable, &req.Role, 
-			&req.EmploymentType, &req.GeneralArea, &req.SpecializedArea, 
-			&req.IsTrained, &cvDocumentID, &req.Phone, &req.Email, 
-			&req.IsPublished, &req.Status, &req.CreatedBy,
-		)
-		
-		if err != nil {
-			errors[id] = fmt.Errorf("failed to retrieve request data: %w", err)
-			continue
-		}
-		
-		// Assign document ID if valid
-		if cvDocumentID.Valid {
-			req.CVDocumentID = &cvDocumentID.Int64
-		}
-		
-		// Create expert
-		expert := &domain.Expert{
-			Name:                req.Name,
-			Email:               req.Email,
-			Phone:               req.Phone,
-			CVDocumentID:        req.CVDocumentID,
-			ApprovalDocumentID:  &approvalDocumentID,
-			Designation:         req.Designation,
-			Affiliation:         req.Affiliation,
-			IsBahraini:          req.IsBahraini,
-			IsAvailable:         req.IsAvailable,
-			Role:                req.Role,
-			EmploymentType:      req.EmploymentType,
-			GeneralArea:         req.GeneralArea,
-			SpecializedArea:     req.SpecializedArea,
-			IsPublished:         req.IsPublished,
-			IsTrained:           req.IsTrained,
-			CreatedAt:           now,
-			UpdatedAt:           now,
-			OriginalRequestID:   id,
-		}
-		
-		// Insert the expert using simplified INSERT without expert_id
-		expertStmt, err := tx.Prepare(`
-			INSERT INTO experts (
-				name, designation, affiliation, is_bahraini, is_available,
-				rating, role, employment_type, general_area, specialized_area,
-				is_trained, cv_document_id, approval_document_id, phone, email, is_published,
-				created_at, updated_at, original_request_id
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`)
-		if err != nil {
-			errors[id] = fmt.Errorf("failed to prepare expert insert statement: %w", err)
-			continue
-		}
-		
-		result, err = expertStmt.Exec(
-			expert.Name, expert.Designation, expert.Affiliation,
-			expert.IsBahraini, expert.IsAvailable, expert.Rating, expert.Role,
-			expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
-			expert.IsTrained, expert.CVDocumentID, expert.ApprovalDocumentID,
-			expert.Phone, expert.Email, expert.IsPublished,
-			expert.CreatedAt, expert.UpdatedAt, expert.OriginalRequestID,
-		)
-		expertStmt.Close()
-		
-		if err != nil {
-			errors[id] = fmt.Errorf("failed to insert expert: %w", err)
-			continue
-		}
-		
-		// This request was successful
-		successIDs = append(successIDs, id)
-	}
-	
-	// If we have at least one success, commit the transaction
-	if len(successIDs) > 0 {
-		if err := tx.Commit(); err != nil {
-			// If commit fails, all operations fail
-			for _, id := range successIDs {
-				errors[id] = fmt.Errorf("failed to commit transaction: %w", err)
-			}
-			return []int64{}, errors
-		}
-	} else {
-		// No successful operations, so return all errors
-		return []int64{}, errors
-	}
-	
-	return successIDs, errors
-}
 
 // BatchApproveExpertRequestsWithFileMove approves multiple expert requests with file moving
 func (s *SQLiteStore) BatchApproveExpertRequestsWithFileMove(requestIDs []int64, reviewedBy int64, documentService interface{}) ([]int64, []int64, map[int64]error) {
@@ -863,6 +702,7 @@ func (s *SQLiteStore) BatchApproveExpertRequestsWithFileMove(requestIDs []int64,
 	// Process each request
 	for _, requestID := range requestIDs {
 		log.Debug("Processing request ID: %d", requestID)
+		log.Debug("DEBUG: Starting processing for request ID: %d", requestID)
 		
 		// Step 1: Get the request data
 		var req domain.ExpertRequest
@@ -876,6 +716,7 @@ func (s *SQLiteStore) BatchApproveExpertRequestsWithFileMove(requestIDs []int64,
 			WHERE id = ? AND status = 'pending'
 		`
 		
+		log.Debug("DEBUG: Executing query to get request data for ID: %d", requestID)
 		err = tx.QueryRow(query, requestID).Scan(
 			&req.ID, &req.Name, &req.Designation, &req.Affiliation, 
 			&req.IsBahraini, &req.IsAvailable, &req.Role, 
@@ -883,6 +724,8 @@ func (s *SQLiteStore) BatchApproveExpertRequestsWithFileMove(requestIDs []int64,
 			&req.IsTrained, &cvDocumentID, &req.Phone, &req.Email, 
 			&req.IsPublished, &req.Status, &req.CreatedBy,
 		)
+		log.Debug("DEBUG: Request data scan completed - Name: '%s', Email: '%s', Phone: '%s', Designation: '%s', Affiliation: '%s'", 
+			req.Name, req.Email, req.Phone, req.Designation, req.Affiliation)
 		
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -899,6 +742,7 @@ func (s *SQLiteStore) BatchApproveExpertRequestsWithFileMove(requestIDs []int64,
 		}
 		
 		// Step 2: Create expert record
+		log.Debug("DEBUG: Creating expert record from request data for ID: %d", requestID)
 		expert := &domain.Expert{
 			Name:            req.Name,
 			Email:           req.Email,
@@ -917,8 +761,10 @@ func (s *SQLiteStore) BatchApproveExpertRequestsWithFileMove(requestIDs []int64,
 			UpdatedAt:       now,
 			OriginalRequestID: requestID,
 		}
+		log.Debug("DEBUG: Expert record created - Name: '%s', Email: '%s', Phone: '%s'", expert.Name, expert.Email, expert.Phone)
 		
 		// Insert expert
+		log.Debug("DEBUG: Inserting expert record into database for request ID: %d", requestID)
 		result, err := tx.Exec(`
 			INSERT INTO experts (
 				name, designation, affiliation, is_bahraini, is_available,
@@ -933,6 +779,7 @@ func (s *SQLiteStore) BatchApproveExpertRequestsWithFileMove(requestIDs []int64,
 			expert.IsTrained, req.CVDocumentID, nil, expert.Phone, expert.Email, expert.IsPublished,
 			expert.CreatedAt, expert.UpdatedAt, expert.OriginalRequestID,
 		)
+		log.Debug("DEBUG: Expert insert completed with error: %v", err)
 		if err != nil {
 			errors[requestID] = fmt.Errorf("failed to insert expert: %w", err)
 			continue
@@ -951,11 +798,13 @@ func (s *SQLiteStore) BatchApproveExpertRequestsWithFileMove(requestIDs []int64,
 		// We'll handle this after the transaction commits
 		
 		// Step 4: Update request status
+		log.Debug("DEBUG: Updating request status to approved for ID: %d", requestID)
 		_, err = tx.Exec(`
 			UPDATE expert_requests
 			SET status = ?, reviewed_at = ?, reviewed_by = ?
 			WHERE id = ?
 		`, "approved", now, reviewedBy, requestID)
+		log.Debug("DEBUG: Request status update completed with error: %v", err)
 		if err != nil {
 			errors[requestID] = fmt.Errorf("failed to update request status: %w", err)
 			continue
@@ -968,13 +817,16 @@ func (s *SQLiteStore) BatchApproveExpertRequestsWithFileMove(requestIDs []int64,
 	
 	// Commit transaction if we have any successes
 	if len(successIDs) > 0 {
+		log.Debug("DEBUG: Committing transaction for %d successful requests", len(successIDs))
 		if err := tx.Commit(); err != nil {
+			log.Debug("DEBUG: Transaction commit failed: %v", err)
 			// If commit fails, all operations fail
 			for _, id := range successIDs {
 				errors[id] = fmt.Errorf("failed to commit transaction: %w", err)
 			}
 			return []int64{}, []int64{}, errors
 		}
+		log.Debug("DEBUG: Transaction committed successfully")
 		
 		// Transfer documents for successful requests (after transaction committed)
 		// With document-centric approach, documents are already properly linked

@@ -24,7 +24,6 @@ type Storage interface {
 	CreateExpertRequestWithoutPaths(req *domain.ExpertRequest) (int64, error)
 	UpdateExpertRequestStatus(id int64, status, rejectionReason string, reviewedBy int64) error
 	UpdateExpertRequest(req *domain.ExpertRequest) error
-	BatchApproveExpertRequests(requestIDs []int64, approvalDocumentID int64, reviewedBy int64) ([]int64, map[int64]error)
 	BatchApproveExpertRequestsWithFileMove(requestIDs []int64, reviewedBy int64, documentService interface{}) ([]int64, []int64, map[int64]error)
 	TransferExpertRequestToExpert(requestID, expertID int64) error
 	UpdateExpertsApprovalPath(expertIDs []int64, approvalPath string) error
