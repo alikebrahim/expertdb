@@ -24,6 +24,7 @@ type Storage interface {
 	CreateExpertRequestWithoutPaths(req *domain.ExpertRequest) (int64, error)
 	UpdateExpertRequestStatus(id int64, status, rejectionReason string, reviewedBy int64) error
 	UpdateExpertRequest(req *domain.ExpertRequest) error
+	ApproveExpertRequestWithDocument(requestID, reviewedBy int64, documentService interface{}) (int64, error)
 	BatchApproveExpertRequestsWithFileMove(requestIDs []int64, reviewedBy int64, documentService interface{}) ([]int64, []int64, map[int64]error)
 	TransferExpertRequestToExpert(requestID, expertID int64) error
 	UpdateExpertsApprovalPath(expertIDs []int64, approvalPath string) error
@@ -70,6 +71,7 @@ type Storage interface {
 	ListDocuments(expertID int64) ([]*domain.Document, error)
 	GetDocument(id int64) (*domain.Document, error)
 	CreateDocument(doc *domain.Document) (int64, error)
+	UpdateDocument(doc *domain.Document) error
 	DeleteDocument(id int64) error
 	
 	// Engagement methods

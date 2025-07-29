@@ -109,6 +109,42 @@ func (s *SQLiteStore) CreateDocument(doc *domain.Document) (int64, error) {
 	return id, nil
 }
 
+// UpdateDocument updates a document record in the database
+func (s *SQLiteStore) UpdateDocument(doc *domain.Document) error {
+	query := `
+		UPDATE expert_documents
+		SET expert_id = ?, document_type = ?, filename = ?, file_path = ?, 
+		    content_type = ?, file_size = ?, upload_date = ?
+		WHERE id = ?
+	`
+	
+	// Handle potentially nullable fields
+	var contentType interface{} = nil
+	if doc.ContentType != "" {
+		contentType = doc.ContentType
+	}
+	
+	result, err := s.db.Exec(
+		query,
+		doc.ExpertID, doc.DocumentType, doc.Filename, doc.FilePath,
+		contentType, doc.FileSize, doc.UploadDate, doc.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update document: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return domain.ErrNotFound
+	}
+	
+	return nil
+}
+
 // DeleteDocument deletes a document by ID
 func (s *SQLiteStore) DeleteDocument(id int64) error {
 	result, err := s.db.Exec("DELETE FROM expert_documents WHERE id = ?", id)

@@ -333,12 +333,10 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 	
 	// Check if this is a multipart form or JSON update
 	contentType := r.Header.Get("Content-Type")
-	log.Debug("DEBUG: REQUEST ANALYSIS - Content-Type: '%s'", contentType)
 	var updateRequest domain.ExpertRequest
 	
 	if strings.HasPrefix(contentType, "multipart/form-data") {
 		// This is a file upload with form data
-		log.Debug("Processing multipart form update for request ID: %d", id)
 		
 		// Parse multipart form (max 10MB for file)
 		err := r.ParseMultipartForm(10 << 20)
@@ -347,26 +345,17 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 			return fmt.Errorf("failed to parse form: %w", err)
 		}
 		
-		// Debug: Log all form fields
-		log.Debug("DEBUG: REQUEST ANALYSIS - All form fields:")
-		for key, values := range r.Form {
-			log.Debug("DEBUG: REQUEST ANALYSIS - Form field '%s': %v", key, values)
-		}
 		
 		// Parse JSON part for the request data
 		jsonData := r.FormValue("data")
-		log.Debug("DEBUG: REQUEST ANALYSIS - jsonData length: %d, content: '%s'", len(jsonData), jsonData)
 		if jsonData == "" {
 			// No JSON data provided, try to handle as simple form fields
 			// Check for status field directly
-			log.Debug("DEBUG: REQUEST ANALYSIS - No JSON data, parsing form fields")
 			if status := r.FormValue("status"); status != "" {
 				updateRequest.Status = status
-				log.Debug("DEBUG: REQUEST ANALYSIS - Form status: '%s'", status)
 			}
 			if rejectionReason := r.FormValue("rejection_reason"); rejectionReason != "" {
 				updateRequest.RejectionReason = rejectionReason
-				log.Debug("DEBUG: REQUEST ANALYSIS - Form rejection_reason: '%s'", rejectionReason)
 			}
 			
 			// If still no data, return error
@@ -375,40 +364,35 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 				return fmt.Errorf("missing request data")
 			}
 		} else {
-			log.Debug("DEBUG: REQUEST ANALYSIS - Parsing JSON data")
 			if err := json.Unmarshal([]byte(jsonData), &updateRequest); err != nil {
 				log.Warn("Failed to parse JSON data: %v", err)
 				return fmt.Errorf("invalid JSON data: %w", err)
 			}
-			log.Debug("DEBUG: REQUEST ANALYSIS - JSON parsed updateRequest: Name='%s', Email='%s', Phone='%s', Status='%s'", updateRequest.Name, updateRequest.Email, updateRequest.Phone, updateRequest.Status)
 		}
 		
 		// Process CV file if provided
 		cvFile, cvFileHeader, err := r.FormFile("cv")
 		if err == nil {
-			// CV file was provided, upload it
+			// CV file was provided, upload it using the request-specific method
 			defer cvFile.Close()
 			
-			// Use a temporary negative ID to indicate this is for a request
-			tempExpertID := int64(-1)
-			
-			_, err := h.documentService.CreateDocument(tempExpertID, cvFile, cvFileHeader, "cv")
+			// Create CV document for the request (will be moved during approval)
+			_, err := h.documentService.CreateDocumentForExpertRequest(id, cvFile, cvFileHeader)
 			if err != nil {
 				log.Error("Failed to upload updated CV: %v", err)
 				return fmt.Errorf("failed to upload CV: %w", err)
 			}
-			// Document reference already updated by CreateDocument
-			log.Debug("CV updated successfully for request ID %d", id)
+			// Document reference already updated by CreateDocumentForExpertRequest
 		}
 		
-		// Process approval document if provided
+		// Process approval document if provided - store it for later use during approval
 		approvalFile, approvalFileHeader, err := r.FormFile("approval_document")
 		if err == nil {
-			// Approval document was provided, upload it
+			// Approval document was provided, store it temporarily in request directory
 			defer approvalFile.Close()
 			
-			tempExpertID := int64(-1)
-			doc, err := h.documentService.CreateDocument(tempExpertID, approvalFile, approvalFileHeader, "approval")
+			// Create temporary document for the request (will be moved during approval)
+			doc, err := h.documentService.CreateDocumentForExpertRequest(id, approvalFile, approvalFileHeader)
 			if err != nil {
 				log.Error("Failed to upload approval document: %v", err)
 				return fmt.Errorf("failed to upload approval document: %w", err)
@@ -416,17 +400,13 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 			
 			// Update the request with the document ID
 			updateRequest.ApprovalDocumentID = &doc.ID
-			
-			log.Debug("Approval document updated successfully for request ID %d", id)
 		}
 	} else {
 		// This is a regular JSON update
-		log.Debug("DEBUG: REQUEST ANALYSIS - Processing regular JSON update")
 		if err := json.NewDecoder(r.Body).Decode(&updateRequest); err != nil {
 			log.Warn("Failed to parse expert request update: %v", err)
 			return fmt.Errorf("invalid request body: %w", err)
 		}
-		log.Debug("DEBUG: REQUEST ANALYSIS - Regular JSON updateRequest: Name='%s', Email='%s', Phone='%s', Status='%s'", updateRequest.Name, updateRequest.Email, updateRequest.Phone, updateRequest.Status)
 	}
 	
 	// Ensure ID matches path parameter
@@ -442,11 +422,8 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 	}
 	
 	// Perform status update if it's changing and user is admin
-	log.Debug("DEBUG: LOGIC FLOW - isAdmin=%v, updateRequest.Status='%s', existingRequest.Status='%s'", isAdmin, updateRequest.Status, existingRequest.Status)
 	if isAdmin && updateRequest.Status != "" && updateRequest.Status != existingRequest.Status {
-		log.Debug("Admin updating expert request ID: %d, Status: %s", id, updateRequest.Status)
-		log.Debug("DEBUG: INDIVIDUAL APPROVAL - Status change from '%s' to '%s' for request ID: %d", existingRequest.Status, updateRequest.Status, id)
-		log.Debug("DEBUG: INDIVIDUAL APPROVAL - Current request data before status update: Name='%s', Email='%s', Phone='%s'", existingRequest.Name, existingRequest.Email, existingRequest.Phone)
+		log.Info("Admin %d updating request %d status from '%s' to '%s'", userID, id, existingRequest.Status, updateRequest.Status)
 		
 		// If approving the request, require an approval document
 		if updateRequest.Status == "approved" {
@@ -454,27 +431,45 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 			hasApprovalDoc := existingRequest.ApprovalDocumentID != nil || updateRequest.ApprovalDocumentID != nil
 			
 			if !hasApprovalDoc {
-				log.Warn("Attempted to approve request without approval document: %d", id)
+				log.Warn("Approval rejected for request %d: no approval document", id)
 				return response.BadRequest(w, "Approval document is required before approving a request")
 			}
-			
-			log.Debug("Approval document verified for request ID: %d", id)
 		}
 		
-		log.Debug("DEBUG: INDIVIDUAL APPROVAL - About to call UpdateExpertRequestStatus for request ID: %d", id)
-		if err := h.store.UpdateExpertRequestStatus(id, updateRequest.Status, updateRequest.RejectionReason, userID); err != nil {
-			log.Error("Failed to update expert request status: %v", err)
-			log.Debug("DEBUG: INDIVIDUAL APPROVAL - UpdateExpertRequestStatus failed with error: %v", err)
-			
-			// Use the new error parser for user-friendly errors
-			userErr := errs.ParseSQLiteError(err, "expert request")
-			return utils.RespondWithError(w, userErr)
+		
+		if updateRequest.Status == "approved" {
+			// Use the new method that handles approval document with proper expert ID
+			expertID, err := h.store.ApproveExpertRequestWithDocument(id, userID, h.documentService)
+			if err != nil {
+				log.Error("Failed to approve expert request %d: %v", id, err)
+				
+				// Use the new error parser for user-friendly errors
+				userErr := errs.ParseSQLiteError(err, "expert request")
+				return utils.RespondWithError(w, userErr)
+			}
+			log.Info("Expert request %d approved - created expert %d", id, expertID)
+		} else {
+			// For rejection, use the old method
+			if err := h.store.UpdateExpertRequestStatus(id, updateRequest.Status, updateRequest.RejectionReason, userID); err != nil {
+				log.Error("Failed to update expert request %d status: %v", id, err)
+				
+				// Use the new error parser for user-friendly errors
+				userErr := errs.ParseSQLiteError(err, "expert request")
+				return utils.RespondWithError(w, userErr)
+			}
 		}
-		log.Debug("DEBUG: INDIVIDUAL APPROVAL - UpdateExpertRequestStatus completed successfully for request ID: %d", id)
 	} else {
 		// If not a status update or if user is not admin, update the request fields
-		log.Debug("DEBUG: INDIVIDUAL APPROVAL - No status change, updating request fields only for request ID: %d", id)
-		log.Debug("DEBUG: CORRUPTION INVESTIGATION - UpdateRequest data before UpdateExpertRequest: Name='%s', Email='%s', Phone='%s', Designation='%s', Affiliation='%s'", updateRequest.Name, updateRequest.Email, updateRequest.Phone, updateRequest.Designation, updateRequest.Affiliation)
+		
+		// CRITICAL FIX: Prevent double request corruption
+		// If all core fields are empty, this is likely an empty form submission from the second request
+		// Reject it to prevent data corruption
+		if updateRequest.Name == "" && updateRequest.Email == "" && updateRequest.Phone == "" && 
+		   updateRequest.Designation == "" && updateRequest.Affiliation == "" && updateRequest.Status == "" {
+			log.Warn("Rejected empty form submission for request ID: %d to prevent data corruption", id)
+			return response.BadRequest(w, "Cannot process empty request data")
+		}
+		
 		// Important: Preserve critical fields from the existing request
 		updateRequest.CreatedBy = existingRequest.CreatedBy
 		
@@ -493,10 +488,8 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 			updateRequest.ReviewedBy = existingRequest.ReviewedBy
 		}
 		
-		log.Debug("Updating expert request ID: %d fields", id)
-		log.Debug("DEBUG: CORRUPTION INVESTIGATION - Final updateRequest data before UpdateExpertRequest call: Name='%s', Email='%s', Phone='%s', Designation='%s', Affiliation='%s'", updateRequest.Name, updateRequest.Email, updateRequest.Phone, updateRequest.Designation, updateRequest.Affiliation)
 		if err := h.store.UpdateExpertRequest(&updateRequest); err != nil {
-			log.Error("Failed to update expert request: %v", err)
+			log.Error("Failed to update expert request %d: %v", id, err)
 			
 			// Use the new error parser for user-friendly errors
 			userErr := errs.ParseSQLiteError(err, "expert request")
@@ -505,7 +498,7 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 	}
 	
 	// Return success response
-	log.Info("Expert request updated successfully: ID: %d, Status: %s", id, updateRequest.Status)
+	log.Info("Expert request %d updated successfully", id)
 	return response.Success(w, http.StatusOK, "Expert request updated successfully", nil)
 }
 

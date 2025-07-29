@@ -461,3 +461,52 @@ func (s *Service) GetExpertApprovalPath(expertID int64) (string, error) {
 	
 	return s.GetDocumentPath(*expert.ApprovalDocumentID)
 }
+
+// MoveApprovalDocumentToExpert moves an approval document to use the correct expert ID in filename
+func (s *Service) MoveApprovalDocumentToExpert(documentID, expertID int64) error {
+	log := logger.Get()
+	
+	// Get the current document
+	doc, err := s.store.GetDocument(documentID)
+	if err != nil {
+		return fmt.Errorf("failed to get document: %w", err)
+	}
+	
+	// Check if it's already properly named (in case it was already moved)
+	currentPath := doc.FilePath
+	
+	// Generate the new filename with proper expert ID
+	timestamp := time.Now().Format("20060102_150405")
+	extension := filepath.Ext(currentPath)
+	newFilename := fmt.Sprintf("approval_%d_%s%s", expertID, timestamp, extension)
+	
+	// Create target directory (approvals)
+	targetDir := filepath.Join(s.uploadDir, "approvals")
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return fmt.Errorf("failed to create approvals directory: %w", err)
+	}
+	
+	newPath := filepath.Join(targetDir, newFilename)
+	
+	// Move the file if paths are different
+	if currentPath != newPath {
+		err = os.Rename(currentPath, newPath)
+		if err != nil {
+			log.Error("Failed to move approval document from %s to %s: %v", currentPath, newPath, err)
+			return fmt.Errorf("failed to move file: %w", err)
+		}
+		
+		// Update the document record with new path
+		doc.FilePath = newPath
+		err = s.store.UpdateDocument(doc)
+		if err != nil {
+			// Try to move the file back on database update failure
+			os.Rename(newPath, currentPath)
+			return fmt.Errorf("failed to update document path in database: %w", err)
+		}
+		
+		log.Info("Approval document renamed for expert %d: %s", expertID, newFilename)
+	}
+	
+	return nil
+}
