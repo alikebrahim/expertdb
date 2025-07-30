@@ -388,11 +388,11 @@ func (h *ExpertRequestHandler) HandleUpdateExpertRequest(w http.ResponseWriter, 
 		// Process approval document if provided - store it for later use during approval
 		approvalFile, approvalFileHeader, err := r.FormFile("approval_document")
 		if err == nil {
-			// Approval document was provided, store it temporarily in request directory
+			// Approval document was provided, store it properly as approval document
 			defer approvalFile.Close()
 			
-			// Create temporary document for the request (will be moved during approval)
-			doc, err := h.documentService.CreateDocumentForExpertRequest(id, approvalFile, approvalFileHeader)
+			// Create approval document for the request
+			doc, err := h.documentService.CreateApprovalDocumentForExpertRequest(id, approvalFile, approvalFileHeader)
 			if err != nil {
 				log.Error("Failed to upload approval document: %v", err)
 				return fmt.Errorf("failed to upload approval document: %w", err)

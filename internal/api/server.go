@@ -195,6 +195,11 @@ func (s *Server) registerRoutes() {
 		return documentHandler.HandleGetDocument(w, r)
 	}))))
 	
+	// Document download endpoint - authenticated users can download documents
+	s.mux.Handle("GET /api/documents/{id}/download", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		return documentHandler.HandleDownloadDocument(w, r)
+	}))))
+	
 	
 	// Read-only engagement endpoints
 	s.mux.Handle("GET /api/engagements/{id}", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {

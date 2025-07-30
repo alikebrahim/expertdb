@@ -3,7 +3,9 @@ package documents
 
 import (
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"strconv"
 	
 	"expertdb/internal/api/response"
@@ -157,4 +159,62 @@ func (h *Handler) HandleGetExpertDocuments(w http.ResponseWriter, r *http.Reques
 		"expertId":  id,
 	}
 	return response.Success(w, http.StatusOK, "", responseData)
+}
+
+// HandleDownloadDocument handles GET /api/documents/{id}/download requests
+func (h *Handler) HandleDownloadDocument(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+	
+	// Extract and validate document ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid document ID provided for download: %s", idStr)
+		return fmt.Errorf("invalid document ID: %w", err)
+	}
+	
+	// Retrieve document metadata from document service
+	log.Debug("Retrieving document metadata for download: ID %d", id)
+	doc, err := h.documentService.GetDocument(id)
+	if err != nil {
+		log.Warn("Document not found for download: ID %d - %v", id, err)
+		return fmt.Errorf("document not found: %w", err)
+	}
+	
+	// Open the file for reading
+	log.Debug("Opening file for download: %s", doc.FilePath)
+	file, err := os.Open(doc.FilePath)
+	if err != nil {
+		log.Error("Failed to open document file for download: %s - %v", doc.FilePath, err)
+		return fmt.Errorf("failed to open document file: %w", err)
+	}
+	defer file.Close()
+	
+	// Get file info for size verification
+	fileInfo, err := file.Stat()
+	if err != nil {
+		log.Error("Failed to get file info for download: %s - %v", doc.FilePath, err)
+		return fmt.Errorf("failed to get file info: %w", err)
+	}
+	
+	// Set appropriate headers for file download
+	w.Header().Set("Content-Type", doc.ContentType)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", doc.Filename))
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	
+	// Stream the file content to the response
+	log.Debug("Streaming file content for download: %s (%d bytes)", doc.Filename, fileInfo.Size())
+	bytesWritten, err := io.Copy(w, file)
+	if err != nil {
+		log.Error("Failed to stream file content for download: %v", err)
+		return fmt.Errorf("failed to stream file content: %w", err)
+	}
+	
+	log.Info("Document downloaded successfully: ID %d, Filename: %s, Bytes: %d", 
+		doc.ID, doc.Filename, bytesWritten)
+	
+	return nil
 }

@@ -202,6 +202,7 @@ func (s *Service) CreateDocumentForExpert(expertID int64, file multipart.File, h
 func (s *Service) CreateDocumentForExpertRequest(requestID int64, file multipart.File, header *multipart.FileHeader) (*domain.Document, error) {
 	log := logger.Get()
 	log.Debug("Creating document for expert request %d", requestID)
+	
 	// Validate file size
 	if header.Size > s.maxSize {
 		return nil, fmt.Errorf("file size exceeds maximum allowed size of %d bytes", s.maxSize)
@@ -234,27 +235,115 @@ func (s *Service) CreateDocumentForExpertRequest(requestID int64, file multipart
 	defer dst.Close()
 
 	// Copy the file data
+	bytesWritten, err := io.Copy(dst, file)
+	if err != nil {
+		os.Remove(filePath) // Clean up on error
+		return nil, fmt.Errorf("failed to save file: %w", err)
+	}
+	log.Debug("File written successfully: %d bytes to %s", bytesWritten, filePath)
+
+	// Create document record directly (no second file write)
+	doc := &domain.Document{
+		ExpertID:     requestID, // Use expert_request id during request creation
+		DocumentType: "cv",
+		Filename:     header.Filename,
+		FilePath:     filePath,
+		ContentType:  contentType,
+		FileSize:     header.Size,
+		UploadDate:   time.Now(),
+	}
+
+	// Store in database
+	docID, err := s.store.CreateDocument(doc)
+	if err != nil {
+		os.Remove(filePath) // Clean up on error
+		return nil, fmt.Errorf("failed to store document in database: %w", err)
+	}
+	doc.ID = docID
+
+	// Update expert_requests table with document reference
+	err = s.store.UpdateExpertRequestCVDocument(requestID, doc.ID)
+	if err != nil {
+		s.store.DeleteDocument(doc.ID)
+		os.Remove(filePath)
+		return nil, fmt.Errorf("failed to update request reference: %w", err)
+	}
+
+	log.Debug("Document created and expert request updated successfully: ID %d", docID)
+	return doc, nil
+}
+
+// CreateApprovalDocumentForExpertRequest handles approval document upload for expert requests
+func (s *Service) CreateApprovalDocumentForExpertRequest(requestID int64, file multipart.File, header *multipart.FileHeader) (*domain.Document, error) {
+	log := logger.Get()
+	log.Debug("Creating approval document for expert request %d", requestID)
+	
+	// Validate file size
+	if header.Size > s.maxSize {
+		return nil, fmt.Errorf("file size exceeds maximum allowed size of %d bytes", s.maxSize)
+	}
+
+	// Validate content type
+	contentType := header.Header.Get("Content-Type")
+	if !s.allowedTypes[contentType] {
+		return nil, fmt.Errorf("file type %s is not allowed", contentType)
+	}
+
+	// Create expert_requests directory
+	targetDir := filepath.Join(s.uploadDir, "expert_requests")
+	
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Generate filename for expert request approval document
+	timestamp := time.Now().Format("20060102_150405")
+	extension := filepath.Ext(header.Filename)
+	filename := fmt.Sprintf("expert_request_%d_approval_%s%s", requestID, timestamp, extension)
+	filePath := filepath.Join(targetDir, filename)
+
+	// Create the file
+	dst, err := os.Create(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file: %w", err)
+	}
+	defer dst.Close()
+
+	// Copy the file data
 	_, err = io.Copy(dst, file)
 	if err != nil {
 		os.Remove(filePath) // Clean up on error
 		return nil, fmt.Errorf("failed to save file: %w", err)
 	}
 
-	// Use negative request ID to distinguish from expert documents
-	doc, err := s.CreateDocument(-requestID, file, header, "cv")
-	if err != nil {
-		return nil, err
+	// Create document record directly (no second file write)
+	doc := &domain.Document{
+		ExpertID:     requestID, // Use expert_request id during request creation
+		DocumentType: "approval",
+		Filename:     header.Filename,
+		FilePath:     filePath,
+		ContentType:  contentType,
+		FileSize:     header.Size,
+		UploadDate:   time.Now(),
 	}
 
-	// Update expert_requests table with document reference
-	err = s.store.UpdateExpertRequestCVDocument(requestID, doc.ID)
+	// Store in database
+	docID, err := s.store.CreateDocument(doc)
+	if err != nil {
+		os.Remove(filePath) // Clean up on error
+		return nil, fmt.Errorf("failed to store document in database: %w", err)
+	}
+	doc.ID = docID
+
+	// Update expert_requests table with approval document reference
+	err = s.store.UpdateExpertRequestApprovalDocument(requestID, doc.ID)
 	if err != nil {
 		s.store.DeleteDocument(doc.ID)
 		os.Remove(doc.FilePath)
-		return nil, fmt.Errorf("failed to update request reference: %w", err)
+		return nil, fmt.Errorf("failed to update request approval reference: %w", err)
 	}
 
-	log.Debug("Document created and expert request updated successfully")
+	log.Debug("Approval document created and expert request updated successfully")
 	return doc, nil
 }
 

@@ -14,6 +14,7 @@
    - [POST /api/documents](#post-apidocuments)
    - [GET /api/experts/{id}/documents](#get-apiexpertsiddocuments)
    - [GET /api/documents/{id}](#get-apidocumentsid)
+   - [GET /api/documents/{id}/download](#get-apidocumentsiddownload)
    - [DELETE /api/documents/{id}](#delete-apidocumentsid)
 6. [Request/Response Examples](#requestresponse-examples)
 7. [Security Considerations](#security-considerations)
@@ -280,8 +281,90 @@ Authorization: Bearer <token>
 #### Implementation Notes
 - File: `internal/api/handlers/documents/document_handler.go`
 - Returns document metadata only (not file content)
-- To download the actual file, use the file path with appropriate file serving endpoint
+- To download the actual file, use the `/api/documents/{id}/download` endpoint
 - Accessible to all authenticated users (Phase 6A enhancement)
+
+### GET /api/documents/{id}/download
+
+**Purpose**: Downloads the actual file content for a specific document.
+
+**Method**: GET  
+**Path**: `/api/documents/{id}/download`  
+**Access Control**: All authenticated users
+
+#### Request Headers
+```http
+Authorization: Bearer <token>
+```
+
+#### Path Parameters
+- `id`: Document ID (integer)
+
+#### Response
+
+**Success (200 OK)**:
+- **Content-Type**: Original file MIME type (e.g., `application/pdf`)
+- **Content-Length**: File size in bytes
+- **Content-Disposition**: `attachment; filename="original_filename.pdf"`
+- **Cache-Control**: `no-cache, no-store, must-revalidate`
+- **Body**: Binary file content
+
+**Error Responses**:
+
+404 Not Found:
+```json
+{
+  "error": "Document not found"
+}
+```
+
+500 Internal Server Error:
+```json
+{
+  "error": "Failed to open document file"
+}
+```
+
+#### Implementation Notes
+- File: `internal/api/handlers/documents/document_handler.go`
+- Streams file content directly to client for efficient memory usage
+- Sets appropriate headers for browser download behavior
+- Maintains original filename in download
+- Security: Only accessible to authenticated users
+- Automatically handles file serving with proper MIME types
+- Includes cache prevention headers for sensitive documents
+
+#### Usage Examples
+
+**Direct download in browser**:
+```javascript
+// Get document metadata first
+const docResponse = await fetch('/api/documents/123', {
+  headers: { 'Authorization': 'Bearer ' + token }
+});
+const doc = await docResponse.json();
+
+// Download the file
+const downloadUrl = '/api/documents/123/download';
+window.open(downloadUrl + '?token=' + token, '_blank');
+```
+
+**Programmatic download**:
+```javascript
+const response = await fetch('/api/documents/123/download', {
+  headers: { 'Authorization': 'Bearer ' + token }
+});
+
+if (response.ok) {
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'document.pdf'; // Use actual filename from metadata
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+```
 
 ### DELETE /api/documents/{id}
 
@@ -394,6 +477,43 @@ curl -X GET https://api.expertdb.com/api/experts/456/documents \
     ]
   }
 }
+```
+
+### Example 3: Download a Document
+
+**Request**:
+```bash
+curl -X GET https://api.expertdb.com/api/documents/123/download \
+  -H "Authorization: Bearer <token>" \
+  --output cv.pdf
+```
+
+**Response**:
+- HTTP Status: 200 OK
+- Headers:
+  - `Content-Type: application/pdf`
+  - `Content-Length: 245678`
+  - `Content-Disposition: attachment; filename="cv.pdf"`
+- Body: Binary PDF content
+
+**Browser Usage**:
+```javascript
+// Direct download link (requires authentication)
+const downloadUrl = `${API_BASE_URL}/api/documents/123/download`;
+fetch(downloadUrl, {
+  headers: { 'Authorization': `Bearer ${token}` }
+})
+.then(response => response.blob())
+.then(blob => {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cv.pdf';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+});
 ```
 
 ## Security Considerations

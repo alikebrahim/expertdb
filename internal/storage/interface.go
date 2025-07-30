@@ -32,6 +32,7 @@ type Storage interface {
 	UpdateExpertCVDocument(expertID, documentID int64) error
 	UpdateExpertApprovalDocument(expertID, documentID int64) error
 	UpdateExpertRequestCVDocument(requestID, documentID int64) error
+	UpdateExpertRequestApprovalDocument(requestID, documentID int64) error
 	
 	// Expert edit request methods
 	ListExpertEditRequests(filters map[string]interface{}, limit, offset int) ([]*domain.ExpertEditRequest, error)
