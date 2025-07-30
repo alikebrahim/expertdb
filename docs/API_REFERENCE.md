@@ -1,7 +1,5 @@
 # ExpertDB API Reference - Overview
 
-**Date**: July 22, 2025  
-**Version**: 1.5  
 **Context**: ExpertDB is a lightweight internal tool for managing a database of experts, designed for a department with 10-12 users and a maximum of 2000 database entries over 5 years. The tool operates on an intranet, with security handled organizationally, prioritizing simplicity, maintainability, and clear error messaging over complex scalability or security measures.
 
 **Backend Technology**: Built in Go, uses SQLite as the database, and provides a RESTful API with JSON payloads, JWT authentication, and permissive CORS settings (`*`).
@@ -14,15 +12,16 @@
 4. [Standard Response Format](#standard-response-format)
 5. [Error Handling](#error-handling)
 6. [API Documentation by Category](#api-documentation-by-category)
-7. [Recent Updates](#recent-updates)
 
 ## Overview
 
-The ExpertDB backend provides a RESTful API for managing expert profiles, requests, users, documents, engagements, phase planning, statistics, and backups. This document serves as the main reference point, with detailed endpoint documentation organized into focused sub-documents for better readability and LLM ingestion.
+The ExpertDB backend provides a RESTful API for managing expert profiles, expert creation requests, users, documents, engagements, phase planning, statistics, and backups. This document serves as the main reference point, with detailed endpoint documentation organized into focused sub-documents for better readability and LLM ingestion.
 
 ### Key Features
 - JWT-based authentication with 24-hour token expiration
 - Role-based access control (super_user, admin, user) with contextual elevations
+- **Simplified Expert Editing**: Direct expert editing by any authenticated user with comprehensive audit trails
+- **Comprehensive Change Tracking**: All expert profile changes automatically logged with user identification and timestamps
 - RESTful design with consistent JSON responses
 - SQLite database with transaction support
 - Comprehensive logging and error handling
@@ -120,16 +119,17 @@ The API endpoints are organized into logical groups. Click on any category below
 
 ### 3. [Expert Management](./API_REFERENCE_EXPERTS.md)
 - Expert CRUD operations
+- **Direct Expert Editing**: Any authenticated user can edit expert profiles
+- **Expert Edit History**: Complete audit trail of all changes with user identification
 - Advanced filtering and sorting
 - General area management
 - Specialized area listings
 - Multi-value filter support (v1.5)
 
-### 4. [Expert Requests & Edit Requests](./API_REFERENCE_REQUESTS.md)
+### 4. [Expert Requests](./API_REFERENCE_REQUESTS.md)
 - Expert creation request workflow
 - Request approval/rejection
 - Batch approval operations
-- Edit request system (planned enhancement)
 - Specialized area suggestions
 
 ### 5. [Document Management](./API_REFERENCE_DOCUMENTS.md)
@@ -159,25 +159,6 @@ The API endpoints are organized into logical groups. Click on any category below
 - System health check
 - Performance monitoring
 
-## Recent Updates
-
-### Version 1.5 (July 21, 2025) - Enhanced Multi-Value Filtering
-- **Fixed Institution Search Bug**: Institution filter now properly searches institution/affiliation field
-- **Standardized Parameter Names**: Removed `by_*` prefixes for cleaner API
-- **Multi-Value Support**: Comma-separated values for filters (e.g., `role=validator,evaluator`)
-- **Improved Filter Logic**: OR within parameters, AND between parameters
-
-### Version 1.4 - Statistics Consolidation
-- **Single Statistics Endpoint**: Consolidated 5 endpoints into `/api/statistics`
-- **All-User Access**: Statistics now available to all authenticated users
-- **Performance**: Single query for all statistics improves response time
-
-### Migration Notes
-**Breaking Changes in v1.5**:
-- Old: `by_role=validator&by_general_area=3`
-- New: `role=validator&general_area=3`
-- Old: `name=University` (incorrect behavior)
-- New: `institution=University` (correct behavior)
 
 ## Additional Resources
 

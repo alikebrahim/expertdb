@@ -118,7 +118,6 @@ func (s *Server) registerRoutes() {
 	// Create handlers
 	expertHandler := handlers.NewExpertHandler(s.store, s.documentService)
 	expertRequestHandler := handlers.NewExpertRequestHandler(s.store, s.documentService)
-	expertEditRequestHandler := handlers.NewExpertEditRequestHandler(s.store, s.documentService)
 	documentHandler := documents.NewHandler(s.store, s.documentService)
 	engagementHandler := engagements.NewHandler(s.store)
 	statisticsHandler := statistics.NewHandler(s.store)
@@ -189,6 +188,11 @@ func (s *Server) registerRoutes() {
 	s.mux.Handle("GET /api/experts/{id}", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
 		return expertHandler.HandleGetExpert(w, r)
 	}))))
+
+	// Expert edit history endpoint - authenticated users can view edit history
+	s.mux.Handle("GET /api/experts/{id}/edit-history", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
+		return expertHandler.HandleGetExpertEditHistory(w, r)
+	}))))
 	
 	// Read-only document endpoints
 	s.mux.Handle("GET /api/documents/{id}", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
@@ -246,7 +250,7 @@ func (s *Server) registerRoutes() {
 		return expertHandler.HandleCreateExpert(w, r)
 	}))))
 	
-	s.mux.Handle("PUT /api/experts/{id}", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {
+	s.mux.Handle("PUT /api/experts/{id}", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
 		return expertHandler.HandleUpdateExpert(w, r)
 	}))))
 	
@@ -280,26 +284,6 @@ func (s *Server) registerRoutes() {
 		return expertRequestHandler.HandleBatchApproveExpertRequests(w, r)
 	}))))
 
-	// Expert profile edit system (for requesting changes to existing expert profiles)
-	// Create edit proposal - authenticated users can request edits to existing experts
-	s.mux.Handle("POST /api/experts/{id}/edit", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
-		return expertEditRequestHandler.HandleCreateExpertEditRequest(w, r)
-	}))))
-
-	// List expert edit proposals - users see their own, admins see all
-	s.mux.Handle("GET /api/expert-edits", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
-		return expertEditRequestHandler.HandleGetExpertEditRequests(w, r)
-	}))))
-
-	// Get specific expert edit proposal - users see their own, admins see all
-	s.mux.Handle("GET /api/expert-edits/{id}", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
-		return expertEditRequestHandler.HandleGetExpertEditRequest(w, r)
-	}))))
-
-	// Update expert edit proposal status - admin approve/reject (auto-applies if approved)
-	s.mux.Handle("PUT /api/expert-edits/{id}/status", corsAndLogMiddleware(errorHandler(auth.RequireAuth(func(w http.ResponseWriter, r *http.Request) error {
-		return expertEditRequestHandler.HandleUpdateExpertEditRequestStatus(w, r)
-	}))))
 	
 	// Document management (upload, delete)
 	s.mux.Handle("POST /api/documents", corsAndLogMiddleware(errorHandler(auth.RequireRole(auth.RoleAdmin, func(w http.ResponseWriter, r *http.Request) error {

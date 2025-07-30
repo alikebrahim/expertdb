@@ -108,6 +108,43 @@ except Exception as e:
     print(f"{RED}Error connecting to database: {str(e)}{RESET}")
     exit(1)
 
+# Get or create SYSTEM user for audit trail
+system_user_id = None
+try:
+    cursor.execute("SELECT id FROM users WHERE name = ? AND email = ?", ("SYSTEM", "system@expertdb.internal"))
+    result = cursor.fetchone()
+    if result:
+        system_user_id = result[0]
+        print(f"Found existing SYSTEM user with ID: {system_user_id}")
+    else:
+        # Create special SYSTEM user for import operations
+        # Use "system" as role to distinguish from regular users
+        cursor.execute("""
+            INSERT INTO users (name, email, password_hash, role, is_active, created_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        """, ("SYSTEM", "system@expertdb.internal", "SYSTEM-USER-NO-LOGIN", "system", 0))
+        system_user_id = cursor.lastrowid
+        conn.commit()
+        print(f"Created special SYSTEM user with ID: {system_user_id} for import operations")
+        print(f"  - Role: system (special type)")
+        print(f"  - Status: inactive (cannot login)")
+        print(f"  - Purpose: audit trail for automated operations")
+except Exception as e:
+    print(f"{YELLOW}Warning: Could not create/find SYSTEM user: {str(e)}{RESET}")
+    print(f"{YELLOW}Will attempt to use existing admin user as fallback{RESET}")
+    # Try to find first admin user as fallback
+    try:
+        cursor.execute("SELECT id FROM users WHERE role IN ('admin', 'super_user') ORDER BY id LIMIT 1")
+        fallback_result = cursor.fetchone()
+        if fallback_result:
+            system_user_id = fallback_result[0]
+            print(f"Using fallback admin user ID: {system_user_id}")
+        else:
+            system_user_id = 1  # Final fallback
+            print(f"Using final fallback user ID: {system_user_id}")
+    except:
+        system_user_id = 1  # Final fallback
+
 # Load expert_areas into a lookup dictionary with normalization
 cursor.execute("SELECT id, name FROM expert_areas")
 expert_areas = {}
@@ -286,7 +323,7 @@ def import_cv_documents(cursor, test_limit=None):
 
 
 # Function to transform CSV data to match updated experts table schema
-def transform_row(row, expert_areas, cursor):
+def transform_row(row, expert_areas, cursor, system_user_id):
     # Check for malformed row with None keys
     none_keys = [k for k in row.keys() if k is None]
     if none_keys:
@@ -417,6 +454,8 @@ def transform_row(row, expert_areas, cursor):
         "approval_document_id": None,  # Documents managed via expert_documents table
         "original_request_id": None,
         "updated_at": None,
+        "last_edited_by": system_user_id,  # Mark as edited by SYSTEM user
+        "last_edited_at": None,  # Will be set to CURRENT_TIMESTAMP in SQL
     }
 
     # Set default values for required fields without warnings
@@ -661,7 +700,7 @@ try:
                 break
 
             try:
-                transformed_row = transform_row(row, expert_areas, cursor)
+                transformed_row = transform_row(row, expert_areas, cursor, system_user_id)
                 if transformed_row:  # Only append if transformation succeeded
                     rows.append(transformed_row)
                     processed_count += 1
@@ -681,12 +720,12 @@ try:
                                 id, name, designation, affiliation, is_bahraini,
                                 is_available, rating, role, employment_type, general_area,
                                 specialized_area, is_trained, cv_document_id, phone, email, is_published,
-                                approval_document_id, original_request_id, updated_at
+                                approval_document_id, original_request_id, updated_at, last_edited_by, last_edited_at
                             ) VALUES (
                                 :id, :name, :designation, :affiliation, :is_bahraini,
                                 :is_available, :rating, :role, :employment_type, :general_area,
                                 :specialized_area, :is_trained, :cv_document_id, :phone, :email, :is_published,
-                                :approval_document_id, :original_request_id, :updated_at
+                                :approval_document_id, :original_request_id, :updated_at, :last_edited_by, CURRENT_TIMESTAMP
                             )
                         """,
                             rows,
@@ -718,12 +757,12 @@ try:
                         id, name, designation, affiliation, is_bahraini,
                         is_available, rating, role, employment_type, general_area,
                         specialized_area, is_trained, cv_document_id, phone, email, is_published,
-                        approval_document_id, original_request_id, updated_at
+                        approval_document_id, original_request_id, updated_at, last_edited_by, last_edited_at
                     ) VALUES (
                         :id, :name, :designation, :affiliation, :is_bahraini,
                         :is_available, :rating, :role, :employment_type, :general_area,
                         :specialized_area, :is_trained, :cv_document_id, :phone, :email, :is_published,
-                        :approval_document_id, :original_request_id, :updated_at
+                        :approval_document_id, :original_request_id, :updated_at, :last_edited_by, CURRENT_TIMESTAMP
                     )
                 """,
                     rows,

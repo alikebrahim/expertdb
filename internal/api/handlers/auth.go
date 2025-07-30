@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	
-	"expertdb/internal/api/response"
+	"expertdb/internal/api/utils"
 	"expertdb/internal/auth"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
@@ -86,5 +86,5 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) error 
 		user.Email, user.ID, user.Role)
 	
 	// Return standardized success response
-	return response.Success(w, http.StatusOK, "Login successful", responseData)
+	return utils.RespondWithSuccess(w, "Login successful", responseData)
 }

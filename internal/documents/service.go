@@ -2,6 +2,7 @@
 package documents
 
 import (
+	"database/sql"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -45,11 +46,10 @@ func New(store storage.Storage, uploadDir string) (*Service, error) {
 	}, nil
 }
 
-// CreateDocument handles file upload and database registration
+// CreateDocument handles core file upload and database registration only
 func (s *Service) CreateDocument(expertID int64, file multipart.File, header *multipart.FileHeader, docType string) (*domain.Document, error) {
 	log := logger.Get()
-	log.Debug("Document service: CreateDocument called with expertID=%d, docType='%s', filename='%s'", 
-		expertID, docType, header.Filename)
+	log.Debug("Creating document: expertID=%d, docType='%s', filename='%s'", expertID, docType, header.Filename)
 	
 	// Validate document type
 	validTypes := map[string]bool{
@@ -58,28 +58,19 @@ func (s *Service) CreateDocument(expertID int64, file multipart.File, header *mu
 	}
 	
 	if !validTypes[docType] {
-		log.Debug("Document service: Invalid document type '%s'", docType)
 		return nil, fmt.Errorf("document type '%s' is not allowed; must be one of: cv, approval", docType)
 	}
-	log.Debug("Document service: Document type '%s' is valid", docType)
 	
 	// Validate file size
-	log.Debug("Document service: Validating file size: %d bytes (max: %d bytes)", header.Size, s.maxSize)
 	if header.Size > s.maxSize {
-		log.Debug("Document service: File size %d exceeds maximum %d", header.Size, s.maxSize)
 		return nil, fmt.Errorf("file size exceeds maximum allowed size of %d bytes", s.maxSize)
 	}
-	log.Debug("Document service: File size validation passed")
 
 	// Validate content type
 	contentType := header.Header.Get("Content-Type")
-	log.Debug("Document service: Validating content type: '%s'", contentType)
-	log.Debug("Document service: Allowed types: %v", s.allowedTypes)
 	if !s.allowedTypes[contentType] {
-		log.Debug("Document service: Content type '%s' not allowed", contentType)
 		return nil, fmt.Errorf("file type %s is not allowed", contentType)
 	}
-	log.Debug("Document service: Content type validation passed")
 
 	// Determine directory and filename based on document type
 	var targetDir, filename string
@@ -88,58 +79,33 @@ func (s *Service) CreateDocument(expertID int64, file multipart.File, header *mu
 	
 	switch docType {
 	case "cv":
-		if expertID < 0 {
-			// This is an expert request CV
-			targetDir = filepath.Join(s.uploadDir, "expert_requests")
-			filename = fmt.Sprintf("expert_request_%d_%s%s", -expertID, timestamp, extension)
-		} else {
-			// This is an approved expert CV
-			targetDir = filepath.Join(s.uploadDir, "experts")
-			filename = fmt.Sprintf("cv_%d_%s%s", expertID, timestamp, extension)
-		}
+		targetDir = filepath.Join(s.uploadDir, "experts")
+		filename = fmt.Sprintf("cv_%d_%s%s", expertID, timestamp, extension)
 	case "approval":
-		// Approval documents go in approvals directory
 		targetDir = filepath.Join(s.uploadDir, "approvals")
-		// For approvals, expertID should contain the expert IDs (could be formatted string)
 		filename = fmt.Sprintf("approval_%d_%s%s", expertID, timestamp, extension)
-	default:
-		// Other document types use expert-specific directories
-		targetDir = filepath.Join(s.uploadDir, fmt.Sprintf("expert_%d", expertID))
-		filename = fmt.Sprintf("%d_%s%s", expertID, timestamp, extension)
 	}
-	
-	log.Debug("Document service: Target directory: %s", targetDir)
-	log.Debug("Document service: Generated filename: %s", filename)
 	
 	// Create the target directory
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		log.Debug("Document service: Failed to create directory: %v", err)
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
-	log.Debug("Document service: Directory created successfully")
 
 	filePath := filepath.Join(targetDir, filename)
-	log.Debug("Document service: Full file path: %s", filePath)
 
-	// Create the file
-	log.Debug("Document service: Creating file at: %s", filePath)
+	// Create and write file
 	dst, err := os.Create(filePath)
 	if err != nil {
-		log.Debug("Document service: Failed to create file: %v", err)
 		return nil, fmt.Errorf("failed to create file: %w", err)
 	}
 	defer dst.Close()
-	log.Debug("Document service: File created successfully")
 
 	// Copy the file data
-	log.Debug("Document service: Copying file data...")
-	bytesWritten, err := io.Copy(dst, file)
+	_, err = io.Copy(dst, file)
 	if err != nil {
-		log.Debug("Document service: Failed to copy file data: %v", err)
 		os.Remove(filePath) // Clean up on error
 		return nil, fmt.Errorf("failed to save file: %w", err)
 	}
-	log.Debug("Document service: File data copied successfully (%d bytes written)", bytesWritten)
 
 	// Create document record
 	doc := &domain.Document{
@@ -151,57 +117,151 @@ func (s *Service) CreateDocument(expertID int64, file multipart.File, header *mu
 		FileSize:     header.Size,
 		UploadDate:   time.Now(),
 	}
-	log.Debug("Document service: Created document record: %+v", doc)
 
 	// Store in database
-	log.Debug("Document service: Storing document in database...")
 	docID, err := s.store.CreateDocument(doc)
 	if err != nil {
-		log.Debug("Document service: Failed to store in database: %v", err)
 		os.Remove(filePath) // Clean up on error
 		return nil, fmt.Errorf("failed to store document in database: %w", err)
 	}
-	log.Debug("Document service: Document stored in database with ID: %d", docID)
 
 	doc.ID = docID
-	log.Debug("Document service: CreateDocument completed successfully - returning doc ID: %d", docID)
+	log.Debug("Document created successfully with ID: %d", docID)
 	return doc, nil
 }
 
-// CreateDocumentForExpert creates a document and automatically updates expert references
-func (s *Service) CreateDocumentForExpert(expertID int64, file multipart.File, header *multipart.FileHeader, docType string) (*domain.Document, error) {
+// LinkDocumentToExpert updates expert table references to point to a document
+func (s *Service) LinkDocumentToExpert(expertID, docID int64, docType string) error {
 	log := logger.Get()
-	log.Debug("Creating document for expert %d, type: %s", expertID, docType)
+	log.Debug("Linking document %d to expert %d as %s", docID, expertID, docType)
 	
-	// Create document record
-	doc, err := s.CreateDocument(expertID, file, header, docType)
-	if err != nil {
-		return nil, err
-	}
-
-	// Automatically update expert table with document reference
+	var err error
 	switch docType {
 	case "cv":
-		err = s.store.UpdateExpertCVDocument(expertID, doc.ID)
+		err = s.store.UpdateExpertCVDocument(expertID, docID)
 	case "approval":
-		err = s.store.UpdateExpertApprovalDocument(expertID, doc.ID)
+		err = s.store.UpdateExpertApprovalDocument(expertID, docID)
+	default:
+		return fmt.Errorf("invalid document type for expert linking: %s", docType)
 	}
-
+	
 	if err != nil {
-		// Rollback document creation
-		s.store.DeleteDocument(doc.ID)
-		os.Remove(doc.FilePath)
-		return nil, fmt.Errorf("failed to update expert reference: %w", err)
+		return fmt.Errorf("failed to link %s document to expert: %w", docType, err)
 	}
-
-	log.Debug("Document created and expert updated successfully")
-	return doc, nil
+	
+	log.Debug("Successfully linked document %d to expert %d", docID, expertID)
+	return nil
 }
 
-// CreateDocumentForExpertRequest handles CV upload for expert requests using request ID
-func (s *Service) CreateDocumentForExpertRequest(requestID int64, file multipart.File, header *multipart.FileHeader) (*domain.Document, error) {
+// GetExpertDocument retrieves the current document of specified type for an expert
+func (s *Service) GetExpertDocument(expertID int64, docType string) (*domain.Document, error) {
 	log := logger.Get()
-	log.Debug("Creating document for expert request %d", requestID)
+	log.Debug("Getting %s document for expert %d", docType, expertID)
+	
+	// Query for the current document based on expert table reference
+	var query string
+	switch docType {
+	case "cv":
+		query = `
+			SELECT d.id, d.expert_id, d.document_type, d.filename, d.file_path, 
+			       d.content_type, d.file_size, d.upload_date
+			FROM expert_documents d
+			INNER JOIN experts e ON d.id = e.cv_document_id
+			WHERE e.id = ? AND d.document_type = 'cv'
+		`
+	case "approval":
+		query = `
+			SELECT d.id, d.expert_id, d.document_type, d.filename, d.file_path, 
+			       d.content_type, d.file_size, d.upload_date
+			FROM expert_documents d
+			INNER JOIN experts e ON d.id = e.approval_document_id
+			WHERE e.id = ? AND d.document_type = 'approval'
+		`
+	default:
+		return nil, fmt.Errorf("invalid document type: %s", docType)
+	}
+	
+	var doc domain.Document
+	db := s.store.GetDB().(*sql.DB)
+	err := db.QueryRow(query, expertID).Scan(
+		&doc.ID, &doc.ExpertID, &doc.DocumentType, &doc.Filename, &doc.FilePath,
+		&doc.ContentType, &doc.FileSize, &doc.UploadDate,
+	)
+	
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			log.Debug("No %s document found for expert %d", docType, expertID)
+			return nil, nil // No document found, not an error
+		}
+		return nil, fmt.Errorf("failed to get expert document: %w", err)
+	}
+	
+	log.Debug("Found %s document with ID %d for expert %d", docType, doc.ID, expertID)
+	return &doc, nil
+}
+
+// ReplaceExpertDocument replaces an expert's document with cleanup of old document
+func (s *Service) ReplaceExpertDocument(expertID int64, file multipart.File, header *multipart.FileHeader, docType string) (*domain.Document, error) {
+	log := logger.Get()
+	log.Debug("Replacing %s document for expert %d", docType, expertID)
+	
+	// Get current document for cleanup (if exists)
+	oldDoc, err := s.GetExpertDocument(expertID, docType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check for existing document: %w", err)
+	}
+	
+	// Create new document
+	newDoc, err := s.CreateDocument(expertID, file, header, docType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new document: %w", err)
+	}
+	
+	// Link new document to expert
+	if err := s.LinkDocumentToExpert(expertID, newDoc.ID, docType); err != nil {
+		// Rollback: delete the new document we just created
+		s.store.DeleteDocument(newDoc.ID)
+		if newDoc.FilePath != "" {
+			os.Remove(newDoc.FilePath)
+		}
+		return nil, fmt.Errorf("failed to link new document: %w", err)
+	}
+	
+	// Clean up old document if it exists
+	if oldDoc != nil {
+		log.Debug("Cleaning up old %s document with ID %d", docType, oldDoc.ID)
+		
+		// Delete from database
+		if err := s.store.DeleteDocument(oldDoc.ID); err != nil {
+			log.Warn("Failed to delete old document from database (ID: %d): %v", oldDoc.ID, err)
+			// Continue anyway - new document is already linked
+		}
+		
+		// Delete file from filesystem
+		if oldDoc.FilePath != "" {
+			if err := os.Remove(oldDoc.FilePath); err != nil {
+				log.Warn("Failed to delete old document file (%s): %v", oldDoc.FilePath, err)
+				// Continue anyway - file might already be missing
+			} else {
+				log.Debug("Deleted old document file: %s", oldDoc.FilePath)
+			}
+		}
+	}
+	
+	log.Debug("Successfully replaced %s document for expert %d (new ID: %d)", docType, expertID, newDoc.ID)
+	return newDoc, nil
+}
+
+
+// CreateDocumentForRequest handles document upload for expert requests using request ID
+func (s *Service) CreateDocumentForRequest(requestID int64, file multipart.File, header *multipart.FileHeader, docType string) (*domain.Document, error) {
+	log := logger.Get()
+	log.Debug("Creating %s document for expert request %d", docType, requestID)
+	
+	// Validate document type
+	if docType != "cv" && docType != "approval" {
+		return nil, fmt.Errorf("invalid document type '%s' for request; must be 'cv' or 'approval'", docType)
+	}
 	
 	// Validate file size
 	if header.Size > s.maxSize {
@@ -216,7 +276,6 @@ func (s *Service) CreateDocumentForExpertRequest(requestID int64, file multipart
 
 	// Create expert_requests directory
 	targetDir := filepath.Join(s.uploadDir, "expert_requests")
-	
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
@@ -224,10 +283,15 @@ func (s *Service) CreateDocumentForExpertRequest(requestID int64, file multipart
 	// Generate filename for expert request
 	timestamp := time.Now().Format("20060102_150405")
 	extension := filepath.Ext(header.Filename)
-	filename := fmt.Sprintf("expert_request_%d_%s%s", requestID, timestamp, extension)
+	var filename string
+	if docType == "approval" {
+		filename = fmt.Sprintf("expert_request_%d_approval_%s%s", requestID, timestamp, extension)
+	} else {
+		filename = fmt.Sprintf("expert_request_%d_%s%s", requestID, timestamp, extension)
+	}
 	filePath := filepath.Join(targetDir, filename)
 
-	// Create the file
+	// Create and write file
 	dst, err := os.Create(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file: %w", err)
@@ -242,10 +306,10 @@ func (s *Service) CreateDocumentForExpertRequest(requestID int64, file multipart
 	}
 	log.Debug("File written successfully: %d bytes to %s", bytesWritten, filePath)
 
-	// Create document record directly (no second file write)
+	// Create document record
 	doc := &domain.Document{
 		ExpertID:     requestID, // Use expert_request id during request creation
-		DocumentType: "cv",
+		DocumentType: docType,
 		Filename:     header.Filename,
 		FilePath:     filePath,
 		ContentType:  contentType,
@@ -262,7 +326,11 @@ func (s *Service) CreateDocumentForExpertRequest(requestID int64, file multipart
 	doc.ID = docID
 
 	// Update expert_requests table with document reference
-	err = s.store.UpdateExpertRequestCVDocument(requestID, doc.ID)
+	if docType == "cv" {
+		err = s.store.UpdateExpertRequestCVDocument(requestID, doc.ID)
+	} else {
+		err = s.store.UpdateExpertRequestApprovalDocument(requestID, doc.ID)
+	}
 	if err != nil {
 		s.store.DeleteDocument(doc.ID)
 		os.Remove(filePath)
@@ -273,130 +341,69 @@ func (s *Service) CreateDocumentForExpertRequest(requestID int64, file multipart
 	return doc, nil
 }
 
-// CreateApprovalDocumentForExpertRequest handles approval document upload for expert requests
-func (s *Service) CreateApprovalDocumentForExpertRequest(requestID int64, file multipart.File, header *multipart.FileHeader) (*domain.Document, error) {
-	log := logger.Get()
-	log.Debug("Creating approval document for expert request %d", requestID)
-	
-	// Validate file size
-	if header.Size > s.maxSize {
-		return nil, fmt.Errorf("file size exceeds maximum allowed size of %d bytes", s.maxSize)
-	}
-
-	// Validate content type
-	contentType := header.Header.Get("Content-Type")
-	if !s.allowedTypes[contentType] {
-		return nil, fmt.Errorf("file type %s is not allowed", contentType)
-	}
-
-	// Create expert_requests directory
-	targetDir := filepath.Join(s.uploadDir, "expert_requests")
-	
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	// Generate filename for expert request approval document
-	timestamp := time.Now().Format("20060102_150405")
-	extension := filepath.Ext(header.Filename)
-	filename := fmt.Sprintf("expert_request_%d_approval_%s%s", requestID, timestamp, extension)
-	filePath := filepath.Join(targetDir, filename)
-
-	// Create the file
-	dst, err := os.Create(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create file: %w", err)
-	}
-	defer dst.Close()
-
-	// Copy the file data
-	_, err = io.Copy(dst, file)
-	if err != nil {
-		os.Remove(filePath) // Clean up on error
-		return nil, fmt.Errorf("failed to save file: %w", err)
-	}
-
-	// Create document record directly (no second file write)
-	doc := &domain.Document{
-		ExpertID:     requestID, // Use expert_request id during request creation
-		DocumentType: "approval",
-		Filename:     header.Filename,
-		FilePath:     filePath,
-		ContentType:  contentType,
-		FileSize:     header.Size,
-		UploadDate:   time.Now(),
-	}
-
-	// Store in database
-	docID, err := s.store.CreateDocument(doc)
-	if err != nil {
-		os.Remove(filePath) // Clean up on error
-		return nil, fmt.Errorf("failed to store document in database: %w", err)
-	}
-	doc.ID = docID
-
-	// Update expert_requests table with approval document reference
-	err = s.store.UpdateExpertRequestApprovalDocument(requestID, doc.ID)
-	if err != nil {
-		s.store.DeleteDocument(doc.ID)
-		os.Remove(doc.FilePath)
-		return nil, fmt.Errorf("failed to update request approval reference: %w", err)
-	}
-
-	log.Debug("Approval document created and expert request updated successfully")
-	return doc, nil
+// CreateDocumentForExpertRequest maintains compatibility - delegates to CreateDocumentForRequest
+func (s *Service) CreateDocumentForExpertRequest(requestID int64, file multipart.File, header *multipart.FileHeader) (*domain.Document, error) {
+	return s.CreateDocumentForRequest(requestID, file, header, "cv")
 }
 
-// MoveExpertRequestCVToExpert moves CV file from expert_requests to experts directory and returns new path
-func (s *Service) MoveExpertRequestCVToExpert(requestID, expertID int64) (string, error) {
+// CreateApprovalDocumentForExpertRequest maintains compatibility - delegates to CreateDocumentForRequest
+func (s *Service) CreateApprovalDocumentForExpertRequest(requestID int64, file multipart.File, header *multipart.FileHeader) (*domain.Document, error) {
+	return s.CreateDocumentForRequest(requestID, file, header, "approval")
+}
+
+// MoveRequestDocumentToExpert moves a document from expert_requests to expert directories during approval
+func (s *Service) MoveRequestDocumentToExpert(documentID, expertID int64) error {
 	log := logger.Get()
-	log.Debug("Moving CV from request %d to expert %d", requestID, expertID)
+	log.Debug("Moving document %d from request to expert %d", documentID, expertID)
 	
-	// Find the request CV file
-	requestDir := filepath.Join(s.uploadDir, "expert_requests")
-	pattern := fmt.Sprintf("expert_request_%d_*.pdf", requestID)
-	matches, err := filepath.Glob(filepath.Join(requestDir, pattern))
+	// Get the current document
+	doc, err := s.store.GetDocument(documentID)
 	if err != nil {
-		log.Error("Failed to find request CV files: %v", err)
-		return "", fmt.Errorf("failed to find request CV files: %w", err)
+		return fmt.Errorf("failed to get document: %w", err)
 	}
 	
-	if len(matches) == 0 {
-		log.Warn("No CV file found for request %d", requestID)
-		return "", fmt.Errorf("no CV file found for request %d", requestID)
-	}
+	// Generate new path and filename
+	timestamp := time.Now().Format("20060102_150405")
+	extension := filepath.Ext(doc.FilePath)
+	var newDir, newFilename string
 	
-	if len(matches) > 1 {
-		log.Warn("Multiple CV files found for request %d, using first one", requestID)
+	switch doc.DocumentType {
+	case "cv":
+		newDir = filepath.Join(s.uploadDir, "experts")
+		newFilename = fmt.Sprintf("cv_%d_%s%s", expertID, timestamp, extension)
+	case "approval":
+		newDir = filepath.Join(s.uploadDir, "approvals")
+		newFilename = fmt.Sprintf("approval_%d_%s%s", expertID, timestamp, extension)
+	default:
+		return fmt.Errorf("unsupported document type for migration: %s", doc.DocumentType)
 	}
-	
-	oldPath := matches[0]
-	log.Debug("Found request CV file: %s", oldPath)
 	
 	// Create target directory
-	expertDir := filepath.Join(s.uploadDir, "experts")
-	if err := os.MkdirAll(expertDir, 0755); err != nil {
-		log.Error("Failed to create experts directory: %v", err)
-		return "", fmt.Errorf("failed to create experts directory: %w", err)
+	if err := os.MkdirAll(newDir, 0755); err != nil {
+		return fmt.Errorf("failed to create target directory: %w", err)
 	}
 	
-	// Generate new filename
-	timestamp := time.Now().Format("20060102_150405")
-	extension := filepath.Ext(oldPath)
-	newFilename := fmt.Sprintf("cv_%d_%s%s", expertID, timestamp, extension)
-	newPath := filepath.Join(expertDir, newFilename)
-	
-	log.Debug("Moving file from %s to %s", oldPath, newPath)
+	newPath := filepath.Join(newDir, newFilename)
 	
 	// Move the file
-	err = os.Rename(oldPath, newPath)
+	err = os.Rename(doc.FilePath, newPath)
 	if err != nil {
-		log.Error("Failed to move file from %s to %s: %v", oldPath, newPath, err)
-		return "", fmt.Errorf("failed to move file: %w", err)
+		log.Error("Failed to move file from %s to %s: %v", doc.FilePath, newPath, err)
+		return fmt.Errorf("failed to move file: %w", err)
 	}
 	
-	log.Debug("File moved successfully to: %s", newPath)
-	return newPath, nil
+	// Update document record
+	doc.FilePath = newPath
+	doc.ExpertID = expertID // Update to use expert ID instead of request ID
+	err = s.store.UpdateDocument(doc)
+	if err != nil {
+		// Try to move file back on database update failure
+		os.Rename(newPath, doc.FilePath)
+		return fmt.Errorf("failed to update document record: %w", err)
+	}
+	
+	log.Debug("Successfully moved document %d to expert %d: %s", documentID, expertID, newPath)
+	return nil
 }
 
 // CreateApprovalDocument creates an approval document for multiple expert IDs

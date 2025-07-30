@@ -2,7 +2,7 @@ package phase
 
 import (
 	"encoding/json"
-	"expertdb/internal/api/response"
+	"expertdb/internal/api/utils"
 	"expertdb/internal/auth"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
@@ -83,7 +83,7 @@ func (h *Handler) HandleListPhases(w http.ResponseWriter, r *http.Request) error
 			"plannerId": plannerID,
 		},
 	}
-	return response.Success(w, http.StatusOK, "", responseData)
+	return utils.RespondWithSuccess(w, "", responseData)
 }
 
 // HandleGetPhase handles GET /api/phases/{id} requests
@@ -109,7 +109,7 @@ func (h *Handler) HandleGetPhase(w http.ResponseWriter, r *http.Request) error {
 		}
 		
 		// Write standardized response
-		return response.Success(w, http.StatusOK, "", phase)
+		return utils.RespondWithSuccess(w, "", phase)
 	}
 	
 	// It's a numeric ID
@@ -130,7 +130,7 @@ func (h *Handler) HandleGetPhase(w http.ResponseWriter, r *http.Request) error {
 	}
 	
 	// Write standardized response
-	return response.Success(w, http.StatusOK, "", phase)
+	return utils.RespondWithSuccess(w, "", phase)
 }
 
 // createPhaseRequest represents the request to create a new phase
@@ -336,7 +336,7 @@ func (h *Handler) HandleCreatePhase(w http.ResponseWriter, r *http.Request) erro
 	}
 	
 	// Write standardized response
-	return response.Success(w, http.StatusCreated, "Phase created successfully", createdPhase)
+	return utils.RespondWithSuccess(w, "Phase created successfully", createdPhase)
 }
 
 // updatePhaseRequest represents the request to update a phase
@@ -451,7 +451,7 @@ func (h *Handler) HandleUpdatePhase(w http.ResponseWriter, r *http.Request) erro
 	}
 	
 	// Write standardized response
-	return response.Success(w, http.StatusOK, "Phase updated successfully", updatedPhase)
+	return utils.RespondWithSuccess(w, "Phase updated successfully", updatedPhase)
 }
 
 // updateExpertsRequest represents the request to update the experts assigned to an application
@@ -574,7 +574,7 @@ func (h *Handler) HandleUpdateApplicationExperts(w http.ResponseWriter, r *http.
 	}
 	
 	// Write standardized response
-	return response.Success(w, http.StatusOK, "Application experts updated successfully", updatedApp)
+	return utils.RespondWithSuccess(w, "Application experts updated successfully", updatedApp)
 }
 
 // applicationReviewRequest represents the request to review an application
@@ -697,7 +697,7 @@ func (h *Handler) HandleReviewApplication(w http.ResponseWriter, r *http.Request
 	
 	// Write standardized response with dynamic message
 	message := "Application " + req.Action + "ed successfully"
-	return response.Success(w, http.StatusOK, message, updatedApp)
+	return utils.RespondWithSuccess(w, message, updatedApp)
 }
 
 // Helper function to check if an expert exists
@@ -816,7 +816,7 @@ func (h *Handler) HandleRateExperts(w http.ResponseWriter, r *http.Request) erro
 	}
 	
 	// Write standardized response
-	return response.Success(w, http.StatusOK, "Expert rating recorded successfully", responseData)
+	return utils.RespondWithSuccess(w, "Expert rating recorded successfully", responseData)
 }
 
 // managerTasksResponse represents the response for manager's pending tasks
@@ -839,9 +839,9 @@ func (h *Handler) HandleGetManagerTasks(w http.ResponseWriter, r *http.Request) 
 	log := logger.Get()
 	
 	// Get user ID from context
-	userID, ok := auth.GetUserIDFromContext(r.Context())
-	if !ok {
-		return domain.ErrUnauthorized
+	userID, err := auth.GetUserIDFromRequest(r)
+	if err != nil {
+		return err
 	}
 	
 	// Get applications where user is assigned as manager
@@ -893,7 +893,7 @@ func (h *Handler) HandleGetManagerTasks(w http.ResponseWriter, r *http.Request) 
 	}
 	
 	// Write standardized response
-	return response.Success(w, http.StatusOK, "", responseData)
+	return utils.RespondWithSuccess(w, "", responseData)
 }
 
 // HandleListApplications handles GET /api/applications requests with filtering
@@ -1016,10 +1016,10 @@ func (h *Handler) HandleListApplications(w http.ResponseWriter, r *http.Request)
 		},
 	}
 	
-	return response.Success(w, http.StatusOK, "", responseData)
+	return utils.RespondWithSuccess(w, "", responseData)
 }
 
 // Helper function to respond with validation errors
 func respondWithValidationErrors(w http.ResponseWriter, errors []string) error {
-	return response.ValidationError(w, errors)
+	return utils.RespondWithValidationErrorStrings(w, errors)
 }

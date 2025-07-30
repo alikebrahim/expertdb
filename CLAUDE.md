@@ -59,7 +59,6 @@ Technical characteristics:
 - User: Authentication with roles (super_user > admin > user) and contextual elevations
 - Expert: Professional profile with specialization areas, experience, education, and documents
 - Expert Request: User proposal to add expert (pending → approved/rejected)
-- Expert Edit Request: User proposal to modify existing expert (pending → approved/rejected)
 - Document: Files (CV, approval documents) attached to experts
 - Engagement: Expert's assignment to tasks (validator or evaluator) - legacy system
 - Phase Plan: Planning period with applications requiring expert assignments
@@ -88,7 +87,7 @@ The backend API is production-ready with 50+ endpoints across 12 feature areas:
 - Users: `/api/users` - User management with role-based access
 - Experts: `/api/experts` - Expert profile CRUD with advanced filtering/sorting
 - Expert Requests: `/api/expert-requests` - Request workflow with batch operations
-- Expert Edit Requests: `/api/experts/{id}/edit` - Profile editing workflow
+- Expert Profile Editing: `/api/experts/{id}` - Direct profile editing (no approval needed)
 - Documents: `/api/documents` - Document management and file handling
 - Engagements: `/api/engagements` - Engagement tracking with CSV import
 - Phases: `/api/phases` - Phase planning workflow with contextual assignments

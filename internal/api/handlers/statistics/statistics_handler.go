@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"expertdb/internal/api/response"
+	"expertdb/internal/api/utils"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
 )
@@ -51,6 +51,6 @@ func (h *Handler) HandleGetStatistics(w http.ResponseWriter, r *http.Request) er
 
 	// Return statistics with standardized response
 	log.Debug("Successfully retrieved comprehensive system statistics")
-	return response.Success(w, http.StatusOK, "", stats)
+	return utils.RespondWithSuccess(w, "", stats)
 }
 

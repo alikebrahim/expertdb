@@ -13,102 +13,11 @@ import (
 	"expertdb/internal/logger"
 )
 
+
 // CreateExpertRequest creates a new expert request in the database
 func (s *SQLiteStore) CreateExpertRequest(req *domain.ExpertRequest) (int64, error) {
-	query := `
-		INSERT INTO expert_requests (
-			name, designation, affiliation, is_bahraini, is_available,
-			role, employment_type, general_area, specialized_area,
-			is_trained, cv_document_id, approval_document_id, phone, email, is_published,
-			suggested_specialized_areas, status, created_at, created_by
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
-	
-	// Set default values if not provided
-	if req.CreatedAt.IsZero() {
-		req.CreatedAt = time.Now()
-	}
-	if req.Status == "" {
-		req.Status = "pending"
-	}
-	
-	// Handle nullable fields or use empty string defaults for non-nullable text fields
-	designation := req.Designation
-	if designation == "" {
-		designation = "" // Not NULL but empty string
-	}
-	
-	affiliation := req.Affiliation
-	if affiliation == "" {
-		affiliation = "" // Not NULL but empty string
-	}
-	
-	
-	// For specialized area: can be NULL
-	var specializedArea interface{} = nil
-	if req.SpecializedArea != "" {
-		specializedArea = req.SpecializedArea
-	}
-	
-	
-	// Serialize suggested areas to JSON
-	suggestedAreasJSON := s.serializeSuggestedAreas(req.SuggestedSpecializedAreas)
-	
-	result, err := s.db.Exec(
-		query,
-		req.Name, designation, affiliation,
-		req.IsBahraini, req.IsAvailable,
-		req.Role, req.EmploymentType, req.GeneralArea,
-		specializedArea, req.IsTrained, req.CVDocumentID,
-		req.ApprovalDocumentID, req.Phone, req.Email, req.IsPublished,
-		suggestedAreasJSON, req.Status, req.CreatedAt, req.CreatedBy,
-	)
-	
-	if err != nil {
-		return 0, fmt.Errorf("failed to create expert request: %w", err)
-	}
-	
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get expert request ID: %w", err)
-	}
-	
-	// Set the request ID
-	req.ID = id
-	
-	// Store experience entries
-	for _, entry := range req.ExperienceEntries {
-		_, err := s.db.Exec(`
-			INSERT INTO expert_request_experience_entries (
-				expert_request_id, organization, position, start_date, end_date, is_current, country, description
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, entry.Organization, entry.Position, entry.StartDate, entry.EndDate, entry.IsCurrent, entry.Country, entry.Description,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create experience entry: %w", err)
-		}
-	}
-	
-	// Store education entries
-	for _, entry := range req.EducationEntries {
-		_, err := s.db.Exec(`
-			INSERT INTO expert_request_education_entries (
-				expert_request_id, institution, degree, field_of_study, graduation_year, country, description
-			) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			id, entry.Institution, entry.Degree, entry.FieldOfStudy, entry.GraduationYear, entry.Country, entry.Description,
-		)
-		if err != nil {
-			return 0, fmt.Errorf("failed to create education entry: %w", err)
-		}
-	}
-	
-	return id, nil
-}
-
-// CreateExpertRequestWithoutPaths creates a new expert request without file paths (for transaction approach)
-func (s *SQLiteStore) CreateExpertRequestWithoutPaths(req *domain.ExpertRequest) (int64, error) {
 	log := logger.Get()
-	log.Debug("Creating expert request without paths for: %s", req.Name)
+	log.Debug("Creating expert request for: %s", req.Name)
 	
 	query := `
 		INSERT INTO expert_requests (
@@ -804,19 +713,24 @@ func (s *SQLiteStore) BatchApproveExpertRequestsWithFileMove(requestIDs []int64,
 		for i, requestID := range successIDs {
 			expertID := expertIDs[i]
 			
-			// Move CV document from expert_requests to experts directory
-			if docService, ok := documentService.(interface {
-				MoveExpertRequestCVToExpert(requestID, expertID int64) (string, error)
-			}); ok {
-				newCVPath, err := docService.MoveExpertRequestCVToExpert(requestID, expertID)
-				if err != nil {
-					log.Error("Failed to move CV document for request %d: %v", requestID, err)
-				} else {
-					// Update document record with new path and expert_id
-					_, err = s.db.Exec(`UPDATE expert_documents SET expert_id = ?, file_path = ? WHERE expert_id = ? AND document_type = 'cv'`, 
-						expertID, newCVPath, requestID)
+			// Get the CV document ID for this request
+			var cvDocumentID sql.NullInt64
+			err := s.db.QueryRow("SELECT cv_document_id FROM expert_requests WHERE id = ?", requestID).Scan(&cvDocumentID)
+			if err != nil {
+				log.Error("Failed to get CV document ID for request %d: %v", requestID, err)
+				continue
+			}
+			
+			// Move CV document using new method
+			if cvDocumentID.Valid {
+				if docService, ok := documentService.(interface {
+					MoveRequestDocumentToExpert(documentID, expertID int64) error
+				}); ok {
+					err := docService.MoveRequestDocumentToExpert(cvDocumentID.Int64, expertID)
 					if err != nil {
-						log.Error("Failed to update CV document reference for request %d: %v", requestID, err)
+						log.Error("Failed to move CV document for request %d: %v", requestID, err)
+					} else {
+						log.Debug("Successfully moved CV document %d for request %d to expert %d", cvDocumentID.Int64, requestID, expertID)
 					}
 				}
 			}
@@ -1013,19 +927,14 @@ func (s *SQLiteStore) ApproveExpertRequestWithDocument(requestID, reviewedBy int
 	// Move CV document from expert_requests to experts directory
 	if req.CVDocumentID != nil {
 		if docService, ok := documentService.(interface {
-			MoveExpertRequestCVToExpert(requestID, expertID int64) (string, error)
+			MoveRequestDocumentToExpert(documentID, expertID int64) error
 		}); ok {
-			newCVPath, err := docService.MoveExpertRequestCVToExpert(requestID, expertID)
+			err := docService.MoveRequestDocumentToExpert(*req.CVDocumentID, expertID)
 			if err != nil {
 				log.Error("Failed to move CV document: %v", err)
 				// Don't fail the entire operation, just log the error
 			} else {
-				// Update expert with new CV document path and expert_id
-				_, err = s.db.Exec(`UPDATE expert_documents SET expert_id = ?, file_path = ? WHERE id = ?`, 
-					expertID, newCVPath, *req.CVDocumentID)
-				if err != nil {
-					log.Error("Failed to update CV document reference: %v", err)
-				}
+				log.Debug("Successfully moved CV document %d for expert %d", *req.CVDocumentID, expertID)
 			}
 		}
 	}
@@ -1033,19 +942,14 @@ func (s *SQLiteStore) ApproveExpertRequestWithDocument(requestID, reviewedBy int
 	// Handle approval document with proper expert ID
 	if req.ApprovalDocumentID != nil {
 		if docService, ok := documentService.(interface {
-			MoveApprovalDocumentToExpert(documentID, expertID int64) error
+			MoveRequestDocumentToExpert(documentID, expertID int64) error
 		}); ok {
-			err = docService.MoveApprovalDocumentToExpert(*req.ApprovalDocumentID, expertID)
+			err := docService.MoveRequestDocumentToExpert(*req.ApprovalDocumentID, expertID)
 			if err != nil {
 				log.Error("Failed to move approval document: %v", err)
 				// Don't fail the entire operation, just log the error
 			} else {
-				// Update expert with approval document reference
-				_, err = s.db.Exec(`UPDATE experts SET approval_document_id = ? WHERE id = ?`, 
-					*req.ApprovalDocumentID, expertID)
-				if err != nil {
-					log.Error("Failed to update expert approval document reference: %v", err)
-				}
+				log.Debug("Successfully moved approval document %d for expert %d", *req.ApprovalDocumentID, expertID)
 			}
 		}
 	}
@@ -1205,43 +1109,11 @@ func (s *SQLiteStore) copyEducationEntries(tx *sql.Tx, requestID, expertID int64
 
 // UpdateExpertRequestCVDocument updates the CV document reference for an expert request
 func (s *SQLiteStore) UpdateExpertRequestCVDocument(requestID, documentID int64) error {
-	query := `UPDATE expert_requests SET cv_document_id = ? WHERE id = ?`
-	
-	result, err := s.db.Exec(query, documentID, requestID)
-	if err != nil {
-		return fmt.Errorf("failed to update expert request CV document: %w", err)
-	}
-	
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	
-	if rowsAffected == 0 {
-		return domain.ErrNotFound
-	}
-	
-	return nil
+	return s.updateDocumentReference("expert_requests", "cv_document_id", requestID, documentID)
 }
 
 // UpdateExpertRequestApprovalDocument updates the approval document reference for an expert request
 func (s *SQLiteStore) UpdateExpertRequestApprovalDocument(requestID, documentID int64) error {
-	query := `UPDATE expert_requests SET approval_document_id = ? WHERE id = ?`
-	
-	result, err := s.db.Exec(query, documentID, requestID)
-	if err != nil {
-		return fmt.Errorf("failed to update expert request approval document: %w", err)
-	}
-	
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	
-	if rowsAffected == 0 {
-		return domain.ErrNotFound
-	}
-	
-	return nil
+	return s.updateDocumentReference("expert_requests", "approval_document_id", requestID, documentID)
 }
 

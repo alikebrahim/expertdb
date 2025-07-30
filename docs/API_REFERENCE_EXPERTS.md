@@ -1,8 +1,6 @@
 # Expert Management API Reference
 
-**Date**: January 22, 2025  
-**Version**: 1.1 (Updated for Document Management System)  
-**Context**: This document provides comprehensive API documentation for all Expert Management endpoints in the ExpertDB system, extracted from the main API_REFERENCE.md file. Updated to reflect the migration from file path-based document storage to a centralized document management system using foreign key relationships.
+This document provides comprehensive API documentation for all Expert Management endpoints in the ExpertDB system.
 
 ## Table of Contents
 
@@ -14,6 +12,7 @@
    - [POST /api/experts](#post-apiexperts)
    - [PUT /api/experts/{id}](#put-apiexpertsid)
    - [DELETE /api/experts/{id}](#delete-apiexpertsid)
+   - [GET /api/experts/{id}/edit-history](#get-apiexpertsidedit-history)
 4. [Expert Areas Endpoints](#expert-areas-endpoints)
    - [GET /api/expert/areas](#get-apiexpertareas)
    - [POST /api/expert/areas](#post-apiexpertareas)
@@ -26,6 +25,8 @@
 The Expert Management system in ExpertDB provides comprehensive functionality for managing expert profiles, their specialization areas, and related metadata. The system supports:
 
 - Full CRUD operations for expert profiles
+- **Direct Expert Editing**: Any authenticated user can edit expert profiles
+- **Comprehensive Audit Trails**: All changes automatically tracked with user ID and timestamps
 - Advanced filtering and sorting capabilities with multi-value support
 - Normalized specialized areas management
 - File upload support for CVs and approval documents
@@ -33,17 +34,22 @@ The Expert Management system in ExpertDB provides comprehensive functionality fo
 
 ### Key Features
 
-- **Multi-Value Filtering**: Support for comma-separated values in filter parameters (v1.5 update)
+- **Direct Expert Editing**: Any authenticated user can edit expert profiles
+- **Automatic Audit Logging**: All changes tracked with field-level granularity and user identification
+- **Multi-Value Filtering**: Support for comma-separated values in filter parameters
 - **Normalized Data Model**: Specialized areas are stored as IDs with separate lookup table
 - **Dual Content-Type Support**: Expert updates support both JSON and multipart/form-data
 - **Comprehensive Metadata**: Includes professional experience, education, and documents
+- **Edit History Viewing**: Complete audit trail accessible via dedicated endpoint
 
 ### Authentication & Authorization
 
 - All endpoints require JWT authentication
-- Expert creation/modification requires admin role
+- Expert editing: Any authenticated user can edit expert profiles
+- Expert creation/deletion requires admin role
 - Expert viewing is available to all authenticated users
 - Area management requires admin role
+- Edit history viewing available to all authenticated users
 
 ## Data Model
 
@@ -74,7 +80,9 @@ The expert entity includes the following fields:
   "experienceEntries": [...],     // Professional experience array
   "educationEntries": [...],      // Educational background array
   "createdAt": "string",          // Creation timestamp
-  "updatedAt": "string"           // Last update timestamp
+  "updatedAt": "string",          // Last update timestamp
+  "lastEditedBy": int,            // ID of user who last edited this expert
+  "lastEditedAt": "string"        // Timestamp when expert was last edited
 }
 ```
 
@@ -108,6 +116,30 @@ The expert entity includes the following fields:
   "description": "string",
   "createdAt": "string",
   "updatedAt": "string"
+}
+```
+
+### Expert Edit History Structure
+
+Expert profile changes are tracked with comprehensive audit trails:
+
+```json
+{
+  "id": int,                      // Auto-generated history entry ID
+  "expertId": int,                // ID of the expert that was edited
+  "editedBy": int,                // ID of user who made the edit
+  "editedAt": "string",           // Timestamp when the edit was made
+  "fieldsChanged": ["string"],    // Array of field names that were changed
+  "oldValues": {                  // Previous field values (JSON object)
+    "name": "Dr. John Smith",
+    "email": "old@example.com"
+  },
+  "newValues": {                  // New field values (JSON object)
+    "name": "Dr. John Smith Jr.",
+    "email": "new@example.com"
+  },
+  "changeReason": "string",       // Optional reason for the change
+  "editorName": "string"          // Name of the user who made the edit (resolved)
 }
 ```
 
@@ -418,14 +450,14 @@ Creates a new expert profile.
 
 ### PUT /api/experts/{id}
 
-Updates an expert profile with support for both JSON and file uploads.
+Updates an expert profile with automatic audit trail logging. Any authenticated user can edit expert profiles, and all changes are tracked with user identification and timestamps.
 
 #### Request
 
 - **Method**: PUT
 - **Path**: `/api/experts/{id}`
 - **Headers**: 
-  - `Authorization: Bearer <admin_token>`
+  - `Authorization: Bearer <token>` (Any authenticated user)
 - **Parameters**:
   - `id` (path) - Expert ID
 
@@ -520,6 +552,9 @@ curl -X PUT http://api.example.com/api/experts/442 \
 - **Partial Updates**: Only provided fields are updated
 - **Type Conversion**: Handles rating as int
 - **Backward Compatibility**: JSON-only clients continue to work unchanged
+- **Automatic Audit Logging**: All changes automatically tracked with user ID and timestamp
+- **Change Detection**: System calculates which fields changed and stores old/new values
+- **User Authentication**: User ID extracted from JWT token for audit trail
 
 ### DELETE /api/experts/{id}
 
@@ -556,6 +591,83 @@ Deletes an expert and all associated documents.
 - Cascades deletion to all associated documents
 - Removes expert from any phase applications
 - Cannot be undone
+
+### GET /api/experts/{id}/edit-history
+
+Retrieves the edit history for a specific expert profile, showing all changes made over time with user identification and timestamps.
+
+#### Request
+
+- **Method**: GET
+- **Path**: `/api/experts/{id}/edit-history`
+- **Headers**: 
+  - `Authorization: Bearer <token>`
+- **Parameters**:
+  - `id` (path) - Expert ID
+
+#### Response Payload
+
+**Success (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "expertId": 442,
+      "editedBy": 15,
+      "editedAt": "2025-01-22T14:30:00Z",
+      "fieldsChanged": ["name", "email", "rating"],
+      "oldValues": {
+        "name": "Dr. John Smith",
+        "email": "john.smith@old.com",
+        "rating": 4
+      },
+      "newValues": {
+        "name": "Dr. John Smith Jr.",
+        "email": "john.smith@new.com",
+        "rating": 5
+      },
+      "changeReason": "Updated personal information and performance rating",
+      "editorName": "Admin User"
+    },
+    {
+      "id": 2,
+      "expertId": 442,
+      "editedBy": 8,
+      "editedAt": "2025-01-20T09:15:00Z",
+      "fieldsChanged": ["phone", "isAvailable"],
+      "oldValues": {
+        "phone": "+973 11111111",
+        "isAvailable": false
+      },
+      "newValues": {
+        "phone": "+973 22222222",
+        "isAvailable": true
+      },
+      "changeReason": null,
+      "editorName": "Regular User"
+    }
+  ]
+}
+```
+
+**Error (404 Not Found):**
+```json
+{
+  "error": "Expert not found"
+}
+```
+
+#### Implementation Notes
+
+- **Chronological Order**: Edit history returned in reverse chronological order (newest first)
+- **Complete Change Tracking**: All field changes captured with old and new values
+- **User Resolution**: Editor names resolved from user table for display
+- **JSON Storage**: Old and new values stored as JSON for flexibility
+- **Privacy**: Only actual changed fields are stored, not entire expert record
+- **Access Control**: Available to all authenticated users (no admin restriction)
+
 
 ## Expert Areas Endpoints
 

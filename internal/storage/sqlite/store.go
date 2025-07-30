@@ -68,4 +68,9 @@ func (s *SQLiteStore) InitDB() error {
 	return nil
 }
 
+// GetDB returns the underlying database connection for direct queries
+func (s *SQLiteStore) GetDB() interface{} {
+	return s.db
+}
+
 // No migration methods here anymore - using goose for database migrations

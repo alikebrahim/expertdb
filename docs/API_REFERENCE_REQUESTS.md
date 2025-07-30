@@ -6,21 +6,19 @@
 
 ## Overview
 
-The ExpertDB Request Management system provides two primary workflows for managing expert data:
+The ExpertDB Request Management system provides workflows for managing expert data:
 
 1. **Expert Request Management**: Allows users to submit requests for creating new expert profiles, which admins review and approve/reject.
-2. **Expert Edit Request Management** (Planned): Enables users to propose changes to existing expert profiles with admin oversight.
 
-Both systems follow a similar workflow pattern:
+This system follows a structured workflow pattern:
 - Users submit requests with supporting documentation
-- Admins review and approve/reject with appropriate documentation
+- Admins review and approve/reject with appropriate documentation  
 - Approved requests trigger automatic updates to the expert database
 
 ## Table of Contents
 
 1. [Request Management Overview](#request-management-overview)
    - [Expert Request Workflow](#expert-request-workflow)
-   - [Expert Edit Request Workflow](#expert-edit-request-workflow)
 2. [Expert Request Management Endpoints](#expert-request-management-endpoints)
    - [POST /api/expert-requests](#post-apiexpert-requests)
    - [GET /api/expert-requests](#get-apiexpert-requests)
@@ -28,14 +26,9 @@ Both systems follow a similar workflow pattern:
    - [PUT /api/expert-requests/{id}](#put-apiexpert-requestsid)
    - [PUT /api/expert-requests/{id}/edit](#put-apiexpert-requestsidedit)
    - [POST /api/expert-requests/batch-approve](#post-apiexpert-requestsbatch-approve)
-3. [Expert Profile Edit System](#expert-profile-edit-system)
-   - [POST /api/experts/{id}/edit](#post-apiexpertsidedit)
-   - [GET /api/expert-edits](#get-apiexpert-edits)
-   - [GET /api/expert-edits/{id}](#get-apiexpert-editsid)
-   - [PUT /api/expert-edits/{id}/status](#put-apiexpert-editsidstatus)
-4. [Business Rules and Validation](#business-rules-and-validation)
-5. [Status Transitions](#status-transitions)
-6. [Implementation Notes](#implementation-notes)
+3. [Business Rules and Validation](#business-rules-and-validation)
+4. [Status Transitions](#status-transitions)
+5. [Implementation Notes](#implementation-notes)
 
 ## Request Management Overview
 
@@ -55,21 +48,6 @@ User Submits Request → Admin Reviews → Approves with Document → Expert Pro
 - Batch approval support for multiple requests
 - Automatic expert ID generation upon approval
 
-### Expert Edit Request Workflow (Planned)
-
-The expert edit request workflow manages changes to existing expert profiles:
-
-```
-User Proposes Changes → Admin Reviews → Approves → Changes Applied Automatically
-                                     ↘ Rejects → Request Closed
-```
-
-**Key Features:**
-- Track changes for all expert fields
-- File upload support for new CV/documents
-- Change summary and reasoning
-- Audit trail of all modifications
-- Automatic application of approved changes
 
 ## Expert Request Management Endpoints
 
@@ -412,108 +390,6 @@ approvalDocument: file           // Required: Single approval document for all
 - Individual errors don't affect other approvals
 - Each approved request creates a separate expert profile
 
-## Expert Profile Edit System
-
-### POST /api/experts/{id}/edit
-
-**Purpose**: Creates an expert profile edit request for an existing expert.
-
-**Method**: POST  
-**Path**: `/api/experts/{id}/edit`  
-**Access Control**: Any authenticated user  
-**Content-Type**: `multipart/form-data`
-
-#### Request Payload
-
-```text
-data: string                      // JSON string with proposed changes
-cv: file                          // Optional: New CV file
-approval_document: file           // Optional: New approval document
-```
-
-**JSON Data Structure:**
-```json
-{
-  "proposedName": "Dr. John Smith Jr.",
-  "proposedDesignation": "Prof.",
-  "proposedEmail": "john.smith.jr@uob.edu.bh",
-  "proposedGeneralArea": 5,
-  "proposedSpecializedArea": "1,4,6,12",
-  "experienceChanges": {
-    "add": [...],
-    "update": [...],
-    "delete": [...]
-  },
-  "educationChanges": {
-    "add": [...],
-    "update": [...],
-    "delete": [...]
-  },
-  "removeCv": false,
-  "removeApprovalDocument": false,
-  "changeSummary": "Updated name, email, and added new experience entry",
-  "changeReason": "Recent promotion and department change"
-}
-```
-
-### GET /api/expert-edits
-
-**Purpose**: Lists expert profile edit proposals with filtering.
-
-**Method**: GET  
-**Path**: `/api/expert-edits`  
-**Access Control**: 
-- Regular users: See only their own requests
-- Admin/Super_user: See all requests
-
-#### Query Parameters
-
-- `status`: Filter by status (`pending`, `approved`, `rejected`, `cancelled`)
-- `expert_id`: Filter by expert ID
-- `limit`, `offset`: Pagination
-
-### GET /api/expert-edits/{id}
-
-**Purpose**: Retrieves a specific expert profile edit proposal with full change details.
-
-**Method**: GET  
-**Path**: `/api/expert-edits/{id}`  
-**Access Control**: Requester can view own requests, admin/super_user can view all
-
-### PUT /api/expert-edits/{id}/status
-
-**Purpose**: Updates the status of an expert profile edit proposal (auto-applies if approved).
-
-**Method**: PUT  
-**Path**: `/api/expert-edits/{id}/status`  
-**Access Control**: 
-- Users: Can cancel their own pending requests
-- Admin/Super_user: Can approve/reject any request
-
-#### Request Payload
-
-```json
-{
-  "status": "approved",
-  "rejectionReason": null
-}
-```
-
-#### Auto-Application Behavior
-
-When an admin approves an edit proposal (status = "approved"), the system automatically applies the changes to the expert profile. No separate apply step is required.
-
-**Success Response (with auto-apply):**
-```json
-{
-  "success": true,
-  "message": "Edit proposal approved and changes applied successfully",
-  "data": {
-    "expertId": 440,
-    "changesApplied": 7
-  }
-}
-```
 
 ## Business Rules and Validation
 
@@ -562,13 +438,6 @@ pending → approved (with approval document)
           ↗ pending (after edit by user/admin)
 ```
 
-### Expert Edit Request Status Flow
-
-```
-pending → approved → applied (automatic)
-        ↘ rejected (with reason)
-        ↘ cancelled (by requester)
-```
 
 ## Implementation Notes
 
@@ -598,7 +467,6 @@ Example log entries:
 Expert request created: ID 26 by user@example.com
 Request approved: ID 26 by admin@expertdb.com
 Batch approved 3 requests by admin@expertdb.com
-Edit request created for expert 440 by user@example.com
 ```
 
 ### Performance Considerations
@@ -606,7 +474,6 @@ Edit request created for expert 440 by user@example.com
 - Batch approval limited to 100 requests per operation
 - File uploads processed asynchronously after validation
 - Professional background entries use bulk insert operations
-- Edit request changes tracked using JSON diff algorithm
 
 ### Security
 

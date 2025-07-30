@@ -13,15 +13,16 @@ type Storage interface {
 	GetExpert(id int64) (*domain.Expert, error)
 	GetExpertByEmail(email string) (*domain.Expert, error)
 	CreateExpert(expert *domain.Expert) (int64, error)
-	UpdateExpert(expert *domain.Expert) error
+	UpdateExpert(expert *domain.Expert, editedBy int64) error
 	DeleteExpert(id int64) error
+	GetExpertEditHistory(expertID int64) ([]*domain.ExpertEditHistoryEntry, error)
+	CreateExpertEditHistory(entry *domain.ExpertEditHistoryEntry) error
 	
 	// Expert request methods
 	ListExpertRequests(status string, limit, offset int) ([]*domain.ExpertRequest, error)
 	ListExpertRequestsByUser(userID int64, status string, limit, offset int) ([]*domain.ExpertRequest, error)
 	GetExpertRequest(id int64) (*domain.ExpertRequest, error)
 	CreateExpertRequest(req *domain.ExpertRequest) (int64, error)
-	CreateExpertRequestWithoutPaths(req *domain.ExpertRequest) (int64, error)
 	UpdateExpertRequestStatus(id int64, status, rejectionReason string, reviewedBy int64) error
 	UpdateExpertRequest(req *domain.ExpertRequest) error
 	ApproveExpertRequestWithDocument(requestID, reviewedBy int64, documentService interface{}) (int64, error)
@@ -34,15 +35,6 @@ type Storage interface {
 	UpdateExpertRequestCVDocument(requestID, documentID int64) error
 	UpdateExpertRequestApprovalDocument(requestID, documentID int64) error
 	
-	// Expert edit request methods
-	ListExpertEditRequests(filters map[string]interface{}, limit, offset int) ([]*domain.ExpertEditRequest, error)
-	CountExpertEditRequests(filters map[string]interface{}) (int, error)
-	GetExpertEditRequest(id int64) (*domain.ExpertEditRequest, error)
-	CreateExpertEditRequest(req *domain.ExpertEditRequest) (int64, error)
-	UpdateExpertEditRequestStatus(id int64, status, rejectionReason, adminNotes string, reviewedBy int64) error
-	UpdateExpertEditRequest(req *domain.ExpertEditRequest) error
-	ApplyExpertEditRequest(id int64, adminUserID int64) error
-	CancelExpertEditRequest(id int64, userID int64) error
 	
 	// User methods
 	GetUser(id int64) (*domain.User, error)
@@ -118,4 +110,5 @@ type Storage interface {
 	// General database methods
 	InitDB() error
 	Close() error
+	GetDB() interface{} // Returns underlying database connection
 }

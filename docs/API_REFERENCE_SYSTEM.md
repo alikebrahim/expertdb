@@ -389,7 +389,6 @@ Common HTTP status codes:
 1. **Statistics**:
    - Add caching with configurable TTL
    - Include phase planning statistics
-   - Add expert edit request statistics
 
 2. **Backup**:
    - Add incremental backup support

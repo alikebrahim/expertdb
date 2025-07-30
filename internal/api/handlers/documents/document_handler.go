@@ -8,7 +8,7 @@ import (
 	"os"
 	"strconv"
 	
-	"expertdb/internal/api/response"
+	"expertdb/internal/api/utils"
 	"expertdb/internal/documents"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -79,7 +79,7 @@ func (h *Handler) HandleUploadDocument(w http.ResponseWriter, r *http.Request) e
 	
 	// Return document information with standardized response
 	log.Info("Document uploaded successfully: ID: %d, Type: %s, Expert: %d", doc.ID, doc.DocumentType, doc.ExpertID)
-	return response.Success(w, http.StatusCreated, "Document uploaded successfully", doc)
+	return utils.RespondWithSuccess(w, "Document uploaded successfully", doc)
 }
 
 // HandleGetDocument handles GET /api/documents/{id} requests
@@ -104,7 +104,7 @@ func (h *Handler) HandleGetDocument(w http.ResponseWriter, r *http.Request) erro
 	
 	// Return document information with standardized response
 	log.Debug("Returning document: ID: %d, Type: %s, Expert: %d", doc.ID, doc.DocumentType, doc.ExpertID)
-	return response.Success(w, http.StatusOK, "", doc)
+	return utils.RespondWithSuccess(w, "", doc)
 }
 
 // HandleDeleteDocument handles DELETE /api/documents/{id} requests
@@ -128,7 +128,7 @@ func (h *Handler) HandleDeleteDocument(w http.ResponseWriter, r *http.Request) e
 	
 	// Return success response
 	log.Info("Document deleted successfully: ID: %d", id)
-	return response.Success(w, http.StatusOK, "Document deleted successfully", nil)
+	return utils.RespondWithSuccess(w, "Document deleted successfully", nil)
 }
 
 // HandleGetExpertDocuments handles GET /api/experts/{id}/documents requests
@@ -158,7 +158,7 @@ func (h *Handler) HandleGetExpertDocuments(w http.ResponseWriter, r *http.Reques
 		"count":     len(docs),
 		"expertId":  id,
 	}
-	return response.Success(w, http.StatusOK, "", responseData)
+	return utils.RespondWithSuccess(w, "", responseData)
 }
 
 // HandleDownloadDocument handles GET /api/documents/{id}/download requests

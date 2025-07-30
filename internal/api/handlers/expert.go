@@ -9,7 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"expertdb/internal/api/response"
+	"expertdb/internal/api/utils"
+	"expertdb/internal/auth"
 	"expertdb/internal/documents"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
@@ -183,7 +184,7 @@ func (h *ExpertHandler) HandleGetExperts(w http.ResponseWriter, r *http.Request)
 		len(experts), currentPage, totalPages, totalCount)
 	
 	// Use the standardized response format
-	return response.Success(w, http.StatusOK, "", responseData)
+	return utils.RespondWithSuccess(w, "", responseData)
 }
 
 // HandleGetExpert handles GET /api/experts/{id} requests
@@ -218,7 +219,7 @@ func (h *ExpertHandler) HandleGetExpert(w http.ResponseWriter, r *http.Request) 
 	log.Debug("Successfully retrieved expert: %s (ID: %d)", expert.Name, expert.ID)
 	
 	// Use the standardized response format
-	return response.Success(w, http.StatusOK, "", expert)
+	return utils.RespondWithSuccess(w, "", expert)
 }
 
 // HandleCreateExpert handles POST /api/experts requests
@@ -230,8 +231,7 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 	var expert domain.Expert
 	if err := json.NewDecoder(r.Body).Decode(&expert); err != nil {
 		log.Warn("Failed to parse expert creation request: %v", err)
-		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "Invalid JSON format",
+		return utils.RespondWithCustomError(w, http.StatusBadRequest, "Invalid JSON format", map[string]interface{}{
 			"details": err.Error(),
 			"suggestion": "Check the request syntax and ensure all fields have proper types",
 		})
@@ -293,7 +293,7 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 	
 	if len(errors) > 0 {
 		log.Warn("Expert validation failed: %v", errors)
-		return response.ValidationError(w, errors)
+		return utils.RespondWithValidationErrorStrings(w, errors)
 	}
 
 	// Set creation time and default values if not provided
@@ -315,76 +315,39 @@ func (h *ExpertHandler) HandleCreateExpert(w http.ResponseWriter, r *http.Reques
 
 		// Check for different types of errors and return appropriate status codes
 		if strings.Contains(err.Error(), "expert ID already exists") {
-			return writeJSON(w, http.StatusConflict, map[string]interface{}{
-				"error": err.Error(),
+			return utils.RespondWithCustomError(w, http.StatusConflict, err.Error(), map[string]interface{}{
 				"suggestion": "Check for duplicate entries or data conflicts",
 			})
 		}
 		
 		if strings.Contains(err.Error(), "email already exists") {
-			return writeJSON(w, http.StatusConflict, map[string]interface{}{
-				"error": err.Error(),
+			return utils.RespondWithCustomError(w, http.StatusConflict, err.Error(), map[string]interface{}{
 				"suggestion": "Either use a different email or update the existing expert record",
 			})
 		}
 		
 		if strings.Contains(err.Error(), "invalid general area") || 
 		   strings.Contains(err.Error(), "referenced resource does not exist") {
-			return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-				"error": err.Error(),
+			return utils.RespondWithCustomError(w, http.StatusBadRequest, err.Error(), map[string]interface{}{
 				"suggestion": "Use GET /api/expert/areas to see the list of valid general areas",
 			})
 		}
 		
 		if strings.Contains(err.Error(), "required field") {
-			return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-				"error": err.Error(),
-			})
+			return utils.RespondWithBadRequest(w, err.Error())
 		}
 		
 		// Generic database error
-		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-			"error": "Database error creating expert",
+		return utils.RespondWithCustomError(w, http.StatusInternalServerError, "Database error creating expert", map[string]interface{}{
 			"details": err.Error(),
 		})
 	}
 
 	// Return success response
 	log.Info("Expert created successfully with ID: %d", id)
-	return response.Success(w, http.StatusCreated, "Expert created successfully", map[string]interface{}{
-		"id": id,
-	})
+	return utils.RespondWithCreated(w, id, "Expert created successfully")
 }
 
-// Helper function to write JSON responses
-func writeJSON(w http.ResponseWriter, status int, data interface{}) error {
-	// Use the standardized response format
-	if resp, ok := data.(map[string]interface{}); ok {
-		// If data already has success and message fields, use response.JSON directly
-		if _, hasSuccess := resp["success"]; hasSuccess {
-			return response.JSON(w, status, resp)
-		}
-		
-		// If it's an error response
-		if errMsg, hasError := resp["error"]; hasError && status >= 400 {
-			errorResp := response.ErrorResponse{
-				Error: errMsg.(string),
-			}
-			
-			// Include errors array if present
-			if errDetails, hasErrors := resp["errors"]; hasErrors {
-				if errMap, isMap := errDetails.(map[string]string); isMap {
-					errorResp.Errors = errMap
-				}
-			}
-			
-			return response.JSON(w, status, errorResp)
-		}
-	}
-	
-	// Otherwise, use Success with default parameters
-	return response.Success(w, status, "", data)
-}
 
 // Helper function to validate email format
 func isValidEmail(email string) bool {
@@ -453,17 +416,16 @@ func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Reques
 		// Process CV file if provided
 		cvFile, cvFileHeader, err := r.FormFile("cvFile")
 		if err == nil {
-			// CV file was provided, upload it
+			// CV file was provided, replace existing document
 			defer cvFile.Close()
 			
-			cvDoc, err := h.documentService.CreateDocument(id, cvFile, cvFileHeader, "cv")
+			cvDoc, err := h.documentService.ReplaceExpertDocument(id, cvFile, cvFileHeader, "cv")
 			if err != nil {
-				log.Error("Failed to upload CV file: %v", err)
-				return fmt.Errorf("failed to upload CV: %w", err)
+				log.Error("Failed to replace CV file: %v", err)
+				return fmt.Errorf("failed to replace CV: %w", err)
 			}
 			
-			// Document reference already updated by CreateDocumentForExpert
-			log.Debug("Updated CV document for expert ID: %d to document ID: %d", id, cvDoc.ID)
+			log.Debug("Replaced CV document for expert ID: %d with new document ID: %d", id, cvDoc.ID)
 		} else if err != http.ErrMissingFile {
 			log.Warn("Error accessing CV file: %v", err)
 			return fmt.Errorf("error processing CV file: %w", err)
@@ -472,17 +434,16 @@ func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Reques
 		// Process approval document file if provided
 		approvalFile, approvalFileHeader, err := r.FormFile("approvalDocument")
 		if err == nil {
-			// Approval document file was provided, upload it
+			// Approval document file was provided, replace existing document
 			defer approvalFile.Close()
 			
-			approvalDoc, err := h.documentService.CreateDocument(id, approvalFile, approvalFileHeader, "approval")
+			approvalDoc, err := h.documentService.ReplaceExpertDocument(id, approvalFile, approvalFileHeader, "approval")
 			if err != nil {
-				log.Error("Failed to upload approval document: %v", err)
-				return fmt.Errorf("failed to upload approval document: %w", err)
+				log.Error("Failed to replace approval document: %v", err)
+				return fmt.Errorf("failed to replace approval document: %w", err)
 			}
 			
-			// Document reference already updated by CreateDocumentForExpert
-			log.Debug("Updated approval document for expert ID: %d to document ID: %d", id, approvalDoc.ID)
+			log.Debug("Replaced approval document for expert ID: %d with new document ID: %d", id, approvalDoc.ID)
 		} else if err != http.ErrMissingFile {
 			log.Warn("Error accessing approval document file: %v", err)
 			return fmt.Errorf("error processing approval document file: %w", err)
@@ -543,19 +504,26 @@ func (h *ExpertHandler) HandleUpdateExpert(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// Get user ID from JWT context for audit trail
+	userID, err := auth.GetUserIDFromRequest(r)
+	if err != nil {
+		log.Warn("Failed to get user ID from request for expert update")
+		return err
+	}
+
 	// Set updated time
 	updateExpert.UpdatedAt = time.Now()
 
 	// Update expert in database
 	log.Debug("Updating expert ID: %d, Name: %s", id, updateExpert.Name)
-	if err := h.store.UpdateExpert(&updateExpert); err != nil {
+	if err := h.store.UpdateExpert(&updateExpert, userID); err != nil {
 		log.Error("Failed to update expert in database: %v", err)
 		return fmt.Errorf("failed to update expert: %w", err)
 	}
 
 	// Return success response
 	log.Info("Expert updated successfully: ID: %d", id)
-	return response.Success(w, http.StatusOK, "Expert updated successfully", map[string]interface{}{
+	return utils.RespondWithSuccess(w, "Expert updated successfully", map[string]interface{}{
 		"id": id,
 	})
 }
@@ -586,7 +554,7 @@ func (h *ExpertHandler) HandleDeleteExpert(w http.ResponseWriter, r *http.Reques
 
 	// Return success response
 	log.Info("Expert deleted successfully: ID: %d", id)
-	return response.Success(w, http.StatusOK, "Expert deleted successfully", nil)
+	return utils.RespondWithSuccess(w, "Expert deleted successfully", nil)
 }
 
 // HandleGetExpertAreas handles GET /api/expert/areas requests
@@ -605,7 +573,7 @@ func (h *ExpertHandler) HandleGetExpertAreas(w http.ResponseWriter, r *http.Requ
 	log.Debug("Returning %d expert areas", len(areas))
 	
 	// Use the standardized response format
-	return response.Success(w, http.StatusOK, "", areas)
+	return utils.RespondWithSuccess(w, "", areas)
 }
 
 // AreaRequest represents a request to create or update an area
@@ -622,8 +590,7 @@ func (h *ExpertHandler) HandleCreateArea(w http.ResponseWriter, r *http.Request)
 	var req AreaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Warn("Failed to parse area creation request: %v", err)
-		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "Invalid JSON format",
+		return utils.RespondWithCustomError(w, http.StatusBadRequest, "Invalid JSON format", map[string]interface{}{
 			"details": err.Error(),
 		})
 	}
@@ -631,8 +598,7 @@ func (h *ExpertHandler) HandleCreateArea(w http.ResponseWriter, r *http.Request)
 	// Validate area name
 	if strings.TrimSpace(req.Name) == "" {
 		log.Warn("Area name validation failed: empty name")
-		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "Validation failed",
+		return utils.RespondWithCustomError(w, http.StatusBadRequest, "Validation failed", map[string]interface{}{
 			"details": "Area name cannot be empty",
 		})
 	}
@@ -644,21 +610,19 @@ func (h *ExpertHandler) HandleCreateArea(w http.ResponseWriter, r *http.Request)
 		
 		// Check for duplicate name error
 		if strings.Contains(err.Error(), "already exists") {
-			return writeJSON(w, http.StatusConflict, map[string]interface{}{
-				"error": err.Error(),
+			return utils.RespondWithCustomError(w, http.StatusConflict, err.Error(), map[string]interface{}{
 				"suggestion": "Use a different area name",
 			})
 		}
 		
-		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-			"error": "Failed to create area",
+		return utils.RespondWithCustomError(w, http.StatusInternalServerError, "Failed to create area", map[string]interface{}{
 			"details": err.Error(),
 		})
 	}
 
 	// Return success response
 	log.Info("Area created successfully with ID: %d", id)
-	return response.Success(w, http.StatusCreated, "Area created successfully", map[string]interface{}{
+	return utils.RespondWithSuccess(w, "Area created successfully", map[string]interface{}{
 		"id": id,
 		"name": req.Name,
 	})
@@ -680,8 +644,7 @@ func (h *ExpertHandler) HandleUpdateArea(w http.ResponseWriter, r *http.Request)
 	var req AreaRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Warn("Failed to parse area update request: %v", err)
-		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "Invalid JSON format",
+		return utils.RespondWithCustomError(w, http.StatusBadRequest, "Invalid JSON format", map[string]interface{}{
 			"details": err.Error(),
 		})
 	}
@@ -689,8 +652,7 @@ func (h *ExpertHandler) HandleUpdateArea(w http.ResponseWriter, r *http.Request)
 	// Validate area name
 	if strings.TrimSpace(req.Name) == "" {
 		log.Warn("Area name validation failed: empty name")
-		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"error": "Validation failed",
+		return utils.RespondWithCustomError(w, http.StatusBadRequest, "Validation failed", map[string]interface{}{
 			"details": "Area name cannot be empty",
 		})
 	}
@@ -702,26 +664,63 @@ func (h *ExpertHandler) HandleUpdateArea(w http.ResponseWriter, r *http.Request)
 		
 		// Check for specific errors
 		if err == domain.ErrNotFound {
-			return response.NotFound(w, fmt.Sprintf("No area exists with ID: %d", id))
+			return utils.RespondWithNotFound(w, fmt.Sprintf("No area exists with ID: %d", id))
 		}
 		
 		if strings.Contains(err.Error(), "already exists") {
-			return writeJSON(w, http.StatusConflict, map[string]interface{}{
-				"error": err.Error(),
+			return utils.RespondWithCustomError(w, http.StatusConflict, err.Error(), map[string]interface{}{
 				"suggestion": "Use a different area name",
 			})
 		}
 		
-		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-			"error": "Failed to update area",
+		return utils.RespondWithCustomError(w, http.StatusInternalServerError, "Failed to update area", map[string]interface{}{
 			"details": err.Error(),
 		})
 	}
 	
 	// Return success response
 	log.Info("Area updated successfully: ID: %d", id)
-	return response.Success(w, http.StatusOK, "Area updated successfully", map[string]interface{}{
+	return utils.RespondWithSuccess(w, "Area updated successfully", map[string]interface{}{
 		"id": id,
 		"name": req.Name,
+	})
+}
+
+// HandleGetExpertEditHistory handles GET /api/experts/{id}/edit-history requests
+func (h *ExpertHandler) HandleGetExpertEditHistory(w http.ResponseWriter, r *http.Request) error {
+	log := logger.Get()
+
+	// Extract and validate expert ID from path
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		log.Warn("Invalid expert ID provided: %s", idStr)
+		return fmt.Errorf("invalid expert ID: %w", err)
+	}
+
+	// Verify expert exists
+	_, err = h.store.GetExpert(id)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			log.Warn("Expert not found for edit history request ID: %d", id)
+			return domain.ErrNotFound
+		}
+		log.Error("Failed to get expert: %v", err)
+		return fmt.Errorf("failed to get expert: %w", err)
+	}
+
+	// Get edit history
+	log.Debug("Retrieving edit history for expert ID: %d", id)
+	history, err := h.store.GetExpertEditHistory(id)
+	if err != nil {
+		log.Error("Failed to get expert edit history: %v", err)
+		return fmt.Errorf("failed to retrieve edit history: %w", err)
+	}
+
+	// Return edit history data
+	log.Debug("Successfully retrieved %d edit history entries for expert ID: %d", len(history), id)
+	return utils.RespondWithSuccess(w, "", map[string]interface{}{
+		"expertId": id,
+		"history":  history,
 	})
 }

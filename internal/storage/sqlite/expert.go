@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"encoding/json"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
 	"fmt"
@@ -336,7 +337,7 @@ func (s *SQLiteStore) GetExpertByEmail(email string) (*domain.Expert, error) {
 }
 
 // UpdateExpert updates an existing expert in the database
-func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
+func (s *SQLiteStore) UpdateExpert(expert *domain.Expert, editedBy int64) error {
 	// Get the current expert to avoid overwriting fields with empty values
 	currentExpert, err := s.GetExpert(expert.ID)
 	if err != nil {
@@ -381,7 +382,18 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 		expert.Email = currentExpert.Email
 	}
 
-	expert.UpdatedAt = time.Now()
+	// Calculate changes for audit trail
+	changedFields, oldValues, newValues := s.calculateExpertChanges(currentExpert, expert)
+	if len(changedFields) == 0 {
+		// No changes detected, return early
+		return nil
+	}
+
+	// Set audit and timestamp fields
+	now := time.Now()
+	expert.UpdatedAt = now
+	expert.LastEditedBy = &editedBy
+	expert.LastEditedAt = &now
 
 	// Begin transaction for atomic operations
 	tx, err := s.db.Begin()
@@ -396,7 +408,7 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 			is_available = ?, rating = ?, role = ?,
 			employment_type = ?, general_area = ?, specialized_area = ?,
 			is_trained = ?, cv_document_id = ?, approval_document_id = ?, phone = ?, email = ?,
-			is_published = ?, updated_at = ?
+			is_published = ?, updated_at = ?, last_edited_by = ?, last_edited_at = ?
 		WHERE id = ?
 	`
 
@@ -406,7 +418,7 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 		expert.IsAvailable, expert.Rating, expert.Role,
 		expert.EmploymentType, expert.GeneralArea, expert.SpecializedArea,
 		expert.IsTrained, expert.CVDocumentID, expert.ApprovalDocumentID, expert.Phone, expert.Email,
-		expert.IsPublished, expert.UpdatedAt,
+		expert.IsPublished, expert.UpdatedAt, expert.LastEditedBy, expert.LastEditedAt,
 		expert.ID,
 	)
 
@@ -423,6 +435,12 @@ func (s *SQLiteStore) UpdateExpert(expert *domain.Expert) error {
 		}
 		
 		return fmt.Errorf("failed to update expert: %w", err)
+	}
+
+	// Create audit history entry
+	err = s.createExpertEditHistoryTx(tx, expert.ID, editedBy, changedFields, oldValues, newValues)
+	if err != nil {
+		return fmt.Errorf("failed to create audit history: %w", err)
 	}
 
 	// Update experience entries - delete existing and insert new ones
@@ -993,11 +1011,21 @@ func buildWhereClauseForExpertFilters(filters map[string]interface{}) (string, [
 
 // UpdateExpertCVDocument updates the CV document reference for an expert
 func (s *SQLiteStore) UpdateExpertCVDocument(expertID, documentID int64) error {
-	query := `UPDATE experts SET cv_document_id = ? WHERE id = ?`
+	return s.updateDocumentReference("experts", "cv_document_id", expertID, documentID)
+}
+
+// UpdateExpertApprovalDocument updates the approval document reference for an expert
+func (s *SQLiteStore) UpdateExpertApprovalDocument(expertID, documentID int64) error {
+	return s.updateDocumentReference("experts", "approval_document_id", expertID, documentID)
+}
+
+// updateDocumentReference is a generic helper for updating document references
+func (s *SQLiteStore) updateDocumentReference(table, column string, entityID, documentID int64) error {
+	query := fmt.Sprintf("UPDATE %s SET %s = ? WHERE id = ?", table, column)
 	
-	result, err := s.db.Exec(query, documentID, expertID)
+	result, err := s.db.Exec(query, documentID, entityID)
 	if err != nil {
-		return fmt.Errorf("failed to update expert CV document: %w", err)
+		return fmt.Errorf("failed to update %s document reference: %w", table, err)
 	}
 	
 	rowsAffected, err := result.RowsAffected()
@@ -1012,24 +1040,216 @@ func (s *SQLiteStore) UpdateExpertCVDocument(expertID, documentID int64) error {
 	return nil
 }
 
-// UpdateExpertApprovalDocument updates the approval document reference for an expert
-func (s *SQLiteStore) UpdateExpertApprovalDocument(expertID, documentID int64) error {
-	query := `UPDATE experts SET approval_document_id = ? WHERE id = ?`
+// Helper methods for audit trail functionality
+
+// calculateExpertChanges compares old and new expert data to identify changes
+func (s *SQLiteStore) calculateExpertChanges(oldExpert, newExpert *domain.Expert) ([]string, map[string]interface{}, map[string]interface{}) {
+	var changedFields []string
+	oldValues := make(map[string]interface{})
+	newValues := make(map[string]interface{})
+
+	// Compare each field and track changes
+	if oldExpert.Name != newExpert.Name {
+		changedFields = append(changedFields, "name")
+		oldValues["name"] = oldExpert.Name
+		newValues["name"] = newExpert.Name
+	}
+	if oldExpert.Designation != newExpert.Designation {
+		changedFields = append(changedFields, "designation")
+		oldValues["designation"] = oldExpert.Designation
+		newValues["designation"] = newExpert.Designation
+	}
+	if oldExpert.Affiliation != newExpert.Affiliation {
+		changedFields = append(changedFields, "affiliation")
+		oldValues["affiliation"] = oldExpert.Affiliation
+		newValues["affiliation"] = newExpert.Affiliation
+	}
+	if oldExpert.IsBahraini != newExpert.IsBahraini {
+		changedFields = append(changedFields, "isBahraini")
+		oldValues["isBahraini"] = oldExpert.IsBahraini
+		newValues["isBahraini"] = newExpert.IsBahraini
+	}
+	if oldExpert.IsAvailable != newExpert.IsAvailable {
+		changedFields = append(changedFields, "isAvailable")
+		oldValues["isAvailable"] = oldExpert.IsAvailable
+		newValues["isAvailable"] = newExpert.IsAvailable
+	}
+	if oldExpert.Rating != newExpert.Rating {
+		changedFields = append(changedFields, "rating")
+		oldValues["rating"] = oldExpert.Rating
+		newValues["rating"] = newExpert.Rating
+	}
+	if oldExpert.Role != newExpert.Role {
+		changedFields = append(changedFields, "role")
+		oldValues["role"] = oldExpert.Role
+		newValues["role"] = newExpert.Role
+	}
+	if oldExpert.EmploymentType != newExpert.EmploymentType {
+		changedFields = append(changedFields, "employmentType")
+		oldValues["employmentType"] = oldExpert.EmploymentType
+		newValues["employmentType"] = newExpert.EmploymentType
+	}
+	if oldExpert.GeneralArea != newExpert.GeneralArea {
+		changedFields = append(changedFields, "generalArea")
+		oldValues["generalArea"] = oldExpert.GeneralArea
+		newValues["generalArea"] = newExpert.GeneralArea
+	}
+	if oldExpert.SpecializedArea != newExpert.SpecializedArea {
+		changedFields = append(changedFields, "specializedArea")
+		oldValues["specializedArea"] = oldExpert.SpecializedArea
+		newValues["specializedArea"] = newExpert.SpecializedArea
+	}
+	if oldExpert.IsTrained != newExpert.IsTrained {
+		changedFields = append(changedFields, "isTrained")
+		oldValues["isTrained"] = oldExpert.IsTrained
+		newValues["isTrained"] = newExpert.IsTrained
+	}
+	if oldExpert.Phone != newExpert.Phone {
+		changedFields = append(changedFields, "phone")
+		oldValues["phone"] = oldExpert.Phone
+		newValues["phone"] = newExpert.Phone
+	}
+	if oldExpert.Email != newExpert.Email {
+		changedFields = append(changedFields, "email")
+		oldValues["email"] = oldExpert.Email
+		newValues["email"] = newExpert.Email
+	}
+	if oldExpert.IsPublished != newExpert.IsPublished {
+		changedFields = append(changedFields, "isPublished")
+		oldValues["isPublished"] = oldExpert.IsPublished
+		newValues["isPublished"] = newExpert.IsPublished
+	}
+
+	// Compare document IDs
+	oldCVID := int64(0)
+	newCVID := int64(0)
+	if oldExpert.CVDocumentID != nil {
+		oldCVID = *oldExpert.CVDocumentID
+	}
+	if newExpert.CVDocumentID != nil {
+		newCVID = *newExpert.CVDocumentID
+	}
+	if oldCVID != newCVID {
+		changedFields = append(changedFields, "cvDocumentId")
+		oldValues["cvDocumentId"] = oldCVID
+		newValues["cvDocumentId"] = newCVID
+	}
+
+	oldApprovalID := int64(0)
+	newApprovalID := int64(0)
+	if oldExpert.ApprovalDocumentID != nil {
+		oldApprovalID = *oldExpert.ApprovalDocumentID
+	}
+	if newExpert.ApprovalDocumentID != nil {
+		newApprovalID = *newExpert.ApprovalDocumentID
+	}
+	if oldApprovalID != newApprovalID {
+		changedFields = append(changedFields, "approvalDocumentId")
+		oldValues["approvalDocumentId"] = oldApprovalID
+		newValues["approvalDocumentId"] = newApprovalID
+	}
+
+	return changedFields, oldValues, newValues
+}
+
+// createExpertEditHistoryTx creates an audit history entry within a transaction
+func (s *SQLiteStore) createExpertEditHistoryTx(tx *sql.Tx, expertID, editedBy int64, changedFields []string, oldValues, newValues map[string]interface{}) error {
 	
-	result, err := s.db.Exec(query, documentID, expertID)
+	changedFieldsJSON, err := json.Marshal(changedFields)
 	if err != nil {
-		return fmt.Errorf("failed to update expert approval document: %w", err)
+		return fmt.Errorf("failed to marshal changed fields: %w", err)
 	}
-	
-	rowsAffected, err := result.RowsAffected()
+
+	oldValuesJSON, err := json.Marshal(oldValues)
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return fmt.Errorf("failed to marshal old values: %w", err)
 	}
-	
-	if rowsAffected == 0 {
-		return domain.ErrNotFound
+
+	newValuesJSON, err := json.Marshal(newValues)
+	if err != nil {
+		return fmt.Errorf("failed to marshal new values: %w", err)
 	}
-	
+
+	query := `
+		INSERT INTO expert_edit_history (
+			expert_id, edited_by, edited_at, fields_changed, old_values, new_values
+		) VALUES (?, ?, ?, ?, ?, ?)
+	`
+
+	_, err = tx.Exec(query, expertID, editedBy, time.Now(), string(changedFieldsJSON), string(oldValuesJSON), string(newValuesJSON))
+	if err != nil {
+		return fmt.Errorf("failed to insert edit history: %w", err)
+	}
+
+	return nil
+}
+
+// GetExpertEditHistory retrieves edit history for an expert
+func (s *SQLiteStore) GetExpertEditHistory(expertID int64) ([]*domain.ExpertEditHistoryEntry, error) {
+	query := `
+		SELECT eh.id, eh.expert_id, eh.edited_by, eh.edited_at, eh.fields_changed, 
+		       eh.old_values, eh.new_values, eh.change_reason, u.name
+		FROM expert_edit_history eh
+		LEFT JOIN users u ON eh.edited_by = u.id
+		WHERE eh.expert_id = ?
+		ORDER BY eh.edited_at DESC
+	`
+
+	rows, err := s.db.Query(query, expertID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query edit history: %w", err)
+	}
+	defer rows.Close()
+
+	var history []*domain.ExpertEditHistoryEntry
+	for rows.Next() {
+		entry := &domain.ExpertEditHistoryEntry{}
+		var editorName sql.NullString
+		var oldValues, newValues, changeReason sql.NullString
+
+		err := rows.Scan(
+			&entry.ID, &entry.ExpertID, &entry.EditedBy, &entry.EditedAt,
+			&entry.FieldsChanged, &oldValues, &newValues, &changeReason, &editorName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan edit history row: %w", err)
+		}
+
+		if oldValues.Valid {
+			entry.OldValues = &oldValues.String
+		}
+		if newValues.Valid {
+			entry.NewValues = &newValues.String
+		}
+		if changeReason.Valid {
+			entry.ChangeReason = &changeReason.String
+		}
+		if editorName.Valid {
+			entry.EditorName = &editorName.String
+		}
+
+		history = append(history, entry)
+	}
+
+	return history, nil
+}
+
+// CreateExpertEditHistory creates a new edit history entry
+func (s *SQLiteStore) CreateExpertEditHistory(entry *domain.ExpertEditHistoryEntry) error {
+	query := `
+		INSERT INTO expert_edit_history (
+			expert_id, edited_by, edited_at, fields_changed, old_values, new_values, change_reason
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
+	`
+
+	_, err := s.db.Exec(query, 
+		entry.ExpertID, entry.EditedBy, entry.EditedAt, entry.FieldsChanged,
+		entry.OldValues, entry.NewValues, entry.ChangeReason,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert edit history: %w", err)
+	}
+
 	return nil
 }
 

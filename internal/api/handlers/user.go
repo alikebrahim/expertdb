@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 	
-	"expertdb/internal/api/response"
+	"expertdb/internal/api/utils"
 	"expertdb/internal/auth"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
@@ -61,10 +61,10 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) e
 	}
 	
 	// Get creator's role from context
-	creatorRole, ok := auth.GetUserRoleFromContext(r.Context())
-	if !ok {
-		log.Error("Failed to get creator role from context")
-		return fmt.Errorf("authentication error: missing user role")
+	creatorRole, err := auth.GetUserRoleFromRequest(r)
+	if err != nil {
+		log.Error("Failed to get creator role from request")
+		return fmt.Errorf("authentication error: %w", err)
 	}
 	
 	// Check if creator can create a user with the requested role
@@ -111,16 +111,11 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) e
 		return fmt.Errorf("failed to create user: %w", err)
 	}
 	
-	// Prepare response data
-	responseData := map[string]interface{}{
-		"id": id,
-	}
-	
 	// Log successful user creation
 	log.Info("New user created: %s (ID: %d, Role: %s)", req.Email, id, req.Role)
 	
 	// Return standardized success response
-	return response.Success(w, http.StatusCreated, "User created successfully", responseData)
+	return utils.RespondWithCreated(w, id, "User created successfully")
 }
 
 // HandleGetUsers retrieves a paginated list of users (admin only)
@@ -166,7 +161,7 @@ func (h *UserHandler) HandleGetUsers(w http.ResponseWriter, r *http.Request) err
 	}
 	
 	// Return standardized success response
-	return response.Success(w, http.StatusOK, "", responseData)
+	return utils.RespondWithSuccess(w, "", responseData)
 }
 
 // HandleGetUser retrieves details for a specific user
@@ -199,7 +194,7 @@ func (h *UserHandler) HandleGetUser(w http.ResponseWriter, r *http.Request) erro
 	log.Debug("User retrieved: ID %d", id)
 	
 	// Return standardized success response with user data
-	return response.Success(w, http.StatusOK, "", user)
+	return utils.RespondWithSuccess(w, "", user)
 }
 
 // HandleUpdateUser updates an existing user's information
@@ -292,7 +287,7 @@ func (h *UserHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) e
 	log.Info("User updated successfully: ID %d, Email: %s, Role: %s", user.ID, user.Email, user.Role)
 	
 	// Return standardized success response
-	return response.Success(w, http.StatusOK, "User updated successfully", responseData)
+	return utils.RespondWithSuccess(w, "User updated successfully", responseData)
 }
 
 // HandleDeleteUser permanently deletes a user account
@@ -347,5 +342,5 @@ func (h *UserHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) e
 	log.Info("User deleted: ID %d, Email: %s, Role: %s", id, user.Email, user.Role)
 	
 	// Return standardized success response
-	return response.Success(w, http.StatusOK, "User deleted successfully", nil)
+	return utils.RespondWithSuccess(w, "User deleted successfully", nil)
 }

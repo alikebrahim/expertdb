@@ -236,10 +236,13 @@ Expert management is the central capability of the system, providing comprehensi
     - "employer" - For experts from industry/employer organizations
 
 - **Expert Lifecycle Management**
+  - **Direct Expert Editing**: Any authenticated user can edit expert profiles directly
+  - **Comprehensive Audit Trails**: All changes automatically tracked with user ID, timestamps, and field-level changes
   - Availability status updates
-  - Performance rating tracking (defaults to 0 for new experts, can be updated via expert edit requests)
+  - Performance rating tracking (defaults to 0 for new experts, can be updated by any authenticated user)
   - Publication status control (is_published) //NOTE: is published pertains to expert profile being published on another website. Ensure the implementation does not handle this as being published in the database
-  - Record update history (created_at, updated_at)
+  - Record update history (created_at, updated_at, last_edited_by, last_edited_at)
+  - **Edit History Viewing**: Complete audit trail accessible via `/api/experts/{id}/edit-history`
 
 ### Document Management
 
@@ -378,59 +381,6 @@ Data management capabilities ensure data integrity, backup, and maintenance.
   - History tracking
   - Audit fields (created_at, updated_at, created_by)
 
-## Planned Enhancements
-
-The following enhancements are designed and ready for implementation (detailed in ENHANCEMENTS.md):
-
-### Enhanced Statistics System
-
-**Current Status**: Admin users now have access to statistics (previously super_user only)
-
-**New Capabilities**:
-- Request tracking statistics per user
-- Expert creation request trends over time  
-- Edit request statistics (future implementation)
-- Enhanced reporting dashboard for both admin and super_user roles
-
-### Expert Edit Request System
-
-**Planned Feature**: Comprehensive system for managing expert profile changes
-
-**Capabilities**:
-- **User Submission**: Any authenticated user can submit requests to edit existing expert profiles
-- **Change Tracking**: Track all proposed changes including profile data, documents, experience, and education
-- **Approval Workflow**: Admin/super_user review and approval process similar to expert creation requests
-- **Document Updates**: Support for updating CV and approval documents
-- **Comprehensive Validation**: Business rules and validation for all proposed changes
-- **Audit Trail**: Complete history of all edit requests and their outcomes
-
-**Key Features**:
-- Granular change tracking (users can propose changes to specific fields)
-- Experience/education modification support (add, update, delete operations)
-- Document removal capabilities with proper safeguards
-- Status workflow: pending → approved/rejected → applied
-- Role-based access control with contextual permissions
-- Integration with existing document management system
-
-**Benefits**:
-- Maintains expert data accuracy through controlled change process
-- Enables users to contribute to expert profile improvements
-- Provides administrators with visibility into all proposed changes
-- Maintains complete audit trail of profile modifications
-
-### Implementation Roadmap
-
-1. **Phase 1**: Statistics access parity (✅ Completed - Admin users now have access)
-2. **Phase 2**: Enhanced statistics endpoints (Ready for implementation)
-3. **Phase 3**: Expert edit request database schema (Designed and ready)
-4. **Phase 4**: Expert edit request API endpoints (Fully specified)
-
-**Technical Readiness**: All backend components are designed and ready for implementation with:
-- Complete database migrations (2 new migration files)
-- Detailed API specifications (5 new endpoints)
-- Comprehensive validation and business logic
-- Role-based security model
-- Integration with existing systems
 
 ---
 

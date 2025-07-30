@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"expertdb/internal/api/response"
+	"expertdb/internal/api/utils"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -32,14 +32,14 @@ func (h *RoleAssignmentHandler) AssignPlannerApplications(w http.ResponseWriter,
 	userIDStr := r.PathValue("id")
 	if userIDStr == "" {
 		log.Error("Missing user ID in URL path")
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 	
 	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil {
 		log.Error("Invalid user ID", "error", err)
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
@@ -49,12 +49,12 @@ func (h *RoleAssignmentHandler) AssignPlannerApplications(w http.ResponseWriter,
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Error("Failed to decode request body", "error", err)
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
 	if len(req.ApplicationIDs) == 0 {
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
@@ -67,7 +67,7 @@ func (h *RoleAssignmentHandler) AssignPlannerApplications(w http.ResponseWriter,
 				validationErrors = append(validationErrors, fmt.Sprintf("application %d does not exist", appID))
 			} else {
 				log.Error("Failed to validate application", "appID", appID, "error", err)
-				response.Error(w, domain.ErrInternalServer)
+				utils.RespondWithError(w, domain.ErrInternalServer)
 				return
 			}
 		} else if app == nil {
@@ -76,19 +76,19 @@ func (h *RoleAssignmentHandler) AssignPlannerApplications(w http.ResponseWriter,
 	}
 	
 	if len(validationErrors) > 0 {
-		response.ValidationError(w, validationErrors)
+		utils.RespondWithValidationErrorStrings(w, validationErrors)
 		return
 	}
 
 	err = h.storage.AssignUserToPlannerApplications(int(userID), req.ApplicationIDs)
 	if err != nil {
 		log.Error("Failed to assign planner applications", "error", err, "userID", userID)
-		response.Error(w, domain.ErrInternalServer)
+		utils.RespondWithError(w, domain.ErrInternalServer)
 		return
 	}
 
 	log.Info("User assigned as planner to applications", "userID", userID, "applicationCount", len(req.ApplicationIDs))
-	response.Success(w, http.StatusOK, "Planner assignments updated successfully", map[string]interface{}{
+	utils.RespondWithSuccess(w, "Planner assignments updated successfully", map[string]interface{}{
 		"user_id": userID,
 		"assigned_applications": len(req.ApplicationIDs),
 	})
@@ -102,14 +102,14 @@ func (h *RoleAssignmentHandler) AssignManagerApplications(w http.ResponseWriter,
 	userIDStr := r.PathValue("id")
 	if userIDStr == "" {
 		log.Error("Missing user ID in URL path")
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 	
 	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil {
 		log.Error("Invalid user ID", "error", err)
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
@@ -119,12 +119,12 @@ func (h *RoleAssignmentHandler) AssignManagerApplications(w http.ResponseWriter,
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Error("Failed to decode request body", "error", err)
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
 	if len(req.ApplicationIDs) == 0 {
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
@@ -137,7 +137,7 @@ func (h *RoleAssignmentHandler) AssignManagerApplications(w http.ResponseWriter,
 				validationErrors = append(validationErrors, fmt.Sprintf("application %d does not exist", appID))
 			} else {
 				log.Error("Failed to validate application", "appID", appID, "error", err)
-				response.Error(w, domain.ErrInternalServer)
+				utils.RespondWithError(w, domain.ErrInternalServer)
 				return
 			}
 		} else if app == nil {
@@ -146,19 +146,19 @@ func (h *RoleAssignmentHandler) AssignManagerApplications(w http.ResponseWriter,
 	}
 	
 	if len(validationErrors) > 0 {
-		response.ValidationError(w, validationErrors)
+		utils.RespondWithValidationErrorStrings(w, validationErrors)
 		return
 	}
 
 	err = h.storage.AssignUserToManagerApplications(int(userID), req.ApplicationIDs)
 	if err != nil {
 		log.Error("Failed to assign manager applications", "error", err, "userID", userID)
-		response.Error(w, domain.ErrInternalServer)
+		utils.RespondWithError(w, domain.ErrInternalServer)
 		return
 	}
 
 	log.Info("User assigned as manager to applications", "userID", userID, "applicationCount", len(req.ApplicationIDs))
-	response.Success(w, http.StatusOK, "Manager assignments updated successfully", map[string]interface{}{
+	utils.RespondWithSuccess(w, "Manager assignments updated successfully", map[string]interface{}{
 		"user_id": userID,
 		"assigned_applications": len(req.ApplicationIDs),
 	})
@@ -172,14 +172,14 @@ func (h *RoleAssignmentHandler) RemovePlannerAssignments(w http.ResponseWriter, 
 	userIDStr := r.PathValue("id")
 	if userIDStr == "" {
 		log.Error("Missing user ID in URL path")
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 	
 	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil {
 		log.Error("Invalid user ID", "error", err)
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
@@ -189,24 +189,24 @@ func (h *RoleAssignmentHandler) RemovePlannerAssignments(w http.ResponseWriter, 
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Error("Failed to decode request body", "error", err)
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
 	if len(req.ApplicationIDs) == 0 {
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
 	err = h.storage.RemoveUserPlannerAssignments(int(userID), req.ApplicationIDs)
 	if err != nil {
 		log.Error("Failed to remove planner assignments", "error", err, "userID", userID)
-		response.Error(w, domain.ErrInternalServer)
+		utils.RespondWithError(w, domain.ErrInternalServer)
 		return
 	}
 
 	log.Info("Planner assignments removed for user", "userID", userID, "applicationCount", len(req.ApplicationIDs))
-	response.Success(w, http.StatusOK, "Planner assignments removed successfully", map[string]interface{}{
+	utils.RespondWithSuccess(w, "Planner assignments removed successfully", map[string]interface{}{
 		"user_id": userID,
 		"removed_applications": len(req.ApplicationIDs),
 	})
@@ -220,14 +220,14 @@ func (h *RoleAssignmentHandler) RemoveManagerAssignments(w http.ResponseWriter, 
 	userIDStr := r.PathValue("id")
 	if userIDStr == "" {
 		log.Error("Missing user ID in URL path")
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 	
 	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil {
 		log.Error("Invalid user ID", "error", err)
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
@@ -237,24 +237,24 @@ func (h *RoleAssignmentHandler) RemoveManagerAssignments(w http.ResponseWriter, 
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Error("Failed to decode request body", "error", err)
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
 	if len(req.ApplicationIDs) == 0 {
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
 	err = h.storage.RemoveUserManagerAssignments(int(userID), req.ApplicationIDs)
 	if err != nil {
 		log.Error("Failed to remove manager assignments", "error", err, "userID", userID)
-		response.Error(w, domain.ErrInternalServer)
+		utils.RespondWithError(w, domain.ErrInternalServer)
 		return
 	}
 
 	log.Info("Manager assignments removed for user", "userID", userID, "applicationCount", len(req.ApplicationIDs))
-	response.Success(w, http.StatusOK, "Manager assignments removed successfully", map[string]interface{}{
+	utils.RespondWithSuccess(w, "Manager assignments removed successfully", map[string]interface{}{
 		"user_id": userID,
 		"removed_applications": len(req.ApplicationIDs),
 	})
@@ -268,32 +268,32 @@ func (h *RoleAssignmentHandler) GetUserAssignments(w http.ResponseWriter, r *htt
 	userIDStr := r.PathValue("id")
 	if userIDStr == "" {
 		log.Error("Missing user ID in URL path")
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 	
 	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil {
 		log.Error("Invalid user ID", "error", err)
-		response.Error(w, domain.ErrBadRequest)
+		utils.RespondWithError(w, domain.ErrBadRequest)
 		return
 	}
 
 	plannerApps, err := h.storage.GetUserPlannerApplications(int(userID))
 	if err != nil {
 		log.Error("Failed to get planner applications", "error", err, "userID", userID)
-		response.Error(w, domain.ErrInternalServer)
+		utils.RespondWithError(w, domain.ErrInternalServer)
 		return
 	}
 
 	managerApps, err := h.storage.GetUserManagerApplications(int(userID))
 	if err != nil {
 		log.Error("Failed to get manager applications", "error", err, "userID", userID)
-		response.Error(w, domain.ErrInternalServer)
+		utils.RespondWithError(w, domain.ErrInternalServer)
 		return
 	}
 
-	response.Success(w, http.StatusOK, "User assignments retrieved successfully", map[string]interface{}{
+	utils.RespondWithSuccess(w, "User assignments retrieved successfully", map[string]interface{}{
 		"user_id": userID,
 		"planner_applications": plannerApps,
 		"manager_applications": managerApps,

@@ -21,8 +21,11 @@ CREATE TABLE IF NOT EXISTS "experts" (
     original_request_id INTEGER, -- Foreign key referencing expert_requests
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
+    last_edited_by INTEGER, -- Foreign key referencing users(id) - who last edited this expert
+    last_edited_at TIMESTAMP, -- When this expert was last edited
     FOREIGN KEY (general_area) REFERENCES expert_areas(id),
-    FOREIGN KEY (original_request_id) REFERENCES expert_requests(id) ON DELETE SET NULL
+    FOREIGN KEY (original_request_id) REFERENCES expert_requests(id) ON DELETE SET NULL,
+    FOREIGN KEY (last_edited_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 
@@ -36,8 +39,10 @@ CREATE INDEX idx_experts_employment_type ON experts(employment_type);
 CREATE INDEX idx_experts_role ON experts(role);
 CREATE INDEX idx_experts_cv_document ON experts(cv_document_id);
 CREATE INDEX idx_experts_approval_document ON experts(approval_document_id);
+CREATE INDEX idx_experts_last_edited_by ON experts(last_edited_by);
 
 -- +goose Down
+DROP INDEX IF EXISTS idx_experts_last_edited_by;
 DROP INDEX IF EXISTS idx_experts_approval_document;
 DROP INDEX IF EXISTS idx_experts_cv_document;
 DROP INDEX IF EXISTS idx_experts_role;

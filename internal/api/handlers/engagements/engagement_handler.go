@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"expertdb/internal/api/response"
+	"expertdb/internal/api/utils"
 	"expertdb/internal/domain"
 	"expertdb/internal/logger"
 	"expertdb/internal/storage"
@@ -79,7 +79,7 @@ func (h *Handler) HandleCreateEngagement(w http.ResponseWriter, r *http.Request)
 	log.Info("Engagement created successfully: ID: %d, Type: %s, Expert: %d",
 		id, engagement.EngagementType, engagement.ExpertID)
 	
-	return response.Success(w, http.StatusCreated, "Engagement created successfully", engagement)
+	return utils.RespondWithSuccess(w, "Engagement created successfully", engagement)
 }
 
 // HandleGetEngagement handles GET /api/engagements/{id} requests
@@ -104,7 +104,7 @@ func (h *Handler) HandleGetEngagement(w http.ResponseWriter, r *http.Request) er
 
 	// Return engagement data with standardized response
 	log.Debug("Successfully retrieved engagement: ID: %d, Type: %s", engagement.ID, engagement.EngagementType)
-	return response.Success(w, http.StatusOK, "", engagement)
+	return utils.RespondWithSuccess(w, "", engagement)
 }
 
 // HandleUpdateEngagement handles PUT /api/engagements/{id} requests
@@ -172,7 +172,7 @@ func (h *Handler) HandleUpdateEngagement(w http.ResponseWriter, r *http.Request)
 
 	// Return success response with standardized format
 	log.Info("Engagement updated successfully: ID: %d", id)
-	return response.Success(w, http.StatusOK, "Engagement updated successfully", map[string]interface{}{
+	return utils.RespondWithSuccess(w, "Engagement updated successfully", map[string]interface{}{
 		"id": id,
 	})
 }
@@ -198,7 +198,7 @@ func (h *Handler) HandleDeleteEngagement(w http.ResponseWriter, r *http.Request)
 
 	// Return success response with standardized format
 	log.Info("Engagement deleted successfully: ID: %d", id)
-	return response.Success(w, http.StatusOK, "Engagement deleted successfully", nil)
+	return utils.RespondWithSuccess(w, "Engagement deleted successfully", nil)
 }
 
 // HandleGetExpertEngagements handles GET /api/experts/{id}/engagements requests
@@ -248,7 +248,7 @@ func (h *Handler) HandleGetExpertEngagements(w http.ResponseWriter, r *http.Requ
 		},
 		"expertId": id,
 	}
-	return response.Success(w, http.StatusOK, "", responseData)
+	return utils.RespondWithSuccess(w, "", responseData)
 }
 
 // HandleListEngagements handles GET /api/engagements requests with filtering capabilities
@@ -312,7 +312,7 @@ func (h *Handler) HandleListEngagements(w http.ResponseWriter, r *http.Request) 
 			"engagementType": engagementType,
 		},
 	}
-	return response.Success(w, http.StatusOK, "", responseData)
+	return utils.RespondWithSuccess(w, "", responseData)
 }
 
 // HandleImportEngagements handles POST /api/engagements/import requests
@@ -401,7 +401,7 @@ func (h *Handler) HandleImportEngagements(w http.ResponseWriter, r *http.Request
 	message := fmt.Sprintf("Import completed: %d successful, %d failed out of %d total", 
 		successCount, len(errors), len(engagements))
 		
-	return response.Success(w, http.StatusOK, message, respData)
+	return utils.RespondWithSuccess(w, message, respData)
 }
 
 // parseCSVEngagements parses CSV data into engagement records

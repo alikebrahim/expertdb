@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 	
-	"expertdb/internal/api/response"
+	"expertdb/internal/api/utils"
 	"expertdb/internal/domain"
 	"expertdb/internal/storage"
 )
@@ -38,5 +38,5 @@ func (h *SpecializedAreasHandler) HandleListSpecializedAreas(w http.ResponseWrit
 		areas = filtered
 	}
 	
-	return response.Success(w, http.StatusOK, "", areas)
+	return utils.RespondWithSuccess(w, "", areas)
 }

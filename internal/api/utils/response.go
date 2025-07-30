@@ -66,3 +66,37 @@ func RespondWithNoContent(w http.ResponseWriter) error {
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
+
+// RespondWithBadRequest responds with a bad request error
+func RespondWithBadRequest(w http.ResponseWriter, message string) error {
+	return response.BadRequest(w, message)
+}
+
+// RespondWithNotFound responds with a not found error
+func RespondWithNotFound(w http.ResponseWriter, message string) error {
+	return response.NotFound(w, message)
+}
+
+// RespondWithJSON responds with raw JSON data
+func RespondWithJSON(w http.ResponseWriter, status int, data interface{}) error {
+	return response.JSON(w, status, data)
+}
+
+// RespondWithValidationErrorStrings responds with validation errors from string array
+func RespondWithValidationErrorStrings(w http.ResponseWriter, validationErrors []string) error {
+	return response.ValidationError(w, validationErrors)
+}
+
+// RespondWithCustomError responds with a custom error message and optional details
+func RespondWithCustomError(w http.ResponseWriter, status int, message string, details map[string]interface{}) error {
+	errorData := map[string]interface{}{
+		"error": message,
+	}
+	
+	// Add any additional details
+	for key, value := range details {
+		errorData[key] = value
+	}
+	
+	return response.JSON(w, status, errorData)
+}
